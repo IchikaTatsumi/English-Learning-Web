@@ -1,4 +1,18 @@
 {
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "English Learning Web backend",
+  "scripts": {
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:debug": "nest start --debug --watch",
+    "start:prod": "node dist/main.js",
+    "build": "nest build",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "test:e2e": "jest --config ./test/jest-e2e.json"
+  },
   "dependencies": {
     "@nestjs/common": "^11.1.8",
     "@nestjs/config": "^4.0.2",
