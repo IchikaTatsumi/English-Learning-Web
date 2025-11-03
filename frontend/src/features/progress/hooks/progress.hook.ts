@@ -1,10 +1,11 @@
+// src/features/progress/hooks/progress.hook.ts
 'use client';
 
 import { useState, useCallback } from 'react';
 import { progressService } from '../services/progress.service';
 import { UserProgressDto, ProgressStatsDto } from '../dtos/progress.dto';
 
-export function useProgress(userId: string) {
+export function useProgress(userId: number) { // Đã thay đổi userId: string -> number
   const [progress, setProgress] = useState<UserProgressDto | null>(null);
   const [stats, setStats] = useState<ProgressStatsDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);

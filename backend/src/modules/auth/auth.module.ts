@@ -8,7 +8,7 @@ import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from './auth.guard';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
-import { PassportModule } from '@nestjs/passport';
+import { PassportModule } from '@nestjs/passport'; // Đã có
 
 @Module({
   imports: [

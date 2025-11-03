@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+vosk
+gtts
+soundfile
+pydub

@@ -1,18 +1,30 @@
+// src/components/home/HomeUI.tsx
 'use client';
 
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { mockProgress, mockVocabulary } from '@/data/mockData';
+// Đã thay đổi import để sử dụng mockData mới
+import { mockProgress, mockVocabulary } from '@/data/mockData'; 
 import { BookOpen, Brain, Target, Trophy, TrendingUp } from 'lucide-react';
 
 export function HomeUI() {
   const router = useRouter();
-  const progressPercentage = (mockProgress.learnedWords / mockProgress.totalWords) * 100;
-  const weeklyProgressPercentage = (mockProgress.learnedWords / mockProgress.weeklyGoal) * 100;
   
-  const recentWords = mockVocabulary.slice(0, 3);
+  // Tính toán lại stats dựa trên mockVocabulary mới
+  const learnedWordsCount = mockVocabulary.filter(w => w.isLearned).length;
+  const totalWordsCount = mockVocabulary.length;
+
+  const progressPercentage = (learnedWordsCount / totalWordsCount) * 100;
+  const weeklyProgressPercentage = (learnedWordsCount / mockProgress.weeklyGoal) * 100;
+  
+  // Lấy 3 từ gần đây nhất đã học/review
+  const recentWords = [...mockVocabulary]
+    .sort((a, b) => new Date(b.lastReviewed || b.dateAdded).getTime() - new Date(a.lastReviewed || a.dateAdded).getTime())
+    .slice(0, 3);
+
+  const quizAccuracyRate = Math.round((mockProgress.correctAnswers / (mockProgress.totalQuizzes * 3)) * 100);
 
   const handleNavigate = (path: string) => {
     router.push(`/dashboard/${path}`);
@@ -36,7 +48,7 @@ export function HomeUI() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Words</p>
-                <p className="text-xl">{mockProgress.totalWords}</p>
+                <p className="text-xl">{totalWordsCount}</p>
               </div>
             </div>
           </CardContent>
@@ -50,7 +62,7 @@ export function HomeUI() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Learned</p>
-                <p className="text-xl">{mockProgress.learnedWords}</p>
+                <p className="text-xl">{learnedWordsCount}</p>
               </div>
             </div>
           </CardContent>
@@ -64,7 +76,7 @@ export function HomeUI() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Current Streak</p>
-                <p className="text-xl">{mockProgress.currentStreak}</p>
+                <p className="text-xl">{mockProgress.currentStreak} days</p>
               </div>
             </div>
           </CardContent>
@@ -78,7 +90,7 @@ export function HomeUI() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Quiz Score</p>
-                <p className="text-xl">{Math.round((mockProgress.correctAnswers / (mockProgress.totalQuizzes * 3)) * 100)}%</p>
+                <p className="text-xl">{quizAccuracyRate}%</p>
               </div>
             </div>
           </CardContent>
@@ -95,14 +107,14 @@ export function HomeUI() {
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span>Overall Progress</span>
-                <span>{mockProgress.learnedWords}/{mockProgress.totalWords} words</span>
+                <span>{learnedWordsCount}/{totalWordsCount} words</span>
               </div>
               <Progress value={progressPercentage} />
             </div>
             <div>
               <div className="flex justify-between text-sm mb-2">
                 <span>Weekly Goal</span>
-                <span>{mockProgress.learnedWords}/{mockProgress.weeklyGoal} words</span>
+                <span>{learnedWordsCount}/{mockProgress.weeklyGoal} words</span>
               </div>
               <Progress value={weeklyProgressPercentage} />
             </div>

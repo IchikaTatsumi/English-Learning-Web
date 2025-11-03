@@ -6,7 +6,6 @@ import typeormConfig from './config/typeorm.config';
 import minioConfig from './config/minio.config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from './modules/users/user.module';
-import { PermissionsModule } from './modules/permission/permission.module';
 import { AuthModule } from './modules/auth/auth.module';
 
 @Module({

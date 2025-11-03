@@ -1,6 +1,7 @@
+// src/features/vocabularies/hooks/vocabulary.hook.ts
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { vocabularyService } from '../services/vocabulary.service';
 import { VocabularyDto, VocabularyFilterDto } from '../dtos/vocabulary.dto';
 
@@ -24,7 +25,8 @@ export function useVocabularies(filter?: VocabularyFilterDto) {
     }
   }, [filter]);
 
-  const markAsLearned = useCallback(async (id: string) => {
+  // Sửa kiểu dữ liệu id từ string sang number
+  const markAsLearned = useCallback(async (id: number) => { 
     setIsLoading(true);
     setError(null);
     try {
@@ -38,6 +40,11 @@ export function useVocabularies(filter?: VocabularyFilterDto) {
       setIsLoading(false);
     }
   }, []);
+
+  // Tự động fetch khi filter thay đổi
+  useEffect(() => {
+      fetchVocabularies();
+  }, [fetchVocabularies]);
 
   return {
     vocabularies,

@@ -1,3 +1,4 @@
+// src/components/quiz/QuizUI.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -5,20 +6,39 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { mockVocabulary } from '@/data/mockData';
-import { QuizQuestion } from '@/types/vocabulary';
+// Import DTOs và Hooks
+import { QuizQuestionDto } from '@/features/quiz/dtos/quiz.dto'; 
+// Giả định mockVocabulary đã được cập nhật ở VocabularyService
+// import { mockVocabulary } from '@/data/mockData'; 
 import { CheckCircle, XCircle, RotateCcw, Trophy } from 'lucide-react';
+
+// Định nghĩa lại QuizQuestion để phù hợp với QuizQuestionDto và mock
+interface MockQuizQuestion extends QuizQuestionDto {
+    word: { word: string, id: number };
+    userAnswer?: string;
+    isCorrect?: boolean;
+}
+
+// Mock Vocabulary (cần đồng bộ với service)
+const mockVocabulary = [
+  { id: 1, word: 'Nocturnal', definition: 'Active during the night...', difficulty: 'B1', topicId: 1 },
+  { id: 2, word: 'Hibemate', definition: 'To spend the winter in a dormant state...', difficulty: 'A2', topicId: 1 },
+  { id: 3, word: 'Apple', definition: 'A common, round fruit...', difficulty: 'A1', topicId: 2 },
+  { id: 4, word: 'Predator', definition: 'An animal that hunts and kills other animals for food', difficulty: 'B1', topicId: 1 },
+  { id: 5, word: 'Erosion', definition: 'The wearing away of soil or rock by wind or water', difficulty: 'B2', topicId: 2 },
+];
+
 
 export function QuizUI() {
   const [quizMode, setQuizMode] = useState<'setup' | 'active' | 'results'>('setup');
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
+  const [questions, setQuestions] = useState<MockQuizQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string>('');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [isTimerActive, setIsTimerActive] = useState(false);
 
-  // Timer effect
+  // Timer effect (Giữ nguyên)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isTimerActive && timeLeft > 0) {
@@ -34,37 +54,26 @@ export function QuizUI() {
   const generateQuestions = (count: number = 5) => {
     const shuffledWords = [...mockVocabulary].sort(() => Math.random() - 0.5).slice(0, count);
     
-    const newQuestions: QuizQuestion[] = shuffledWords.map((word, index) => {
-      const questionTypes = ['multiple-choice', 'definition-match'] as const;
-      const type = questionTypes[Math.floor(Math.random() * questionTypes.length)];
+    const newQuestions: MockQuizQuestion[] = shuffledWords.map((word, index) => {
+      // Logic tạo câu hỏi giả lập (multiple-choice)
+      const wrongAnswers = mockVocabulary
+        .filter(w => w.id !== word.id)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 3)
+        .map(w => w.definition);
       
-      if (type === 'multiple-choice') {
-        const wrongAnswers = mockVocabulary
-          .filter(w => w.id !== word.id)
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 3)
-          .map(w => w.definition);
-        
-        const options = [word.definition, ...wrongAnswers].sort(() => Math.random() - 0.5);
-        
-        return {
-          id: `q${index}`,
-          type,
-          word,
-          question: `What does "${word.word}" mean?`,
-          options,
-          correctAnswer: word.definition
-        };
-      } else {
-        return {
-          id: `q${index}`,
-          type,
-          word,
-          question: `Which word means "${word.definition}"?`,
-          options: [word.word, ...mockVocabulary.filter(w => w.id !== word.id).slice(0, 3).map(w => w.word)].sort(() => Math.random() - 0.5),
-          correctAnswer: word.word
-        };
-      }
+      const options = [word.definition, ...wrongAnswers].sort(() => Math.random() - 0.5);
+      
+      return {
+        id: `q${index}`,
+        quizId: 'mock-quiz-1',
+        type: 'multiple-choice',
+        word: { word: word.word, id: word.id }, // Lưu trữ word cho mục đích hiển thị
+        question: `What does "${word.word}" mean?`,
+        options,
+        correctAnswer: word.definition,
+        vocabularyId: word.id.toString() // Dùng ID number
+      };
     });
     
     setQuestions(newQuestions);
@@ -119,6 +128,7 @@ export function QuizUI() {
     setIsTimerActive(false);
   };
 
+  // UI Setup (Giữ nguyên)
   if (quizMode === 'setup') {
     return (
       <div className="p-8 space-y-6">
@@ -157,6 +167,7 @@ export function QuizUI() {
     );
   }
 
+  // UI Results (Giữ nguyên)
   if (quizMode === 'results') {
     const percentage = Math.round((score / questions.length) * 100);
     
@@ -210,6 +221,7 @@ export function QuizUI() {
     );
   }
 
+  // UI Active Quiz (Giữ nguyên)
   const currentQuestion = questions[currentQuestionIndex];
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
 
@@ -231,6 +243,7 @@ export function QuizUI() {
           </div>
           <Progress value={progress} />
         </div>
+        {/*  */}
 
         {/* Question Card */}
         <Card>

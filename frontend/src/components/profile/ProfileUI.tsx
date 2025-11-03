@@ -1,3 +1,4 @@
+// src/components/profile/ProfileUI.tsx
 'use client';
 
 import { useState } from 'react';
@@ -8,9 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { mockProfile, mockProgress } from '@/data/mockData';
+// Đã thay đổi import để sử dụng mockData mới
+import { mockProfile, mockProgress } from '@/data/mockData'; 
 import { Camera, Edit, Trophy, Calendar, User, Settings, Bell, Shield, HelpCircle } from 'lucide-react';
-import { ImageWithFallback } from '@/components/figma/ImageWithFallback';
+// Giả định có component ImageWithFallback (vì không được cung cấp)
+const ImageWithFallback = (props: React.ComponentProps<'img'>) => <img {...props} />; 
 
 export function ProfileUI() {
   const [isEditing, setIsEditing] = useState(false);
@@ -43,6 +46,11 @@ export function ProfileUI() {
   };
 
   const progressToNext = ((profile.points) / levelProgress.totalPointsForNext) * 100;
+
+  // Tính toán lại stats dựa trên mockData mới
+  const learnedWords = mockProgress.correctWords;
+  const quizAccuracyRate = Math.round((mockProgress.correctAnswers / (mockProgress.totalQuizzes * 3)) * 100);
+
 
   return (
     <div className="p-8 space-y-6">
@@ -164,9 +172,9 @@ export function ProfileUI() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="beginner">Beginner Only</SelectItem>
-                      <SelectItem value="intermediate">Intermediate Only</SelectItem>
-                      <SelectItem value="advanced">Advanced Only</SelectItem>
+                      <SelectItem value="A1">A1 (Beginner)</SelectItem>
+                      <SelectItem value="B1">B1 (Intermediate)</SelectItem>
+                      <SelectItem value="C1">C1 (Advanced)</SelectItem>
                       <SelectItem value="mixed">Mixed Levels</SelectItem>
                     </SelectContent>
                   </Select>
@@ -264,7 +272,7 @@ export function ProfileUI() {
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Words Learned</span>
-                <span>{mockProgress.learnedWords}</span>
+                <span>{learnedWords}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Current Streak</span>
@@ -272,7 +280,7 @@ export function ProfileUI() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Quiz Accuracy</span>
-                <span>{Math.round((mockProgress.correctAnswers / (mockProgress.totalQuizzes * 3)) * 100)}%</span>
+                <span>{quizAccuracyRate}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Total Points</span>

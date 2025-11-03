@@ -1,83 +1,57 @@
-import { VocabularyDto, CreateVocabularyDto, UpdateVocabularyDto, VocabularyFilterDto } from '../dtos/vocabulary.dto';
-import { mockVocabulary } from '@/data/mockData';
+// src/features/vocabularies/services/vocabulary.service.ts
+import { VocabularyDto, VocabularyFilterDto } from '../dtos/vocabulary.dto';
+import { mockVocabulary, updateMockVocabulary } from '@/data/mockData';
 
 export class VocabularyService {
   async getVocabularies(filter?: VocabularyFilterDto): Promise<VocabularyDto[]> {
-    // Mock implementation - replace with actual API call
-    let filtered = mockVocabulary;
+    let filtered = [...mockVocabulary] as VocabularyDto[];
 
-    if (filter) {
-      if (filter.topicId) {
-        filtered = filtered.filter(v => v.category === filter.topicId);
-      }
-      if (filter.difficulty) {
-        filtered = filtered.filter(v => v.difficulty === filter.difficulty);
-      }
-      if (filter.isLearned !== undefined) {
-        filtered = filtered.filter(v => v.isLearned === filter.isLearned);
-      }
-      if (filter.searchTerm) {
-        const term = filter.searchTerm.toLowerCase();
-        filtered = filtered.filter(v => 
-          v.word.toLowerCase().includes(term) || 
-          v.definition.toLowerCase().includes(term)
-        );
-      }
+    // Thêm logic filter đơn giản cho Mock data
+    if (filter?.isLearned !== undefined) {
+      filtered = filtered.filter(v => v.isLearned === filter.isLearned);
+    }
+    if (filter?.topicId) {
+      filtered = filtered.filter(v => v.topicId === filter.topicId);
+    }
+    if (filter?.difficulty && filter.difficulty !== 'all') {
+      filtered = filtered.filter(v => v.difficulty === filter.difficulty);
+    }
+    if (filter?.searchTerm) {
+      const term = filter.searchTerm.toLowerCase();
+      filtered = filtered.filter(v => 
+        v.word.toLowerCase().includes(term) ||
+        v.definition.toLowerCase().includes(term)
+      );
     }
 
-    return filtered.map(v => ({
-      ...v,
-      topicId: v.category
-    }));
+    return filtered;
   }
+  
+  // Hàm này đã được sửa lỗi kiểu dữ liệu
+  async markAsLearned(id: number): Promise<VocabularyDto> {
+    const vocab = mockVocabulary.find(v => v.id === id);
+    if (!vocab) throw new Error('Vocabulary not found');
 
-  async getVocabulary(id: string): Promise<VocabularyDto | null> {
-    // Mock implementation - replace with actual API call
-    const vocabulary = mockVocabulary.find(v => v.id === id);
-    if (!vocabulary) return null;
-
-    return {
-      ...vocabulary,
-      topicId: vocabulary.category
-    };
-  }
-
-  async createVocabulary(dto: CreateVocabularyDto): Promise<VocabularyDto> {
-    // Mock implementation - replace with actual API call
-    const newVocabulary: VocabularyDto = {
-      id: Date.now().toString(),
-      ...dto,
-      isLearned: false,
-      dateAdded: new Date().toISOString()
-    };
-
-    return newVocabulary;
-  }
-
-  async updateVocabulary(id: string, dto: UpdateVocabularyDto): Promise<VocabularyDto> {
-    // Mock implementation - replace with actual API call
-    const vocabulary = await this.getVocabulary(id);
-    if (!vocabulary) {
-      throw new Error('Vocabulary not found');
-    }
-
-    return {
-      ...vocabulary,
-      ...dto
-    };
-  }
-
-  async deleteVocabulary(id: string): Promise<void> {
-    // Mock implementation - replace with actual API call
-    return Promise.resolve();
-  }
-
-  async markAsLearned(id: string): Promise<VocabularyDto> {
-    // Mock implementation - replace with actual API call
-    return this.updateVocabulary(id, { 
+    const updatedVocab = {
+      ...vocab, 
       isLearned: true, 
-      lastReviewed: new Date().toISOString() 
-    });
+      lastReviewed: new Date().toISOString().split('T')[0],
+      topicId: vocab.topicId // Đảm bảo có topicId
+    } as VocabularyDto;
+    
+    // Cập nhật mockData toàn cục
+    updateMockVocabulary(id, updatedVocab); 
+
+    return updatedVocab;
+  }
+
+  // Thêm mock cho các hàm còn thiếu
+  async createVocabulary(): Promise<VocabularyDto> {
+    throw new Error('Not implemented for mock');
+  }
+  
+  async getVocabulary(id: number): Promise<VocabularyDto | null> {
+      return mockVocabulary.find(v => v.id === id) || null;
   }
 }
 

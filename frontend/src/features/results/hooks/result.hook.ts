@@ -1,10 +1,11 @@
+// src/features/results/hooks/result.hook.ts
 'use client';
 
 import { useState, useCallback } from 'react';
 import { resultService } from '../services/result.service';
 import { QuizResultDto, ResultSummaryDto } from '../dtos/result.dto';
 
-export function useResults(userId: string) {
+export function useResults(userId: number) { // Đã thay đổi userId: string -> number
   const [results, setResults] = useState<QuizResultDto[]>([]);
   const [summary, setSummary] = useState<ResultSummaryDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -14,7 +15,8 @@ export function useResults(userId: string) {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await resultService.getUserResults(userId);
+      // Giữ nguyên hàm cũ để tương thích với UI hiện tại, nhưng nên dùng getUserPronunciationResults
+      const data = await resultService.getUserResults(userId.toString());
       setResults(data);
       return data;
     } catch (err) {
@@ -29,7 +31,8 @@ export function useResults(userId: string) {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await resultService.getResultSummary(userId);
+      // Giữ nguyên hàm cũ để tương thích với UI hiện tại
+      const data = await resultService.getResultSummary(userId.toString());
       setSummary(data);
       return data;
     } catch (err) {

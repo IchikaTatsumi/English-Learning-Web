@@ -1,7 +1,8 @@
+// src/features/progress/dtos/progress.dto.ts
 export interface UserProgressDto {
-  userId: string;
+  userId: number; // Đã thay đổi
   totalWords: number;
-  learnedWords: number;
+  learnedWords: number; // Ánh xạ từ correct_words
   currentStreak: number;
   longestStreak: number;
   totalQuizzes: number;
@@ -23,7 +24,7 @@ export interface ProgressStatsDto {
 }
 
 export interface TopicProgressDto {
-  topicId: string;
+  topicId: number; // Đã thay đổi
   topicName: string;
   totalWords: number;
   learnedWords: number;

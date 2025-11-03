@@ -1,38 +1,50 @@
+// src/components/vocabularies/VocabularyUI.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { mockVocabulary } from '@/data/mockData';
-import { VocabularyWord } from '@/types/vocabulary';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'; // TabsContent không cần dùng trực tiếp
 import { Search, Volume2, Bookmark, Check, Grid3X3, List, Leaf, Gamepad2, Cloud, Utensils, Cpu, Zap } from 'lucide-react';
+// Import DTOs và Services
+import { VocabularyDto } from '@/features/vocabularies/dtos/vocabulary.dto';
+import { useVocabularies } from '@/features/vocabularies/hooks/vocabulary.hook';
+import { useTopics } from '@/features/topics/hooks/topic.hook';
+
+// Mock data tạm thời để đảm bảo component chạy
+const mockTopics = [
+    { id: 1, name: 'Animals', learnedWords: 2, totalWords: 5 },
+    { id: 2, name: 'Nature', learnedWords: 1, totalWords: 3 },
+    { id: 3, name: 'Food', learnedWords: 1, totalWords: 3 },
+    { id: 4, name: 'Weather', learnedWords: 0, totalWords: 3 },
+    { id: 5, name: 'Sports', learnedWords: 0, totalWords: 3 },
+    { id: 6, name: 'Technology', learnedWords: 0, totalWords: 3 },
+];
 
 export function VocabularyUI() {
-  const [words, setWords] = useState<VocabularyWord[]>(mockVocabulary);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [activeTab, setActiveTab] = useState('all');
 
-  const filteredWords = words.filter(word => {
-    const matchesSearch = word.word.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         word.definition.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDifficulty = filterDifficulty === 'all' || word.difficulty === filterDifficulty;
-    const matchesCategory = filterCategory === 'all' || word.category === filterCategory;
-    const matchesTab = activeTab === 'all' || word.category === activeTab;
-    
-    return matchesSearch && matchesDifficulty && matchesCategory && matchesTab;
-  });
-
-  const categories = [...new Set(words.map(word => word.category))];
+  // Sử dụng hook để fetch data (Giả lập)
+  const filter = useMemo(() => ({
+    searchTerm: searchTerm,
+    difficulty: filterDifficulty !== 'all' ? filterDifficulty : undefined,
+    topicId: activeTab !== 'all' ? parseInt(activeTab) : undefined,
+  }), [searchTerm, filterDifficulty, activeTab]);
   
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
+  const { vocabularies, fetchVocabularies, markAsLearned, isLoading } = useVocabularies(filter);
+  const { topics, fetchTopics } = useTopics(); // Giả lập hook này trả về mockTopics
+
+  // Giả lập effect hook
+  // useEffect(() => { fetchVocabularies(); fetchTopics(); }, [fetchVocabularies, fetchTopics]); 
+
+  const getCategoryIcon = (categoryName: string) => {
+    switch (categoryName) {
       case 'Animals': return <Zap className="h-4 w-4" />;
       case 'Nature': return <Leaf className="h-4 w-4" />;
       case 'Food': return <Utensils className="h-4 w-4" />;
@@ -43,31 +55,27 @@ export function VocabularyUI() {
     }
   };
 
-  const getCategoryStats = (category: string) => {
-    const categoryWords = words.filter(word => word.category === category);
-    const learnedCount = categoryWords.filter(word => word.isLearned).length;
-    return { total: categoryWords.length, learned: learnedCount };
-  };
-
-  const toggleLearned = (wordId: string) => {
-    setWords(prev => prev.map(word => 
-      word.id === wordId 
-        ? { ...word, isLearned: !word.isLearned, lastReviewed: new Date().toISOString().split('T')[0] }
-        : word
-    ));
+  const toggleLearned = (wordId: number) => {
+    // Gọi service markAsLearned (Giả lập)
+    markAsLearned(wordId.toString());
   };
 
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'beginner': return 'bg-green-100 text-green-700';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-700';
-      case 'advanced': return 'bg-red-100 text-red-700';
+    switch (difficulty.toUpperCase()) {
+      case 'A1':
+      case 'A2': return 'bg-green-100 text-green-700';
+      case 'B1':
+      case 'B2': return 'bg-yellow-100 text-yellow-700';
+      case 'C1': return 'bg-red-100 text-red-700';
       default: return 'bg-gray-100 text-gray-700';
     }
   };
 
+  const activeTopics = topics.length > 0 ? topics : mockTopics; // Fallback to mock
+
   return (
     <div className="p-8 space-y-6">
+      {/* Title Section */}
       <div>
         <h1 className="text-3xl mb-2">Vocabulary Learning</h1>
         <p className="text-gray-600">Explore words by category and build your vocabulary</p>
@@ -75,20 +83,20 @@ export function VocabularyUI() {
 
       {/* Category Overview */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {categories.map(category => {
-          const stats = getCategoryStats(category);
+        {activeTopics.map(topic => {
+          const progressPercent = topic.totalWords > 0 ? (topic.learnedWords / topic.totalWords) * 100 : 0;
           return (
-            <Card key={category} className="cursor-pointer hover:shadow-md transition-shadow">
+            <Card key={topic.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setActiveTab(topic.id.toString())}>
               <CardContent className="p-4 text-center">
                 <div className="flex justify-center mb-2">
-                  {getCategoryIcon(category)}
+                  {getCategoryIcon(topic.name)}
                 </div>
-                <h3 className="text-sm mb-1">{category}</h3>
-                <p className="text-xs text-gray-600">{stats.learned}/{stats.total} learned</p>
+                <h3 className="text-sm mb-1">{topic.name}</h3>
+                <p className="text-xs text-gray-600">{topic.learnedWords}/{topic.totalWords} learned</p>
                 <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
                   <div 
                     className="bg-blue-600 h-1.5 rounded-full" 
-                    style={{ width: `${(stats.learned / stats.total) * 100}%` }}
+                    style={{ width: `${progressPercent}%` }}
                   ></div>
                 </div>
               </CardContent>
@@ -96,16 +104,17 @@ export function VocabularyUI() {
           );
         })}
       </div>
+      {/*  */}
 
-      {/* Category Tabs */}
+      {/* Category Tabs and View Toggle */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="flex items-center justify-between">
           <TabsList className="grid w-full grid-cols-7 lg:w-fit">
             <TabsTrigger value="all">All</TabsTrigger>
-            {categories.map(category => (
-              <TabsTrigger key={category} value={category} className="flex items-center gap-1">
-                {getCategoryIcon(category)}
-                <span className="hidden sm:inline">{category}</span>
+            {activeTopics.map(topic => (
+              <TabsTrigger key={topic.id} value={topic.id.toString()} className="flex items-center gap-1">
+                {getCategoryIcon(topic.name)}
+                <span className="hidden sm:inline">{topic.name}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -147,22 +156,26 @@ export function VocabularyUI() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Difficulties</SelectItem>
-                  <SelectItem value="beginner">Beginner</SelectItem>
-                  <SelectItem value="intermediate">Intermediate</SelectItem>
-                  <SelectItem value="advanced">Advanced</SelectItem>
+                  <SelectItem value="A1">A1 (Beginner)</SelectItem>
+                  <SelectItem value="A2">A2</SelectItem>
+                  <SelectItem value="B1">B1 (Intermediate)</SelectItem>
+                  <SelectItem value="B2">B2</SelectItem>
+                  <SelectItem value="C1">C1 (Advanced)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </CardContent>
         </Card>
 
-        <TabsContent value={activeTab} className="space-y-6">
-          {/* Word Display */}
-          <div className={viewMode === 'grid' ? 
-            "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : 
-            "space-y-4"
-          }>
-            {filteredWords.map((word) => (
+        {/* Word Display (Grid/List) */}
+        <div className={viewMode === 'grid' ? 
+          "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : 
+          "space-y-4"
+        }>
+          {isLoading && <div>Loading vocabularies...</div>}
+          {vocabularies.map((word) => {
+            const topic = activeTopics.find(t => t.id === word.topicId);
+            return (
               <Card key={word.id} className={`hover:shadow-lg transition-shadow ${
                 viewMode === 'list' ? 'p-4' : ''
               }`}>
@@ -196,10 +209,8 @@ export function VocabularyUI() {
                         <p className="text-sm italic">{word.example}</p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <Badge className={getDifficultyColor(word.difficulty)}>
-                          {word.difficulty}
-                        </Badge>
-                        <Badge variant="outline">{word.category}</Badge>
+                        <Badge className={getDifficultyColor(word.difficulty)}>{word.difficulty}</Badge>
+                        <Badge variant="outline">{topic?.name || 'General'}</Badge>
                       </div>
                       {word.isLearned && word.lastReviewed && (
                         <p className="text-xs text-gray-500">
@@ -235,17 +246,17 @@ export function VocabularyUI() {
                   </div>
                 )}
               </Card>
-            ))}
-          </div>
+            );
+          })}
+        </div>
 
-          {filteredWords.length === 0 && (
+        {vocabularies.length === 0 && !isLoading && (
             <Card>
               <CardContent className="p-8 text-center">
                 <p className="text-gray-500">No words found matching your criteria.</p>
               </CardContent>
             </Card>
           )}
-        </TabsContent>
       </Tabs>
     </div>
   );
