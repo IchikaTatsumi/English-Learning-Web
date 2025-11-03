@@ -1,16 +1,28 @@
-fastapi
-uvicorn
-vosk
-gtts
-soundfile
-pydub
+# Core framework
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
 
-# requirements.txt
-flask==3.0.0
-flask-cors==4.0.0
+# Speech recognition
 vosk==0.3.45
-gtts==2.5.0
+
+# Text-to-speech
+gtts==2.5.1
+
+# Audio processing
+soundfile==0.12.1
 pydub==0.25.1
+
+# File handling
+python-multipart==0.0.6
+
+# CORS support
+fastapi-cors==0.0.6
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Logging
+loguru==0.7.2
 
 # Install guide:
 # 1. Create virtual environment
