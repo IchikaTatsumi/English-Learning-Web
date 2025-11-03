@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Role } from 'src/core/constants/enums';
+import { Role } from 'src/core/enums/role.enum';
 import { BcryptUtil } from 'src/core/utils/bcrypt.util';
 import { Repository } from 'typeorm';
 import { CreateUserDTO, UpdateUserDTO } from './dtos/user.dto';
@@ -67,13 +72,11 @@ export class UsersService implements OnModuleInit {
     if (exitUser) {
       throw new BadRequestException('User already exists');
     }
-    const user = this.userRepository.create(
-      {
-        username: userDto.username,
-        passwordHash: await BcryptUtil.hash(userDto.password),
-        role: Role.User,
-      }
-    );
+    const user = this.userRepository.create({
+      username: userDto.username,
+      passwordHash: await BcryptUtil.hash(userDto.password),
+      role: Role.User,
+    });
     return await this.userRepository.save(user);
   }
 }

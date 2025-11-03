@@ -1,6 +1,6 @@
 import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { IsOptional, IsString } from 'class-validator';
-import { Role } from 'src/core/constants/enums';
+import { Role } from 'src/core/enums/role.enum';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
 
 @AutoExpose()

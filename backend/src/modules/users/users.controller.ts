@@ -8,7 +8,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
-import { Role } from 'src/core/constants/enums';
+import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { CreateUserDTO, UserDTO } from './dtos/user.dto';
 import { UsersService } from './users.service';

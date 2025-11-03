@@ -1,5 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
-import { Lesson } from '../../lessons/entities/lesson.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  OneToMany,
+} from 'typeorm';
+import { Vocabulary } from '../../vocabularies/entities/vocabulary.entity';
 import type { Relation } from 'typeorm';
 
 @Entity('topics')
@@ -16,6 +22,6 @@ export class Topic {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @OneToMany(() => Lesson, (lesson) => lesson.topic)
-  lessons: Relation<Lesson[]>;
+  @OneToMany(() => Vocabulary, (vocabulary) => vocabulary.topic)
+  vocabularies: Relation;
 }
