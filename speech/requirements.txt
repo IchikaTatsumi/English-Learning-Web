@@ -4,3 +4,76 @@ vosk
 gtts
 soundfile
 pydub
+
+# requirements.txt
+flask==3.0.0
+flask-cors==4.0.0
+vosk==0.3.45
+gtts==2.5.0
+pydub==0.25.1
+
+# Install guide:
+# 1. Create virtual environment
+#    python -m venv venv
+#    source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 2. Install dependencies
+#    pip install -r requirements.txt
+
+# 3. Download Vosk model
+#    wget https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
+#    unzip vosk-model-small-en-us-0.15.zip
+
+# 4. Install ffmpeg (required for pydub)
+#    Ubuntu: sudo apt-get install ffmpeg
+#    MacOS: brew install ffmpeg
+#    Windows: Download from https://ffmpeg.org/download.html
+
+# 5. Run the server
+#    python speech_server.py
+
+# Server will run on http://localhost:5000
+
+# Docker alternative (Dockerfile):
+"""
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    wget \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Download Vosk model
+RUN wget https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip && \
+    unzip vosk-model-small-en-us-0.15.zip && \
+    rm vosk-model-small-en-us-0.15.zip
+
+# Copy application
+COPY speech_server.py .
+
+ENV VOSK_MODEL_PATH=/app/vosk-model-small-en-us-0.15
+ENV PORT=5000
+
+EXPOSE 5000
+
+CMD ["python", "speech_server.py"]
+"""
+
+# docker-compose.yml addition:
+"""
+  speech-server:
+    build: ./python-speech
+    ports:
+      - "5000:5000"
+    environment:
+      - VOSK_MODEL_PATH=/app/vosk-model-small-en-us-0.15
+      - PORT=5000
+"""
