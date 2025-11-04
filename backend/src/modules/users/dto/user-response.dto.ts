@@ -1,50 +1,38 @@
-import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
-import { IsOptional, IsString, MinLength } from 'class-validator';
-import { Role } from 'src/core/enums/role.enum';
-import { BaseResponseDto } from 'src/core/dto/base.dto';
 import { ApiProperty } from '@nestjs/swagger';
+import { User } from '../entities/user.entity';
+import { Role } from 'src/core/enums/role.enum';
 
-@AutoExpose()
-export class UserDto extends BaseResponseDto {
+export class UserDto {
+  @ApiProperty()
   id: number;
+
+  @ApiProperty()
   username: string;
+
+  @ApiProperty()
   fullName: string;
+
+  @ApiProperty()
+  email: string;
+
+  @ApiProperty()
   role: Role;
-  avatarUrl: string;
-  createdAt: Date;
-}
 
-export class CreateUserDTO {
-  @ApiProperty({ description: 'Username', example: 'john_doe' })
-  @IsString()
-  username: string;
-
-  @ApiProperty({ description: 'Full name', example: 'John Doe' })
-  @IsString()
-  fullName: string;
-
-  @ApiProperty({
-    description: 'Password (min 6 characters)',
-    example: 'password123',
-  })
-  @IsString()
-  @MinLength(6)
-  password: string;
-}
-
-export class UpdateUserDTO {
-  @ApiProperty({ description: 'Username', required: false })
-  @IsOptional()
-  @IsString()
-  username?: string;
-
-  @ApiProperty({ description: 'Full name', required: false })
-  @IsOptional()
-  @IsString()
-  fullName?: string;
-
-  @ApiProperty({ description: 'Avatar URL', required: false })
-  @IsOptional()
-  @IsString()
+  @ApiProperty({ required: false })
   avatarUrl?: string;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  static fromEntity(user: User): UserDto {
+    const dto = new UserDto();
+    dto.id = user.id;
+    dto.username = user.username;
+    dto.fullName = user.fullName;
+    dto.email = user.email;
+    dto.role = user.role;
+    dto.avatarUrl = user.avatarUrl;
+    dto.createdAt = user.createdAt;
+    return dto;
+  }
 }

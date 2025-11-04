@@ -41,8 +41,10 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     // Get user from request
-    const request = context.switchToHttp().getRequest();
-    const user = request.user as RequestUser;
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user: RequestUser }>();
+    const user = request.user;
 
     // Check if user has required role
     const hasRole = requiredRoles.some((role) => user.role === role);
