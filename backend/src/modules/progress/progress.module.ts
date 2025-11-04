@@ -10,11 +10,10 @@ import { Result } from '../results/entities/result.entity';
 import { Topic } from '../topics/entities/topic.entity';
 import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 
-
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Progress, Result, Topic, Vocabulary]), 
-    forwardRef(() => ResultModule), 
+    TypeOrmModule.forFeature([Progress, Result, Topic, Vocabulary]),
+    forwardRef(() => ResultModule),
     forwardRef(() => TopicModule),
     forwardRef(() => VocabularyModule),
   ],

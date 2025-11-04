@@ -2,7 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Result } from './entities/result.entity';
-import { CreateResultDTO, QuizSubmitDTO, QuizResultDTO } from './dtos/result.dto';
+import {
+  CreateResultDTO,
+  QuizSubmitDTO,
+  QuizResultDTO,
+} from './dtos/result.dto';
 import { VocabularyService } from '../vocabularies/vocabulary.service';
 
 @Injectable()
@@ -14,8 +18,10 @@ export class ResultService {
   ) {}
 
   async createResult(userId: string, dto: CreateResultDTO): Promise<Result> {
-    const vocabulary = await this.vocabularyService.getVocabularyById(dto.vocabId);
-    
+    const vocabulary = await this.vocabularyService.getVocabularyById(
+      dto.vocabId,
+    );
+
     const result = this.resultRepository.create({
       userId,
       vocabId: dto.vocabId,
@@ -35,7 +41,10 @@ export class ResultService {
     });
   }
 
-  async getResultsByVocabId(vocabId: number, userId: string): Promise<Result[]> {
+  async getResultsByVocabId(
+    vocabId: number,
+    userId: string,
+  ): Promise<Result[]> {
     return await this.resultRepository.find({
       where: { vocabId, userId },
       order: { createdAt: 'DESC' },
@@ -55,9 +64,13 @@ export class ResultService {
     let correctAnswers = 0;
 
     for (const answer of dto.answers) {
-      const vocabulary = await this.vocabularyService.getVocabularyById(answer.vocabId);
-      const isCorrect = answer.answer.toLowerCase().trim() === vocabulary.word.toLowerCase().trim();
-      
+      const vocabulary = await this.vocabularyService.getVocabularyById(
+        answer.vocabId,
+      );
+      const isCorrect =
+        answer.answer.toLowerCase().trim() ===
+        vocabulary.word.toLowerCase().trim();
+
       if (isCorrect) {
         correctAnswers++;
       }
@@ -86,7 +99,10 @@ export class ResultService {
     };
   }
 
-  async getRecentResults(userId: string, limit: number = 10): Promise<Result[]> {
+  async getRecentResults(
+    userId: string,
+    limit: number = 10,
+  ): Promise<Result[]> {
     return await this.resultRepository.find({
       where: { userId },
       relations: ['vocabulary'],

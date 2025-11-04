@@ -11,7 +11,7 @@ import { Result } from '../results/entities/result.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Vocabulary, Result]),
-    forwardRef(() => LessonModule), 
+    forwardRef(() => LessonModule),
     forwardRef(() => TopicModule),
     forwardRef(() => ResultModule),
   ],

@@ -2,24 +2,25 @@ import {
   IsEnum,
   IsNumber,
   IsOptional,
-  IsBoolean,
   Min,
   Max,
+  IsString,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
-import { DifficultyMode } from '../entities/quiz.entity';
+import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
+import { QuizMode } from '../entities/quiz.entity';
 import { QuizQuestionResponseDto } from '../../quizquestions/dtos/quizquestion.dto';
 
 export class CreateQuizDto {
   @ApiProperty({
-    description: 'Difficulty mode for quiz',
-    enum: DifficultyMode,
-    default: DifficultyMode.MIXED_LEVELS,
+    description: 'Difficulty level for quiz',
+    enum: DifficultyLevel,
+    default: DifficultyLevel.MIXED,
   })
-  @IsEnum(DifficultyMode)
-  difficultyMode: DifficultyMode;
+  @IsEnum(DifficultyLevel)
+  difficultyLevel: DifficultyLevel;
 
   @ApiProperty({
     description: 'Number of questions in quiz',
@@ -40,14 +41,6 @@ export class CreateQuizDto {
   @IsNumber()
   @IsOptional()
   topicId?: number;
-
-  @ApiProperty({
-    description: 'Lesson ID to generate quiz from (optional)',
-    required: false,
-  })
-  @IsNumber()
-  @IsOptional()
-  lessonId?: number;
 }
 
 export class AnswerQuestionDto {
@@ -56,7 +49,13 @@ export class AnswerQuestionDto {
   questionId: number;
 
   @ApiProperty({ description: 'User answer' })
-  userAnswer: string;
+  @IsString()
+  answer: string;
+
+  @ApiProperty({ description: 'Speech text from STT', required: false })
+  @IsString()
+  @IsOptional()
+  speechText?: string;
 }
 
 export class SubmitQuizDto {
@@ -70,11 +69,10 @@ export class SubmitQuizDto {
 @AutoExpose()
 export class QuizResponseDto extends BaseResponseDto {
   id: number;
-  userId: string;
-  difficultyMode: DifficultyMode;
+  userId: number;
+  difficultyMode: QuizMode;
   totalQuestions: number;
   score: number;
-  completed: boolean;
   createdAt: Date;
   questions?: QuizQuestionResponseDto[];
 }
@@ -92,7 +90,6 @@ export class QuizResultDto extends BaseResponseDto {
     userAnswer: string;
     correctAnswer: string;
     isCorrect: boolean;
-    vocabId: number;
     word: string;
   }[];
 }

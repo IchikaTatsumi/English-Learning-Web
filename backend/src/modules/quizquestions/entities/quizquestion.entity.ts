@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { Quiz } from '../../quiz/entities/quiz.entity';
 import { Vocabulary } from '../../vocabularies/entities/vocabulary.entity';
+import { Result } from '../../results/entities/result.entity';
 import type { Relation } from 'typeorm';
 
 export enum QuestionType {
@@ -17,13 +19,10 @@ export enum QuestionType {
   PRONUNCIATION = 'Pronunciation',
 }
 
-@Entity('quiz_questions')
+@Entity('quiz_question')
 export class QuizQuestion {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'quiz_question_id' })
   id: number;
-
-  @Column({ name: 'quiz_id', nullable: true })
-  quizId: number;
 
   @Column({ name: 'vocab_id' })
   vocabId: number;
@@ -41,26 +40,16 @@ export class QuizQuestion {
   @Column({ name: 'correct_answer', length: 255 })
   correctAnswer: string;
 
-  @Column({ name: 'options', type: 'json', nullable: true })
-  options: string[]; // For multiple choice questions
-
   @Column({ name: 'time_limit', default: 30 })
   timeLimit: number;
-
-  @Column({ name: 'user_answer', nullable: true })
-  userAnswer: string;
-
-  @Column({ name: 'is_correct', nullable: true })
-  isCorrect: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ManyToOne(() => Quiz, (quiz) => quiz.questions, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'quiz_id' })
-  quiz: Relation<Quiz>;
-
   @ManyToOne(() => Vocabulary, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'vocab_id' })
   vocabulary: Relation<Vocabulary>;
+
+  @OneToMany(() => Result, (result) => result.quizQuestion)
+  results: Relation<Result[]>;
 }

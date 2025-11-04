@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { VocabularyService } from '../vocabularies/vocabulary.service';
 import { ResultService } from '../results/result.service';
-import { RecognizeSpeechDTO, SpeechRecognitionResultDTO } from './dtos/speech.dto';
+import {
+  RecognizeSpeechDTO,
+  SpeechRecognitionResultDTO,
+} from './dtos/speech.dto';
 
 @Injectable()
 export class SpeechService {
@@ -14,22 +17,24 @@ export class SpeechService {
     userId: string,
     dto: RecognizeSpeechDTO,
   ): Promise<SpeechRecognitionResultDTO> {
-    const vocabulary = await this.vocabularyService.getVocabularyById(dto.vocabId);
-    
+    const vocabulary = await this.vocabularyService.getVocabularyById(
+      dto.vocabId,
+    );
+
     // Decode base64 audio data
     // In a real implementation, you would:
     // 1. Save the audio file temporarily
     // 2. Send it to Vosk/Whisper API
     // 3. Get the transcription back
     // For now, we'll simulate this with a placeholder
-    
+
     const recognizedText = await this.processAudio(dto.audioData);
     const targetWord = vocabulary.word.toLowerCase().trim();
     const recognized = recognizedText.toLowerCase().trim();
 
     // Calculate similarity score
     const score = this.calculateSimilarityScore(recognized, targetWord);
-    
+
     // Calculate pronunciation metrics
     const accuracy = this.calculateAccuracy(recognized, targetWord);
     const completeness = this.calculateCompleteness(recognized, targetWord);
@@ -61,18 +66,18 @@ export class SpeechService {
   private async processAudio(audioData: string): Promise<string> {
     // TODO: Implement actual speech recognition using Vosk or Whisper
     // This is a placeholder that should be replaced with actual API calls
-    
+
     // For development, you can use Web Speech API on the client side
     // and send the transcription directly, or integrate with:
     // - Vosk: https://alphacephei.com/vosk/
     // - Whisper: https://github.com/openai/whisper
-    
+
     return 'placeholder'; // Replace with actual transcription
   }
 
   private calculateSimilarityScore(recognized: string, target: string): number {
     if (recognized === target) return 100;
-    
+
     // Levenshtein distance algorithm
     const matrix: number[][] = [];
     const n = recognized.length;
@@ -121,16 +126,22 @@ export class SpeechService {
   }
 
   private calculateCompleteness(recognized: string, target: string): number {
-    return Math.round((Math.min(recognized.length, target.length) / target.length) * 100);
+    return Math.round(
+      (Math.min(recognized.length, target.length) / target.length) * 100,
+    );
   }
 
-  private generateFeedback(score: number, recognized: string, target: string): string {
+  private generateFeedback(
+    score: number,
+    recognized: string,
+    target: string,
+  ): string {
     if (score >= 90) {
       return 'Excellent pronunciation! Keep up the great work!';
     } else if (score >= 70) {
       return 'Good effort! Try to pronounce more clearly.';
     } else if (score >= 50) {
-      return 'You\'re getting there! Listen to the correct pronunciation and try again.';
+      return "You're getting there! Listen to the correct pronunciation and try again.";
     } else {
       return `The correct word is "${target}". Please listen carefully and try again.`;
     }

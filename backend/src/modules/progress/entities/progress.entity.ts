@@ -1,26 +1,36 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne, JoinColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  OneToOne,
+  JoinColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import type { Relation } from 'typeorm';
 
 @Entity('progress')
 export class Progress {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'progress_id' })
   id: number;
 
   @Column({ name: 'user_id', unique: true })
-  userId: string; // foreign key to User.id
+  userId: number;
 
-  @Column({ name: 'total_words', default: 0 })
-  totalWords: number;
+  @Column({ name: 'total_quizzes', default: 0 })
+  totalQuizzes: number;
 
-  @Column({ name: 'correct_words', default: 0 })
-  correctWords: number;
+  @Column({ name: 'total_questions', default: 0 })
+  totalQuestions: number;
 
-  @Column({ name: 'avg_score', type: 'float', default: 0 })
-  avgScore: number;
+  @Column({ name: 'correct_answers', default: 0 })
+  correctAnswers: number;
 
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
+  @Column({ name: 'accuracy_rate', type: 'float', default: 0 })
+  accuracyRate: number;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
   @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

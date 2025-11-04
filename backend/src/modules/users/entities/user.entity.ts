@@ -1,9 +1,8 @@
 import { Exclude } from 'class-transformer';
 import { Role } from 'src/core/enums/role.enum';
-import { FileEntity } from 'src/modules/files/entities/file.entity';
-import { Permission } from 'src/modules/permission/entities/permission.entity';
 import { Result } from 'src/modules/results/entities/result.entity';
 import { Progress } from 'src/modules/progress/entities/progress.entity';
+import { Quiz } from 'src/modules/quiz/entities/quiz.entity';
 import type { Relation } from 'typeorm';
 import {
   Column,
@@ -14,27 +13,35 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
-@Entity('users')
+@Entity('user')
 export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn({ name: 'user_id' })
+  id: number;
 
-  @Column({ unique: true })
+  @Column({ unique: true, length: 50 })
   username: string;
 
-  @Column()
+  @Column({ name: 'full_name', length: 100 })
+  fullName: string;
+
+  @Column({ length: 255 })
   @Exclude({ toPlainOnly: true })
-  passwordHash: string;
+  password: string;
 
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @Column({ type: 'enum', enum: Role, default: Role.User })
+  @Column({ type: 'enum', enum: Role, default: Role.USER })
   role: Role;
 
-  // NEW RELATIONS
+  @Column({ name: 'avatar_url', length: 255, nullable: true })
+  avatarUrl: string;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
   @OneToMany(() => Result, (result) => result.user)
   results: Relation<Result[]>;
+
+  @OneToMany(() => Quiz, (quiz) => quiz.user)
+  quizzes: Relation<Quiz[]>;
 
   @OneToOne(() => Progress, (progress) => progress.user)
   progress: Relation<Progress>;

@@ -7,42 +7,47 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Vocabulary } from '../../vocabularies/entities/vocabulary.entity';
+import { Quiz } from '../../quiz/entities/quiz.entity';
+import { QuizQuestion } from '../../quizquestions/entities/quizquestion.entity';
 import type { Relation } from 'typeorm';
 
-@Entity('results')
+@Entity('result')
 export class Result {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'result_id' })
   id: number;
 
+  @Column({ name: 'quiz_id' })
+  quizId: number;
+
+  @Column({ name: 'quiz_question_id' })
+  quizQuestionId: number;
+
   @Column({ name: 'user_id' })
-  userId: string;
+  userId: number;
 
-  @Column({ name: 'vocab_id' })
-  vocabId: number;
+  @Column({ name: 'user_answer', length: 255, nullable: true })
+  userAnswer: string;
 
-  @Column({ name: 'recognized_text', length: 255 })
-  recognizedText: string;
+  @Column({ name: 'user_speech_text', type: 'text', nullable: true })
+  userSpeechText: string;
 
-  @Column({ type: 'float', default: 0 })
-  score: number;
-
-  @Column({ name: 'attempt_count', default: 1 })
-  attemptCount: number;
-
-  @Column({ name: 'audio_user_path', length: 255, nullable: true })
-  audioUserPath: string;
+  @Column({ name: 'is_correct', default: false })
+  isCorrect: boolean;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
+  @ManyToOne(() => Quiz, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'quiz_id' })
+  quiz: Relation<Quiz>;
+
+  @ManyToOne(() => QuizQuestion, (question) => question.results, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'quiz_question_id' })
+  quizQuestion: Relation<QuizQuestion>;
+
   @ManyToOne(() => User, (user) => user.results, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: Relation<User>;
-
-  @ManyToOne(() => Vocabulary, (vocabulary) => vocabulary.results, {
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'vocab_id' })
-  vocabulary: Relation<Vocabulary>;
 }

@@ -1,15 +1,24 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
-import { Lesson } from '../../lessons/entities/lesson.entity';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
+import { Topic } from '../../topics/entities/topic.entity';
 import { Result } from '../../results/entities/result.entity';
+import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 import type { Relation } from 'typeorm';
 
-@Entity('vocabularies')
+@Entity('vocabulary')
 export class Vocabulary {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'vocab_id' })
   id: number;
 
-  @Column({ name: 'lesson_id' })
-  lessonId: number;
+  @Column({ name: 'topic_id' })
+  topicId: number;
 
   @Column({ length: 100 })
   word: string;
@@ -17,25 +26,34 @@ export class Vocabulary {
   @Column({ length: 100, nullable: true })
   ipa: string;
 
-  @Column({ length: 255 })
-  meaning: string;
+  @Column({ name: 'meaning_en', type: 'text' })
+  meaningEn: string;
+
+  @Column({ name: 'meaning_vi', type: 'text' })
+  meaningVi: string;
+
+  @Column({ name: 'example_sentence', type: 'text', nullable: true })
+  exampleSentence: string;
 
   @Column({ name: 'audio_path', length: 255, nullable: true })
   audioPath: string;
 
   @Column({
+    name: 'difficulty_level',
     type: 'enum',
-    enum: ['A1', 'A2', 'B1', 'B2', 'C1'],
-    default: 'A1',
+    enum: DifficultyLevel,
+    default: DifficultyLevel.BEGINNER,
   })
-  level: string;
+  difficultyLevel: DifficultyLevel;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ManyToOne(() => Lesson, (lesson) => lesson.vocabularies, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'lesson_id' })
-  lesson: Relation<Lesson>;
+  @ManyToOne(() => Topic, (topic) => topic.vocabularies, {
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'topic_id' })
+  topic: Relation<Topic>;
 
   @OneToMany(() => Result, (result) => result.vocabulary)
   results: Relation<Result[]>;
