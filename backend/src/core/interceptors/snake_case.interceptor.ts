@@ -1,4 +1,3 @@
-// src/common/interceptors/snake-case.interceptor.ts
 
 import {
   CallHandler,

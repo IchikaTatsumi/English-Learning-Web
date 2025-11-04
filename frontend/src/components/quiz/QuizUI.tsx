@@ -1,4 +1,3 @@
-// src/components/quiz/QuizUI.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -6,39 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-// Import DTOs và Hooks
-import { QuizQuestionDto } from '@/features/quiz/dtos/quiz.dto'; 
-// Giả định mockVocabulary đã được cập nhật ở VocabularyService
-// import { mockVocabulary } from '@/data/mockData'; 
+import { useQuiz } from '@/features/quiz/hooks/quiz.hook';
+import { useResults } from '@/features/results/hooks/result.hook';
+import { useAuth } from '@/features/auth';
 import { CheckCircle, XCircle, RotateCcw, Trophy } from 'lucide-react';
-
-// Định nghĩa lại QuizQuestion để phù hợp với QuizQuestionDto và mock
-interface MockQuizQuestion extends QuizQuestionDto {
-    word: { word: string, id: number };
-    userAnswer?: string;
-    isCorrect?: boolean;
-}
-
-// Mock Vocabulary (cần đồng bộ với service)
-const mockVocabulary = [
-  { id: 1, word: 'Nocturnal', definition: 'Active during the night...', difficulty: 'B1', topicId: 1 },
-  { id: 2, word: 'Hibemate', definition: 'To spend the winter in a dormant state...', difficulty: 'A2', topicId: 1 },
-  { id: 3, word: 'Apple', definition: 'A common, round fruit...', difficulty: 'A1', topicId: 2 },
-  { id: 4, word: 'Predator', definition: 'An animal that hunts and kills other animals for food', difficulty: 'B1', topicId: 1 },
-  { id: 5, word: 'Erosion', definition: 'The wearing away of soil or rock by wind or water', difficulty: 'B2', topicId: 2 },
-];
-
+import { QuizQuestionDto } from '@/features/quiz/dtos/quiz.dto';
 
 export function QuizUI() {
+  const { user } = useAuth();
+  const { quiz, questions, createQuiz, fetchQuizQuestions, isLoading } = useQuiz();
+  const { createResult } = useResults();
+
   const [quizMode, setQuizMode] = useState<'setup' | 'active' | 'results'>('setup');
-  const [questions, setQuestions] = useState<MockQuizQuestion[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string>('');
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [isTimerActive, setIsTimerActive] = useState(false);
+  const [answeredQuestions, setAnsweredQuestions] = useState<any[]>([]);
 
-  // Timer effect (Giữ nguyên)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isTimerActive && timeLeft > 0) {
@@ -51,58 +36,57 @@ export function QuizUI() {
     return () => clearInterval(interval);
   }, [isTimerActive, timeLeft, quizMode]);
 
-  const generateQuestions = (count: number = 5) => {
-    const shuffledWords = [...mockVocabulary].sort(() => Math.random() - 0.5).slice(0, count);
-    
-    const newQuestions: MockQuizQuestion[] = shuffledWords.map((word, index) => {
-      // Logic tạo câu hỏi giả lập (multiple-choice)
-      const wrongAnswers = mockVocabulary
-        .filter(w => w.id !== word.id)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
-        .map(w => w.definition);
-      
-      const options = [word.definition, ...wrongAnswers].sort(() => Math.random() - 0.5);
-      
-      return {
-        id: `q${index}`,
-        quizId: 'mock-quiz-1',
-        type: 'multiple-choice',
-        word: { word: word.word, id: word.id }, // Lưu trữ word cho mục đích hiển thị
-        question: `What does "${word.word}" mean?`,
-        options,
-        correctAnswer: word.definition,
-        vocabularyId: word.id.toString() // Dùng ID number
-      };
-    });
-    
-    setQuestions(newQuestions);
-  };
+  const startQuiz = async () => {
+    if (!user) return;
 
-  const startQuiz = () => {
-    generateQuestions();
-    setQuizMode('active');
-    setCurrentQuestionIndex(0);
-    setScore(0);
-    setTimeLeft(30);
-    setIsTimerActive(true);
-    setSelectedAnswer('');
+    try {
+      const newQuiz = await createQuiz({
+        user_id: user.user_id,
+        difficulty_mode: 'Mixed Levels',
+        total_questions: 5
+      });
+
+      await fetchQuizQuestions({ limit: 5 });
+      setQuizMode('active');
+      setCurrentQuestionIndex(0);
+      setScore(0);
+      setTimeLeft(30);
+      setIsTimerActive(true);
+      setSelectedAnswer('');
+      setAnsweredQuestions([]);
+    } catch (error) {
+      console.error('Error starting quiz:', error);
+    }
   };
 
   const handleAnswerSelect = (answer: string) => {
     setSelectedAnswer(answer);
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
+    if (!quiz || !user) return;
+
     const currentQuestion = questions[currentQuestionIndex];
-    const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
-    
-    // Update question with user answer
-    setQuestions(prev => prev.map((q, index) => 
-      index === currentQuestionIndex 
-        ? { ...q, userAnswer: selectedAnswer, isCorrect }
-        : q
-    ));
+    const isCorrect = selectedAnswer === currentQuestion.correct_answer;
+
+    // Save result
+    try {
+      await createResult({
+        quiz_id: quiz.quiz_id,
+        quiz_question_id: currentQuestion.quiz_question_id,
+        user_id: user.user_id,
+        user_answer: selectedAnswer,
+        is_correct: isCorrect
+      });
+    } catch (error) {
+      console.error('Error saving result:', error);
+    }
+
+    setAnsweredQuestions(prev => [...prev, {
+      ...currentQuestion,
+      userAnswer: selectedAnswer,
+      isCorrect
+    }]);
 
     if (isCorrect) {
       setScore(prev => prev + 1);
@@ -120,27 +104,34 @@ export function QuizUI() {
 
   const resetQuiz = () => {
     setQuizMode('setup');
-    setQuestions([]);
     setCurrentQuestionIndex(0);
     setSelectedAnswer('');
     setScore(0);
     setTimeLeft(30);
     setIsTimerActive(false);
+    setAnsweredQuestions([]);
   };
 
-  // UI Setup (Giữ nguyên)
+  if (isLoading) {
+    return (
+      <div className="p-8 space-y-6">
+        <div className="text-center">Loading quiz...</div>
+      </div>
+    );
+  }
+
   if (quizMode === 'setup') {
     return (
       <div className="p-8 space-y-6">
         <div>
-          <h1 className="text-3xl mb-2">Quiz</h1>
-          <p className="text-gray-600">Test your vocabulary knowledge</p>
+          <h1 className="text-3xl mb-2">Practice Quiz</h1>
+          <p className="text-gray-600">Test your vocabulary knowledge with 4 question types</p>
         </div>
 
         <div className="max-w-2xl mx-auto space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Ready to Start?</CardTitle>
+              <CardTitle>Ready to Practice?</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
@@ -153,12 +144,23 @@ export function QuizUI() {
                   <p className="text-sm text-gray-600">Per Question</p>
                 </div>
                 <div className="p-4 bg-purple-50 rounded-lg">
-                  <p className="text-2xl text-purple-600">Mixed</p>
-                  <p className="text-sm text-gray-600">Difficulty</p>
+                  <p className="text-2xl text-purple-600">4</p>
+                  <p className="text-sm text-gray-600">Question Types</p>
                 </div>
               </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                <p className="font-medium">Question Types:</p>
+                <ul className="text-sm text-gray-600 space-y-1 ml-4">
+                  <li>• <strong>Word → Meaning:</strong> Choose the correct definition</li>
+                  <li>• <strong>Meaning → Word:</strong> Choose the correct word</li>
+                  <li>• <strong>Vietnamese → Word:</strong> Choose the English word</li>
+                  <li>• <strong>Pronunciation → Word:</strong> Choose the word with given pronunciation</li>
+                </ul>
+              </div>
+
               <Button onClick={startQuiz} className="w-full" size="lg">
-                Start Quiz
+                Start Practice Quiz
               </Button>
             </CardContent>
           </Card>
@@ -167,10 +169,9 @@ export function QuizUI() {
     );
   }
 
-  // UI Results (Giữ nguyên)
   if (quizMode === 'results') {
-    const percentage = Math.round((score / questions.length) * 100);
-    
+    const percentage = questions.length > 0 ? Math.round((score / questions.length) * 100) : 0;
+
     return (
       <div className="p-8 space-y-6">
         <div className="max-w-2xl mx-auto space-y-6">
@@ -179,27 +180,37 @@ export function QuizUI() {
               <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
                 <Trophy className="h-8 w-8 text-blue-600" />
               </div>
-              <CardTitle>Quiz Complete!</CardTitle>
+              <CardTitle>Practice Complete!</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="text-center">
                 <p className="text-4xl text-blue-600 mb-2">{score}/{questions.length}</p>
                 <p className="text-gray-600">Correct Answers ({percentage}%)</p>
               </div>
-              
+
               <div className="space-y-3">
-                {questions.map((question) => (
-                  <div key={question.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p>{question.word.word}</p>
-                      <p className="text-sm text-gray-600">{question.question}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {question.isCorrect ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-red-600" />
-                      )}
+                {answeredQuestions.map((question, index) => (
+                  <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">
+                            {question.question_type}
+                          </Badge>
+                          {question.isCorrect ? (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          ) : (
+                            <XCircle className="h-5 w-5 text-red-600" />
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">{question.question_text}</p>
+                        {!question.isCorrect && (
+                          <div className="mt-2 text-sm">
+                            <p className="text-red-600">Your answer: {question.userAnswer || 'No answer'}</p>
+                            <p className="text-green-600">Correct answer: {question.correct_answer}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -208,10 +219,10 @@ export function QuizUI() {
               <div className="flex gap-3">
                 <Button onClick={resetQuiz} variant="outline" className="flex-1">
                   <RotateCcw className="mr-2 h-4 w-4" />
-                  Take Another Quiz
+                  Practice Again
                 </Button>
-                <Button onClick={() => {}} className="flex-1">
-                  Review Mistakes
+                <Button onClick={() => window.location.href = '/dashboard/learned'} className="flex-1">
+                  Back to Learned Words
                 </Button>
               </div>
             </CardContent>
@@ -221,20 +232,29 @@ export function QuizUI() {
     );
   }
 
-  // UI Active Quiz (Giữ nguyên)
   const currentQuestion = questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+  const progress = questions.length > 0 ? ((currentQuestionIndex + 1) / questions.length) * 100 : 0;
+
+  if (!currentQuestion) {
+    return (
+      <div className="p-8 space-y-6">
+        <div className="text-center">No questions available</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-6">
       <div className="max-w-2xl mx-auto space-y-6">
-        {/* Progress Header */}
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">
               Question {currentQuestionIndex + 1} of {questions.length}
             </span>
             <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                {currentQuestion.question_type}
+              </Badge>
               <span className="text-sm text-gray-600">Time:</span>
               <Badge variant={timeLeft <= 10 ? "destructive" : "secondary"}>
                 {timeLeft}s
@@ -243,12 +263,10 @@ export function QuizUI() {
           </div>
           <Progress value={progress} />
         </div>
-        {/*  */}
 
-        {/* Question Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-center">{currentQuestion.question}</CardTitle>
+            <CardTitle className="text-center">{currentQuestion.question_text}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-3">
@@ -263,12 +281,12 @@ export function QuizUI() {
                 </Button>
               ))}
             </div>
-            
+
             <div className="flex justify-between items-center pt-4">
               <div className="text-sm text-gray-500">
                 Score: {score}/{currentQuestionIndex}
               </div>
-              <Button 
+              <Button
                 onClick={handleNextQuestion}
                 disabled={!selectedAnswer}
               >

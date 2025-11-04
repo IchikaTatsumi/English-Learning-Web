@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import '../styles/global.css';
+import '../styles/globals.css';
 
 export const metadata: Metadata = {
   title: 'FastLearning - English Vocabulary Learning',

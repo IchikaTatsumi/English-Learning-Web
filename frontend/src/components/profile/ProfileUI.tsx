@@ -1,4 +1,3 @@
-// src/components/profile/ProfileUI.tsx
 'use client';
 
 import { useState } from 'react';
@@ -9,15 +8,16 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-// Đã thay đổi import để sử dụng mockData mới
-import { mockProfile, mockProgress } from '@/data/mockData'; 
-import { Camera, Edit, Trophy, Calendar, User, Settings, Bell, Shield, HelpCircle } from 'lucide-react';
-// Giả định có component ImageWithFallback (vì không được cung cấp)
-const ImageWithFallback = (props: React.ComponentProps<'img'>) => <img {...props} />; 
+import { useAuth } from '@/features/auth';
+import { useProgress } from '@/features/progress/hooks/progress.hook';
+import { Edit, Trophy, Calendar, User, Settings, Bell } from 'lucide-react';
 
 export function ProfileUI() {
+  const { user } = useAuth();
+  const { progress } = useProgress(user?.user_id || 0);
+  
   const [isEditing, setIsEditing] = useState(false);
-  const [profile, setProfile] = useState(mockProfile);
+  const [fullName, setFullName] = useState(user?.full_name || '');
   const [notifications, setNotifications] = useState({
     dailyReminder: true,
     weeklyProgress: true,
@@ -38,19 +38,23 @@ export function ProfileUI() {
     });
   };
 
+  const totalPoints = (progress?.correct_answers || 0) * 10;
   const levelProgress = {
-    current: 'Intermediate',
-    next: 'Advanced',
-    pointsNeeded: 750,
-    totalPointsForNext: 2000
+    current: totalPoints < 500 ? 'Beginner' : totalPoints < 1000 ? 'Intermediate' : 'Advanced',
+    next: totalPoints < 500 ? 'Intermediate' : totalPoints < 1000 ? 'Advanced' : 'Master',
+    pointsNeeded: totalPoints < 500 ? 500 - totalPoints : totalPoints < 1000 ? 1000 - totalPoints : 2000 - totalPoints,
+    totalPointsForNext: totalPoints < 500 ? 500 : totalPoints < 1000 ? 1000 : 2000
   };
 
-  const progressToNext = ((profile.points) / levelProgress.totalPointsForNext) * 100;
+  const progressToNext = ((totalPoints) / levelProgress.totalPointsForNext) * 100;
 
-  // Tính toán lại stats dựa trên mockData mới
-  const learnedWords = mockProgress.correctWords;
-  const quizAccuracyRate = Math.round((mockProgress.correctAnswers / (mockProgress.totalQuizzes * 3)) * 100);
-
+  if (!user) {
+    return (
+      <div className="p-8 space-y-6">
+        <div className="text-center">Please login to view profile</div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 space-y-6">
@@ -81,52 +85,38 @@ export function ProfileUI() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Avatar Section */}
               <div className="flex items-center gap-6">
-                <div className="relative">
-                  <ImageWithFallback
-                    src={profile.avatar}
-                    alt="Profile avatar"
-                    className="w-20 h-20 rounded-full object-cover"
-                  />
-                  {isEditing && (
-                    <Button
-                      size="sm"
-                      className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0"
-                    >
-                      <Camera className="h-4 w-4" />
-                    </Button>
-                  )}
+                <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center">
+                  <span className="text-2xl font-medium text-blue-600">
+                    {user.full_name.charAt(0).toUpperCase()}
+                  </span>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg">{profile.name}</h3>
-                  <p className="text-gray-600">{profile.email}</p>
+                  <h3 className="text-lg">{user.full_name}</h3>
+                  <p className="text-gray-600">{user.username}</p>
                   <div className="flex items-center gap-2 mt-2">
-                    <Badge className="bg-blue-100 text-blue-700">{profile.level}</Badge>
-                    <Badge variant="outline">{profile.points} points</Badge>
+                    <Badge className="bg-blue-100 text-blue-700">{levelProgress.current}</Badge>
+                    <Badge variant="outline">{totalPoints} points</Badge>
                   </div>
                 </div>
               </div>
 
-              {/* Form Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
                     id="name"
-                    value={profile.name}
-                    onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
                     disabled={!isEditing}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="username">Username</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-                    disabled={!isEditing}
+                    id="username"
+                    value={user.username}
+                    disabled
                   />
                 </div>
               </div>
@@ -135,7 +125,7 @@ export function ProfileUI() {
                 <Calendar className="h-5 w-5 text-gray-600" />
                 <div>
                   <p>Member since</p>
-                  <p className="text-sm text-gray-600">{formatDate(profile.joinDate)}</p>
+                  <p className="text-sm text-gray-600">{formatDate(user.created_at)}</p>
                 </div>
               </div>
             </CardContent>
@@ -172,9 +162,9 @@ export function ProfileUI() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="A1">A1 (Beginner)</SelectItem>
-                      <SelectItem value="B1">B1 (Intermediate)</SelectItem>
-                      <SelectItem value="C1">C1 (Advanced)</SelectItem>
+                      <SelectItem value="beginner">Beginner Only</SelectItem>
+                      <SelectItem value="intermediate">Intermediate Only</SelectItem>
+                      <SelectItem value="advanced">Advanced Only</SelectItem>
                       <SelectItem value="mixed">Mixed Levels</SelectItem>
                     </SelectContent>
                   </Select>
@@ -234,7 +224,7 @@ export function ProfileUI() {
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span>Progress to {levelProgress.next}</span>
-                  <span>{profile.points}/{levelProgress.totalPointsForNext}</span>
+                  <span>{totalPoints}/{levelProgress.totalPointsForNext}</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div 
@@ -249,21 +239,6 @@ export function ProfileUI() {
             </CardContent>
           </Card>
 
-          {/* Achievements */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Achievements</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {profile.achievements.map((achievement, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                  <Trophy className="h-5 w-5 text-yellow-600" />
-                  <span className="text-sm">{achievement}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
           {/* Quick Stats */}
           <Card>
             <CardHeader>
@@ -271,20 +246,20 @@ export function ProfileUI() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Words Learned</span>
-                <span>{learnedWords}</span>
+                <span className="text-sm text-gray-600">Total Quizzes</span>
+                <span>{progress?.total_quizzes || 0}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Current Streak</span>
-                <span>{mockProgress.currentStreak} days</span>
+                <span className="text-sm text-gray-600">Questions Answered</span>
+                <span>{progress?.total_questions || 0}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Quiz Accuracy</span>
-                <span>{quizAccuracyRate}%</span>
+                <span>{progress?.accuracy_rate?.toFixed(1) || 0}%</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Total Points</span>
-                <span>{profile.points}</span>
+                <span>{totalPoints}</span>
               </div>
             </CardContent>
           </Card>
@@ -295,14 +270,6 @@ export function ProfileUI() {
               <CardTitle>Account</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button variant="outline" className="w-full justify-start">
-                <Shield className="h-4 w-4 mr-2" />
-                Privacy & Security
-              </Button>
-              <Button variant="outline" className="w-full justify-start">
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Help & Support
-              </Button>
               <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700">
                 <User className="h-4 w-4 mr-2" />
                 Delete Account

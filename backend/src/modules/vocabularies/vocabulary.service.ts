@@ -2,10 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vocabulary } from './entities/vocabulary.entity';
-import { CreateVocabularyDTO, UpdateVocabularyDTO } from './dtos/vocabulary.dto';
+import {
+  CreateVocabularyDTO,
+  UpdateVocabularyDTO,
+} from './dtos/vocabulary.dto';
 import { Result } from '../results/entities/result.entity';
-// NEW IMPORTS
-import { Lesson } from '../lessons/entities/lesson.entity';
 import { Topic } from '../topics/entities/topic.entity';
 
 @Injectable()
@@ -16,9 +17,12 @@ export class VocabularyService {
     @InjectRepository(Result)
     private resultRepository: Repository<Result>,
   ) {}
-// ... (getAllVocabularies, getVocabulariesByLessonId, getVocabularyById, createVocabulary, updateVocabulary, deleteVocabulary, searchVocabularies, getRandomVocabulariesForQuiz giữ nguyên)
+  // ... (getAllVocabularies, getVocabulariesByLessonId, getVocabularyById, createVocabulary, updateVocabulary, deleteVocabulary, searchVocabularies, getRandomVocabulariesForQuiz giữ nguyên)
 
-  async getVocabulariesWithProgress(userId: string, lessonId?: number): Promise<any[]> {
+  async getVocabulariesWithProgress(
+    userId: string,
+    lessonId?: number,
+  ): Promise<any[]> {
     const where = lessonId ? { lessonId } : {};
     const vocabularies = await this.vocabularyRepository.find({
       where,
@@ -28,9 +32,9 @@ export class VocabularyService {
     const vocabulariesWithProgress = await Promise.all(
       vocabularies.map(async (vocab) => {
         const results = await this.resultRepository.find({
-          where: { 
+          where: {
             vocabId: vocab.id,
-            userId 
+            userId,
           },
           order: { score: 'DESC' },
         });
@@ -44,9 +48,9 @@ export class VocabularyService {
           isLearned,
           bestScore,
           lastReviewed,
-          topicId: vocab.lesson.topic.id // Export topicId for front-end
+          topicId: vocab.lesson.topic.id, // Export topicId for front-end
         };
-      })
+      }),
     );
 
     return vocabulariesWithProgress;
