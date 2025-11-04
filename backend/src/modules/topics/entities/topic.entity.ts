@@ -8,9 +8,9 @@ import {
 import { Vocabulary } from '../../vocabularies/entities/vocabulary.entity';
 import type { Relation } from 'typeorm';
 
-@Entity('topics')
+@Entity('topic')
 export class Topic {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn({ name: 'topic_id' })
   id: number;
 
   @Column({ name: 'topic_name', length: 100 })
@@ -23,5 +23,5 @@ export class Topic {
   createdAt: Date;
 
   @OneToMany(() => Vocabulary, (vocabulary) => vocabulary.topic)
-  vocabularies: Relation;
+  vocabularies: Relation<Vocabulary[]>;
 }

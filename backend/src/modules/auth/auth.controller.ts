@@ -5,7 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { UserResponseDto } from '../user/dto/user-response.dto';
+import { UserDto } from '../users/dto/user-response.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -14,7 +14,7 @@ export class AuthController {
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.OK)
-  async register(@Body() registerDto: RegisterDto): Promise<UserResponseDto> {
+  async register(@Body() registerDto: RegisterDto): Promise<UserDto> {
     return this.authService.register(registerDto);
   }
 

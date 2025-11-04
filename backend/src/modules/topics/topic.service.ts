@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Topic } from './entities/topic.entity';
 import { CreateTopicDTO, UpdateTopicDTO } from './dtos/topic.dto';
-import { Result } from '../results/entities/result.entity'; // NEW IMPORT
+import { Result } from '../results/entities/result.entity';
 
 @Injectable()
 export class TopicService {
@@ -16,7 +16,7 @@ export class TopicService {
 
   async getAllTopics(): Promise<Topic[]> {
     return await this.topicRepository.find({
-      relations: ['lessons'],
+      relations: ['vocabularies'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -24,28 +24,40 @@ export class TopicService {
   async getTopicById(id: number): Promise<Topic> {
     const topic = await this.topicRepository.findOne({
       where: { id },
-      relations: ['lessons', 'lessons.vocabularies'],
+      relations: ['vocabularies'],
     });
     if (!topic) {
       throw new NotFoundException(`Topic with ID ${id} not found`);
     }
     return topic;
   }
-  // ... (createTopic, updateTopic, deleteTopic giữ nguyên)
+
+  async createTopic(dto: CreateTopicDTO): Promise<Topic> {
+    const topic = this.topicRepository.create(dto);
+    return await this.topicRepository.save(topic);
+  }
+
+  async updateTopic(id: number, dto: UpdateTopicDTO): Promise<Topic> {
+    const topic = await this.getTopicById(id);
+    Object.assign(topic, dto);
+    return await this.topicRepository.save(topic);
+  }
+
+  async deleteTopic(id: number): Promise<Topic> {
+    const topic = await this.getTopicById(id);
+    await this.topicRepository.remove(topic);
+    return topic;
+  }
 
   async getTopicsWithProgress(userId: string): Promise<any[]> {
     const topics = await this.topicRepository.find({
-      relations: ['lessons', 'lessons.vocabularies'],
+      relations: ['vocabularies'],
       order: { createdAt: 'DESC' },
     });
 
-    // Calculate progress for each topic
     const topicsWithProgress = await Promise.all(
       topics.map(async (topic) => {
-        const vocabIdsInTopic = topic.lessons.flatMap((lesson) =>
-          lesson.vocabularies.map((v) => v.id),
-        );
-
+        const vocabIdsInTopic = topic.vocabularies.map((v) => v.id);
         const totalWords = vocabIdsInTopic.length;
 
         // Find distinct vocabularies learned (best score >= 80)
@@ -68,7 +80,6 @@ export class TopicService {
           topicName: topic.topicName,
           description: topic.description,
           createdAt: topic.createdAt,
-          lessonsCount: topic.lessons.length,
           totalWords,
           learnedCount,
         };

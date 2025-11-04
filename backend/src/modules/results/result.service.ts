@@ -6,7 +6,7 @@ import {
   CreateResultDTO,
   QuizSubmitDTO,
   QuizResultDTO,
-} from './dtos/result.dto';
+} from './dto/result.dto';
 import { VocabularyService } from '../vocabularies/vocabulary.service';
 
 @Injectable()
