@@ -3,7 +3,10 @@ import { camelCase } from 'change-case';
 
 @Injectable()
 export class CamelCaseTransformPipe extends ValidationPipe {
-  async transform(value: any, metadata: ArgumentMetadata) {
+  async transform(
+    value: unknown,
+    metadata: ArgumentMetadata,
+  ): Promise<unknown> {
     // Transform the incoming data from snake_case to camelCase before validation
     if (
       value &&
@@ -18,16 +21,18 @@ export class CamelCaseTransformPipe extends ValidationPipe {
     return super.transform(value, metadata);
   }
 
-  private transformToCamelCase(data: any): any {
+  private transformToCamelCase(data: unknown): unknown {
     if (data === null || typeof data !== 'object') return data;
     if (Array.isArray(data))
       return data.map((item) => this.transformToCamelCase(item));
 
-    const newObj = {};
+    const newObj: Record<string, unknown> = {};
     for (const key in data) {
       if (Object.prototype.hasOwnProperty.call(data, key)) {
         const newKey = camelCase(key);
-        newObj[newKey] = this.transformToCamelCase(data[key]);
+        newObj[newKey] = this.transformToCamelCase(
+          (data as Record<string, unknown>)[key],
+        );
       }
     }
     return newObj;
