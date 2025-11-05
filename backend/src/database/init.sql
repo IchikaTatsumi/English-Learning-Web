@@ -97,6 +97,8 @@ CREATE TABLE vocabulary_progress (
   vocab_id INTEGER NOT NULL REFERENCES vocabulary(vocab_id) ON DELETE CASCADE,
   is_learned BOOLEAN DEFAULT FALSE,
   is_bookmarked BOOLEAN DEFAULT FALSE,
+  first_learned_at TIMESTAMP WITH TIME ZONE,
+  
   last_reviewed_at TIMESTAMP WITH TIME ZONE,
   practice_attempts INTEGER DEFAULT 0,
   practice_correct_count INTEGER DEFAULT 0,
