@@ -30,14 +30,14 @@ export class SnakeCaseInterceptor implements NestInterceptor {
     }
 
     const newObj: Record<string, unknown> = {};
-    for (const key in data) {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        const newKey = snakeCase(key);
-        newObj[newKey] = this.transformToSnakeCase(
-          (data as Record<string, unknown>)[key],
-        );
-      }
-    }
+    const dataRecord = data as Record<string, unknown>;
+
+    Object.keys(dataRecord).forEach((key) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const newKey = snakeCase(key) as string;
+      newObj[newKey] = this.transformToSnakeCase(dataRecord[key]);
+    });
+
     return newObj;
   }
 }

@@ -38,7 +38,7 @@ export class QuizController {
     @Request() req,
     @Body() dto: CreateQuizDto,
   ): Promise<QuizResponseDto> {
-    const userId = parseInt(req.user.id);
+    const userId = Number(req.user.id); // ✅ FIX
     const quiz = await this.quizService.createQuiz(userId, dto);
     return QuizResponseDto.fromEntity(quiz);
   }
@@ -47,7 +47,7 @@ export class QuizController {
   @ApiOperation({ summary: 'Get all quizzes for current user' })
   @ApiOkResponse({ type: [QuizResponseDto] })
   async getUserQuizzes(@Request() req): Promise<QuizResponseDto[]> {
-    const userId = parseInt(req.user.id);
+    const userId = Number(req.user.id); // ✅ FIX
     const quizzes = await this.quizService.getUserQuizzes(userId);
     return QuizResponseDto.fromEntities(quizzes);
   }
@@ -56,7 +56,7 @@ export class QuizController {
   @ApiOperation({ summary: 'Get quiz statistics for current user' })
   @ApiOkResponse({ type: QuizStatisticsDto })
   async getQuizStatistics(@Request() req): Promise<QuizStatisticsDto> {
-    const userId = parseInt(req.user.id);
+    const userId = Number(req.user.id); // ✅ FIX
     const stats = await this.quizService.getQuizStatistics(userId);
     return QuizStatisticsDto.fromEntity(stats);
   }
@@ -68,7 +68,7 @@ export class QuizController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
   ): Promise<QuizResponseDto> {
-    const userId = parseInt(req.user.id);
+    const userId = Number(req.user.id); // ✅ FIX
     const quiz = await this.quizService.getQuizById(id, userId);
     return QuizResponseDto.fromEntity(quiz);
   }
@@ -82,7 +82,7 @@ export class QuizController {
     @Request() req,
     @Body() dto: SubmitQuizDto,
   ): Promise<QuizResultDto> {
-    const userId = parseInt(req.user.id);
+    const userId = Number(req.user.id); // ✅ FIX
     const result = await this.quizService.submitQuiz(id, userId, dto);
     return QuizResultDto.fromEntity(result);
   }
@@ -94,7 +94,7 @@ export class QuizController {
     @Param('id', ParseIntPipe) id: number,
     @Request() req,
   ): Promise<void> {
-    const userId = parseInt(req.user.id);
+    const userId = Number(req.user.id); // ✅ FIX
     await this.quizService.deleteQuiz(id, userId);
   }
 }

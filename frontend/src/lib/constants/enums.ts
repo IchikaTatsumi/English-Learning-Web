@@ -1,16 +1,16 @@
 export enum DifficultyLevel {
-  BEGINNER = 'BEGINNER',
-  INTERMEDIATE = 'INTERMEDIATE',
-  ADVANCED = 'ADVANCED',
-  MIXED = 'MIXED',
+  BEGINNER = 'Beginner',
+  INTERMEDIATE = 'Intermediate',
+  ADVANCED = 'Advanced',
+  MIXED = 'Mixed Levels',
 }
 
 export enum Role {
-  ADMIN = 'ADMIN',
-  USER = 'USER',
+  ADMIN = 'Admin',
+  USER = 'User',
 }
 
 export enum ViewModeEnum {
-  LIST = 'LIST',
-  GRID = 'GRID',
+  LIST = 'List',
+  GRID = 'Grid',
 }

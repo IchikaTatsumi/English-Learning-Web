@@ -11,7 +11,7 @@ export const typeormConfig = {
   username: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
   database: process.env.POSTGRES_DB, // ✅ Đọc từ .env
-  synchronize: false,
+  synchronize: true,
   logging: true, // ✅ Bật logging để debug
   entities: [path.join(__dirname, '../modules/**/entities/*.entity.{ts,js}')],
   migrations: [path.join(__dirname, 'migrations/*.{ts,js}')],

@@ -27,14 +27,14 @@ export class CamelCaseTransformPipe extends ValidationPipe {
       return data.map((item) => this.transformToCamelCase(item));
 
     const newObj: Record<string, unknown> = {};
-    for (const key in data) {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        const newKey = camelCase(key);
-        newObj[newKey] = this.transformToCamelCase(
-          (data as Record<string, unknown>)[key],
-        );
-      }
-    }
+    const dataRecord = data as Record<string, unknown>;
+
+    Object.keys(dataRecord).forEach((key) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const newKey = camelCase(key) as string;
+      newObj[newKey] = this.transformToCamelCase(dataRecord[key]);
+    });
+
     return newObj;
   }
 }
