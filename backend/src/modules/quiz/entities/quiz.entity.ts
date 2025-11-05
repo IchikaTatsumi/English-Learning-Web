@@ -8,9 +8,10 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { QuizQuestion } from '../../quizquestions/entities/quizquestion.entity';
+import { Result } from '../../results/entities/result.entity';
 import type { Relation } from 'typeorm';
 
+// Define QuizMode enum
 export enum QuizMode {
   BEGINNER_ONLY = 'Beginner Only',
   INTERMEDIATE_ONLY = 'Intermediate Only',
@@ -26,6 +27,7 @@ export class Quiz {
   @Column({ name: 'user_id' })
   userId: number;
 
+  // ✅ CORRECT: Use QuizMode enum
   @Column({
     name: 'difficulty_mode',
     type: 'enum',
@@ -47,6 +49,6 @@ export class Quiz {
   @JoinColumn({ name: 'user_id' })
   user: Relation<User>;
 
-  @OneToMany(() => QuizQuestion, (question) => question.quiz)
-  questions: Relation<QuizQuestion[]>;
+  @OneToMany(() => Result, (result) => result.quiz)
+  results: Relation<Result[]>;
 }

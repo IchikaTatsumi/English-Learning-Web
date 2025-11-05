@@ -2,12 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Vocabulary } from './entities/vocabulary.entity';
-import {
-  CreateVocabularyDTO,
-  UpdateVocabularyDTO,
-} from './dtos/vocabulary.dto';
+import { CreateVocabularyDTO, UpdateVocabularyDTO } from './dto/vocabulary.dto';
 import { Result } from '../results/entities/result.entity';
-import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 
 @Injectable()
 export class VocabularyService {
@@ -15,7 +11,7 @@ export class VocabularyService {
     @InjectRepository(Vocabulary)
     private vocabularyRepository: Repository<Vocabulary>,
     @InjectRepository(Result)
-    private resultRepository: Repository<r>,
+    private resultRepository: Repository<Result>,
   ) {}
 
   async getAllVocabularies(): Promise<Vocabulary[]> {
@@ -82,7 +78,7 @@ export class VocabularyService {
 
   async getRandomVocabularies(
     count: number = 10,
-    difficulty?: DifficultyLevel,
+    difficulty?: string,
   ): Promise<Vocabulary[]> {
     const queryBuilder = this.vocabularyRepository
       .createQueryBuilder('vocab')
@@ -90,7 +86,7 @@ export class VocabularyService {
       .orderBy('RANDOM()')
       .limit(count);
 
-    if (difficulty && difficulty !== DifficultyLevel.MIXED) {
+    if (difficulty && difficulty !== 'Mixed Levels') {
       queryBuilder.where('vocab.difficultyLevel = :difficulty', { difficulty });
     }
 
@@ -113,7 +109,6 @@ export class VocabularyService {
 
     const vocabulariesWithProgress = await Promise.all(
       vocabularies.map(async (vocab) => {
-        // Get results for this vocabulary through quiz questions
         const results = await this.resultRepository
           .createQueryBuilder('result')
           .leftJoin('result.quizQuestion', 'quizQuestion')
@@ -122,7 +117,6 @@ export class VocabularyService {
           .orderBy('result.createdAt', 'DESC')
           .getMany();
 
-        // Calculate best score (percentage of correct answers)
         let bestScore = 0;
         if (results.length > 0) {
           const correctCount = results.filter((r) => r.isCorrect).length;
@@ -144,21 +138,5 @@ export class VocabularyService {
     );
 
     return vocabulariesWithProgress;
-  }
-
-  async getVocabulariesByDifficulty(
-    difficulty: DifficultyLevel,
-    limit?: number,
-  ): Promise<Vocabulary[]> {
-    const queryBuilder = this.vocabularyRepository
-      .createQueryBuilder('vocab')
-      .leftJoinAndSelect('vocab.topic', 'topic')
-      .where('vocab.difficultyLevel = :difficulty', { difficulty });
-
-    if (limit) {
-      queryBuilder.limit(limit);
-    }
-
-    return await queryBuilder.getMany();
   }
 }

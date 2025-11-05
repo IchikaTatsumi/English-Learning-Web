@@ -23,12 +23,13 @@ export class User {
   @Column({ length: 255 })
   password: string;
 
+  // ✅ CORRECT: Use enum type, TypeORM will handle conversion
   @Column({
     type: 'enum',
-    enum: Role,
+    enum: Role, // TypeORM uses the VALUES: ['Admin', 'User']
     default: Role.USER,
   })
-  role: Role;
+  role: Role; // TypeScript type
 
   @Column({ name: 'avatar_url', length: 255, nullable: true })
   avatarUrl?: string;

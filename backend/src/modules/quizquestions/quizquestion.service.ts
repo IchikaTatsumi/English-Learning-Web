@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { QuizQuestion, QuestionType } from './entities/quizquestion.entity';
+import { QuizQuestion } from './entities/quizquestion.entity';
 import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import { CreateQuizQuestionDto } from './dto/quizquestion.dto';
 
@@ -32,37 +32,22 @@ export class QuizQuestionService {
     return question;
   }
 
-  async getQuestionsByQuizId(quizId: number): Promise<QuizQuestion[]> {
-    // Note: Based on DB schema, quiz_question doesn't have quiz_id
-    // We need to get questions through results or restructure
-    return await this.quizQuestionRepository.find({
-      relations: ['vocabulary', 'vocabulary.topic'],
-      order: { id: 'ASC' },
-    });
-  }
-
-  async updateQuestion(
-    questionId: number,
-    updateData: Partial<QuizQuestion>,
-  ): Promise<QuizQuestion> {
-    const question = await this.getQuestionById(questionId);
-    Object.assign(question, updateData);
-    return await this.quizQuestionRepository.save(question);
-  }
-
   async generateQuestionsForQuiz(
     quizId: number,
     vocabularies: Vocabulary[],
   ): Promise<QuizQuestion[]> {
-    const questionTypes = Object.values(QuestionType);
+    const questionTypes = [
+      'WordToMeaning',
+      'MeaningToWord',
+      'VietnameseToWord',
+      'Pronunciation',
+    ];
     const questions: QuizQuestion[] = [];
 
     for (const vocab of vocabularies) {
-      // Randomly select question type
       const questionType =
         questionTypes[Math.floor(Math.random() * questionTypes.length)];
-
-      const questionData = await this.generateQuestionData(vocab, questionType);
+      const questionData = this.generateQuestionData(vocab, questionType);
 
       const question = this.quizQuestionRepository.create({
         vocabId: vocab.id,
@@ -79,33 +64,30 @@ export class QuizQuestionService {
     return questions;
   }
 
-  private async generateQuestionData(
+  private generateQuestionData(
     vocab: Vocabulary,
-    questionType: QuestionType,
-  ): Promise<{
-    questionText: string;
-    correctAnswer: string;
-  }> {
+    questionType: string,
+  ): { questionText: string; correctAnswer: string } {
     let questionText: string;
     let correctAnswer: string;
 
     switch (questionType) {
-      case QuestionType.WORD_TO_MEANING:
+      case 'WordToMeaning':
         questionText = `What is the meaning of "${vocab.word}"?`;
         correctAnswer = vocab.meaningEn;
         break;
 
-      case QuestionType.MEANING_TO_WORD:
+      case 'MeaningToWord':
         questionText = `Which word means "${vocab.meaningEn}"?`;
         correctAnswer = vocab.word;
         break;
 
-      case QuestionType.VIETNAMESE_TO_WORD:
+      case 'VietnameseToWord':
         questionText = `Translate to English: "${vocab.meaningVi}"`;
         correctAnswer = vocab.word;
         break;
 
-      case QuestionType.PRONUNCIATION:
+      case 'Pronunciation':
         questionText = `How is "${vocab.word}" pronounced? (IPA)`;
         correctAnswer = vocab.ipa || vocab.word;
         break;

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Topic } from './entities/topic.entity';
-import { CreateTopicDTO, UpdateTopicDTO } from './dtos/topic.dto';
+import { CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
 import { Result } from '../results/entities/result.entity';
 
 @Injectable()
@@ -11,7 +11,7 @@ export class TopicService {
     @InjectRepository(Topic)
     private topicRepository: Repository<Topic>,
     @InjectRepository(Result)
-    private resultRepository: Repository<r>,
+    private resultRepository: Repository<Result>,
   ) {}
 
   async getAllTopics(): Promise<Topic[]> {
@@ -71,7 +71,7 @@ export class TopicService {
           };
         }
 
-        // Find results for vocabularies in this topic
+        // Count unique vocab IDs that have been answered correctly
         const results = await this.resultRepository
           .createQueryBuilder('result')
           .leftJoin('result.quizQuestion', 'quizQuestion')
@@ -87,8 +87,9 @@ export class TopicService {
           .groupBy('quizQuestion.vocabId')
           .getRawMany();
 
-        // Count vocabularies that have been answered correctly at least once
-        const learnedCount = results.filter((r) => r.maxCorrect === '1').length;
+        const learnedCount = results.filter(
+          (r) => r.maxCorrect === 1 || r.maxCorrect === '1',
+        ).length;
 
         return {
           id: topic.id,

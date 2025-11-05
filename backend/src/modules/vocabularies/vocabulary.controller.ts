@@ -26,7 +26,6 @@ import {
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
-import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 
 @ApiBearerAuth()
 @ApiTags('Vocabulary')
@@ -47,13 +46,12 @@ export class VocabularyController {
   async getVocabulariesWithProgress(
     @Request() req,
     @Query('topicId') topicId?: number,
-  ): Promise<VocabularyWithProgressDto[]> {
-    const vocabularies =
-      await this.vocabularyService.getVocabulariesWithProgress(
-        req.user.id,
-        topicId,
-      );
-    return vocabularies;
+  ): Promise<any[]> {
+    const userId = parseInt(req.user.id);
+    return await this.vocabularyService.getVocabulariesWithProgress(
+      userId,
+      topicId,
+    );
   }
 
   @Public()
@@ -81,11 +79,11 @@ export class VocabularyController {
   @Public()
   @Get('random')
   @ApiQuery({ name: 'count', required: false })
-  @ApiQuery({ name: 'difficulty', enum: DifficultyLevel, required: false })
+  @ApiQuery({ name: 'difficulty', required: false })
   @ApiOkResponse({ type: [VocabularyResponseDto] })
   async getRandomVocabularies(
     @Query('count') count?: number,
-    @Query('difficulty') difficulty?: DifficultyLevel,
+    @Query('difficulty') difficulty?: string,
   ): Promise<VocabularyResponseDto[]> {
     const vocabularies = await this.vocabularyService.getRandomVocabularies(
       count || 10,

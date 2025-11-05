@@ -7,17 +7,9 @@ import {
   JoinColumn,
   OneToMany,
 } from 'typeorm';
-import { Quiz } from '../../quiz/entities/quiz.entity';
 import { Vocabulary } from '../../vocabularies/entities/vocabulary.entity';
 import { Result } from '../../results/entities/result.entity';
 import type { Relation } from 'typeorm';
-
-export enum QuestionType {
-  WORD_TO_MEANING = 'WordToMeaning',
-  MEANING_TO_WORD = 'MeaningToWord',
-  VIETNAMESE_TO_WORD = 'VietnameseToWord',
-  PRONUNCIATION = 'Pronunciation',
-}
 
 @Entity('quiz_question')
 export class QuizQuestion {
@@ -30,9 +22,14 @@ export class QuizQuestion {
   @Column({
     name: 'question_type',
     type: 'enum',
-    enum: QuestionType,
+    enum: [
+      'WordToMeaning',
+      'MeaningToWord',
+      'VietnameseToWord',
+      'Pronunciation',
+    ],
   })
-  questionType: QuestionType;
+  questionType: string;
 
   @Column({ name: 'question_text', type: 'text' })
   questionText: string;
@@ -46,7 +43,9 @@ export class QuizQuestion {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ManyToOne(() => Vocabulary, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Vocabulary, (vocab) => vocab.quizQuestions, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'vocab_id' })
   vocabulary: Relation<Vocabulary>;
 

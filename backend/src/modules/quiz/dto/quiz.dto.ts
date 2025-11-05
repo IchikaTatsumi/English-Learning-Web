@@ -9,18 +9,16 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
-import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
-import { QuizMode } from '../entities/quiz.entity';
 import { QuizQuestionResponseDto } from '../../quizquestions/dto/quizquestion.dto';
 
 export class CreateQuizDto {
   @ApiProperty({
     description: 'Difficulty level for quiz',
-    enum: DifficultyLevel,
-    default: DifficultyLevel.MIXED,
+    enum: ['Beginner', 'Intermediate', 'Advanced', 'Mixed Levels'],
+    default: 'Mixed Levels',
   })
-  @IsEnum(DifficultyLevel)
-  difficultyLevel: DifficultyLevel;
+  @IsString()
+  difficultyLevel: string;
 
   @ApiProperty({
     description: 'Number of questions in quiz',
@@ -70,11 +68,11 @@ export class SubmitQuizDto {
 export class QuizResponseDto extends BaseResponseDto {
   id: number;
   userId: number;
-  difficultyMode: QuizMode;
+  difficultyMode: string;
   totalQuestions: number;
   score: number;
   createdAt: Date;
-  questions?: QuizQuestionResponseDto[];
+  results?: any[];
 }
 
 @AutoExpose()

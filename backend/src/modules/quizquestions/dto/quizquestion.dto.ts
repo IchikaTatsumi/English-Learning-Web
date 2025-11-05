@@ -1,8 +1,7 @@
-import { IsEnum, IsNumber, IsString, IsOptional } from 'class-validator';
+import { IsNumber, IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
-import { QuestionType } from '../entities/quizquestion.entity';
 
 export class CreateQuizQuestionDto {
   @ApiProperty({ description: 'Vocabulary ID' })
@@ -11,10 +10,15 @@ export class CreateQuizQuestionDto {
 
   @ApiProperty({
     description: 'Type of question',
-    enum: QuestionType,
+    enum: [
+      'WordToMeaning',
+      'MeaningToWord',
+      'VietnameseToWord',
+      'Pronunciation',
+    ],
   })
-  @IsEnum(QuestionType)
-  questionType: QuestionType;
+  @IsString()
+  questionType: string;
 
   @ApiProperty({ description: 'Question text' })
   @IsString()
@@ -37,7 +41,7 @@ export class CreateQuizQuestionDto {
 export class QuizQuestionResponseDto extends BaseResponseDto {
   id: number;
   vocabId: number;
-  questionType: QuestionType;
+  questionType: string;
   questionText: string;
   correctAnswer: string;
   timeLimit: number;

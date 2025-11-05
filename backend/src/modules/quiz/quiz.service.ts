@@ -5,13 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Quiz, QuizMode } from './entities/quiz.entity';
+import { Quiz } from './entities/quiz.entity';
 import { QuizQuestion } from '../quizquestions/entities/quizquestion.entity';
 import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import { Result } from '../results/entities/result.entity';
 import { CreateQuizDto, SubmitQuizDto, QuizResultDto } from './dto/quiz.dto';
 import { QuizQuestionService } from '../quizquestions/quizquestion.service';
-import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 
 @Injectable()
 export class QuizService {
@@ -21,22 +20,29 @@ export class QuizService {
     @InjectRepository(Vocabulary)
     private vocabularyRepository: Repository<Vocabulary>,
     @InjectRepository(Result)
-    private resultRepository: Repository<r>,
+    private resultRepository: Repository<Result>,
     private quizQuestionService: QuizQuestionService,
   ) {}
 
   async createQuiz(userId: number, dto: CreateQuizDto): Promise<Quiz> {
-    // Create quiz entity
+    // Map difficulty to quiz mode
+    const difficultyModeMap = {
+      Beginner: 'Beginner Only',
+      Intermediate: 'Intermediate Only',
+      Advanced: 'Advanced Only',
+      'Mixed Levels': 'Mixed Levels',
+    };
+
     const quiz = this.quizRepository.create({
       userId,
-      difficultyMode: this.mapDifficultyToQuizMode(dto.difficultyLevel),
+      difficultyMode: difficultyModeMap[dto.difficultyLevel] || 'Mixed Levels',
       totalQuestions: dto.totalQuestions || 10,
       score: 0,
     });
 
     const savedQuiz = await this.quizRepository.save(quiz);
 
-    // Generate questions based on difficulty and filters
+    // Get vocabularies based on difficulty and topic
     const vocabularies = await this.getVocabulariesForQuiz(
       dto.difficultyLevel,
       dto.totalQuestions || 10,
@@ -47,73 +53,39 @@ export class QuizService {
       throw new BadRequestException('No vocabularies available for this quiz');
     }
 
-    // Create questions for each vocabulary
-    const questions = await this.quizQuestionService.generateQuestionsForQuiz(
+    // Create questions for the quiz
+    await this.quizQuestionService.generateQuestionsForQuiz(
       savedQuiz.id,
       vocabularies,
     );
 
-    // Return quiz with questions loaded
     return await this.getQuizById(savedQuiz.id, userId);
   }
 
   async getQuizById(quizId: number, userId: number): Promise<Quiz> {
     const quiz = await this.quizRepository.findOne({
       where: { id: quizId, userId },
+      relations: [
+        'results',
+        'results.quizQuestion',
+        'results.quizQuestion.vocabulary',
+      ],
     });
 
     if (!quiz) {
       throw new NotFoundException(`Quiz with ID ${quizId} not found`);
     }
 
-    // Load questions for this quiz through results
-    const results = await this.resultRepository.find({
-      where: { quizId },
-      relations: [
-        'quizQuestion',
-        'quizQuestion.vocabulary',
-        'quizQuestion.vocabulary.topic',
-      ],
-    });
-
-    // Extract unique questions from results
-    const questionsMap = new Map<number, QuizQuestion>();
-    results.forEach((result) => {
-      if (result.quizQuestion) {
-        questionsMap.set(result.quizQuestion.id, result.quizQuestion);
-      }
-    });
-
-    quiz.questions = Array.from(questionsMap.values()) as any;
-
     return quiz;
   }
 
   async getUserQuizzes(userId: number, limit = 20): Promise<Quiz[]> {
-    const quizzes = await this.quizRepository.find({
+    return await this.quizRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
       take: limit,
+      relations: ['results'],
     });
-
-    // Load questions for each quiz
-    for (const quiz of quizzes) {
-      const results = await this.resultRepository.find({
-        where: { quizId: quiz.id },
-        relations: ['quizQuestion'],
-      });
-
-      const questionsMap = new Map<number, QuizQuestion>();
-      results.forEach((result) => {
-        if (result.quizQuestion) {
-          questionsMap.set(result.quizQuestion.id, result.quizQuestion);
-        }
-      });
-
-      quiz.questions = Array.from(questionsMap.values()) as any;
-    }
-
-    return quizzes;
   }
 
   async submitQuiz(
@@ -132,7 +104,6 @@ export class QuizService {
     const results = [];
     let correctCount = 0;
 
-    // Process each answer
     for (const answer of dto.answers) {
       const question = await this.quizQuestionService.getQuestionById(
         answer.questionId,
@@ -148,7 +119,7 @@ export class QuizService {
         correctCount++;
       }
 
-      // Save result to database
+      // Save result
       const result = this.resultRepository.create({
         quizId: quiz.id,
         quizQuestionId: question.id,
@@ -173,7 +144,7 @@ export class QuizService {
     const totalQuestions = dto.answers.length;
     const score = Math.round((correctCount / totalQuestions) * 100);
 
-    // Update quiz
+    // Update quiz score
     quiz.score = score;
     await this.quizRepository.save(quiz);
 
@@ -190,53 +161,11 @@ export class QuizService {
   private checkAnswer(correctAnswer: string, userAnswer: string): boolean {
     const correct = correctAnswer.toLowerCase().trim();
     const user = userAnswer.toLowerCase().trim();
-
-    // Exact match
-    if (correct === user) {
-      return true;
-    }
-
-    // Fuzzy match (allow minor typos)
-    const similarity = this.calculateSimilarity(correct, user);
-    return similarity >= 0.85;
-  }
-
-  private calculateSimilarity(str1: string, str2: string): number {
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
-
-    if (longer.length === 0) {
-      return 1.0;
-    }
-
-    const editDistance = this.levenshteinDistance(longer, shorter);
-    return (longer.length - editDistance) / longer.length;
-  }
-
-  private levenshteinDistance(str1: string, str2: string): number {
-    const matrix = Array(str2.length + 1)
-      .fill(null)
-      .map(() => Array(str1.length + 1).fill(null));
-
-    for (let i = 0; i <= str1.length; i++) matrix[0][i] = i;
-    for (let j = 0; j <= str2.length; j++) matrix[j][0] = j;
-
-    for (let j = 1; j <= str2.length; j++) {
-      for (let i = 1; i <= str1.length; i++) {
-        const indicator = str1[i - 1] === str2[j - 1] ? 0 : 1;
-        matrix[j][i] = Math.min(
-          matrix[j][i - 1] + 1,
-          matrix[j - 1][i] + 1,
-          matrix[j - 1][i - 1] + indicator,
-        );
-      }
-    }
-
-    return matrix[str2.length][str1.length];
+    return correct === user;
   }
 
   private async getVocabulariesForQuiz(
-    difficulty: DifficultyLevel,
+    difficulty: string,
     count: number,
     topicId?: number,
   ): Promise<Vocabulary[]> {
@@ -244,41 +173,19 @@ export class QuizService {
       .createQueryBuilder('vocab')
       .leftJoinAndSelect('vocab.topic', 'topic');
 
-    // Filter by topic
     if (topicId) {
       queryBuilder.andWhere('vocab.topicId = :topicId', { topicId });
     }
 
-    // Filter by difficulty
-    if (difficulty !== DifficultyLevel.MIXED) {
+    if (difficulty !== 'Mixed Levels') {
       queryBuilder.andWhere('vocab.difficultyLevel = :difficulty', {
         difficulty,
       });
     }
 
-    // Random order and limit
     queryBuilder.orderBy('RANDOM()').limit(count);
 
-    const vocabularies = await queryBuilder.getMany();
-
-    if (vocabularies.length < count) {
-      // If not enough vocabularies, try without topic filter
-      if (topicId) {
-        return await this.getVocabulariesForQuiz(difficulty, count);
-      }
-    }
-
-    return vocabularies;
-  }
-
-  private mapDifficultyToQuizMode(difficulty: DifficultyLevel): QuizMode {
-    const map = {
-      [DifficultyLevel.BEGINNER]: QuizMode.BEGINNER_ONLY,
-      [DifficultyLevel.INTERMEDIATE]: QuizMode.INTERMEDIATE_ONLY,
-      [DifficultyLevel.ADVANCED]: QuizMode.ADVANCED_ONLY,
-      [DifficultyLevel.MIXED]: QuizMode.MIXED_LEVELS,
-    };
-    return map[difficulty] || QuizMode.MIXED_LEVELS;
+    return await queryBuilder.getMany();
   }
 
   async getQuizStatistics(userId: number) {
@@ -295,7 +202,6 @@ export class QuizService {
     const averageScore =
       totalQuizzes > 0 ? Math.round(totalScore / totalQuizzes) : 0;
 
-    // Get all results for accuracy calculation
     const results = await this.resultRepository.find({
       where: { userId },
     });
@@ -311,7 +217,6 @@ export class QuizService {
         ? Math.max(...completedQuizzes.map((q) => q.score))
         : 0;
 
-    // Get recent quizzes
     const recentQuizzes = await this.getUserQuizzes(userId, 5);
 
     return {

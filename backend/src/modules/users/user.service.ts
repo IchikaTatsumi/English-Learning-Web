@@ -18,20 +18,10 @@ export class UsersService implements OnModuleInit {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async deleteUser(id: number): Promise<User> {
+  async deleteUser(id: string): Promise<User> {
     const user = await this.getUserById(id);
     await this.userRepository.remove(user);
     return user;
-  }
-
-  async getAdmin(): Promise<User> {
-    const admin = await this.userRepository.findOne({
-      where: { role: Role.ADMIN },
-    });
-    if (!admin) {
-      throw new NotFoundException('Admin not found');
-    }
-    return admin;
   }
 
   async onModuleInit() {
@@ -50,135 +40,74 @@ export class UsersService implements OnModuleInit {
           role: Role.ADMIN,
         });
         await this.userRepository.save(newAdmin);
+        console.log('Default admin created');
       }
     } catch (error) {
-      if (error instanceof Error) {
-        console.error('Error creating admin:', error.message);
-      }
+      console.error('Error creating admin:', error);
     }
   }
 
   async getAllUsers(): Promise<User[]> {
-    try {
-      return await this.userRepository.find();
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new BadRequestException(
-          `Failed to fetch users: ${error.message}`,
-        );
-      }
-      throw new BadRequestException('Failed to fetch users');
-    }
+    return await this.userRepository.find();
   }
 
-  async getUserById(id: number): Promise<User> {
-    try {
-      const user = await this.userRepository.findOne({ where: { id } });
-      if (!user) {
-        throw new NotFoundException(`User with ID ${id} not found`);
-      }
-      return user;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof Error) {
-        throw new BadRequestException(`Failed to find user: ${error.message}`);
-      }
-      throw new BadRequestException('Failed to find user');
+  async getUserById(id: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: parseInt(id) },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
     }
+    return user;
   }
 
   async getUserByEmail(email: string): Promise<User | null> {
-    try {
-      return await this.userRepository.findOne({ where: { email } });
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new BadRequestException(
-          `Failed to find user by email: ${error.message}`,
-        );
-      }
-      throw new BadRequestException('Failed to find user by email');
-    }
+    return await this.userRepository.findOne({ where: { email } });
   }
 
   async getUserByUsername(username: string): Promise<User | null> {
-    try {
-      return await this.userRepository.findOne({ where: { username } });
-    } catch (error) {
-      if (error instanceof Error) {
-        throw new BadRequestException(
-          `Failed to find user by username: ${error.message}`,
-        );
-      }
-      throw new BadRequestException('Failed to find user by username');
-    }
+    return await this.userRepository.findOne({ where: { username } });
   }
 
-  async updateUser(id: number, updateUserDto: UpdateUserDTO): Promise<User> {
-    try {
-      const user = await this.getUserById(id);
+  async updateUser(id: string, updateUserDto: UpdateUserDTO): Promise<User> {
+    const user = await this.getUserById(id);
 
-      if (updateUserDto.password) {
-        updateUserDto.password = await BcryptUtil.hash(updateUserDto.password);
-      }
-
-      this.userRepository.merge(user, updateUserDto);
-      const updatedUser = await this.userRepository.save(user);
-      return updatedUser;
-    } catch (error) {
-      if (error instanceof NotFoundException) {
-        throw error;
-      }
-      if (error instanceof Error) {
-        throw new BadRequestException(
-          `Failed to update user: ${error.message}`,
-        );
-      }
-      throw new BadRequestException('Failed to update user');
+    if (updateUserDto.password) {
+      updateUserDto.password = await BcryptUtil.hash(updateUserDto.password);
     }
+
+    this.userRepository.merge(user, updateUserDto);
+    return await this.userRepository.save(user);
   }
 
   async createUser(userDto: CreateUserDTO): Promise<User> {
-    try {
-      const existingUser = await this.userRepository.findOne({
-        where: { username: userDto.username },
-      });
+    const existingUser = await this.userRepository.findOne({
+      where: { username: userDto.username },
+    });
 
-      if (existingUser) {
-        throw new BadRequestException('Username already exists');
-      }
-
-      const existingEmail = await this.userRepository.findOne({
-        where: { email: userDto.email },
-      });
-
-      if (existingEmail) {
-        throw new BadRequestException('Email already exists');
-      }
-
-      const hashedPassword = await BcryptUtil.hash(userDto.password);
-
-      const user = this.userRepository.create({
-        username: userDto.username,
-        password: hashedPassword,
-        fullName: userDto.fullName,
-        email: userDto.email,
-        role: userDto.role || Role.USER,
-        avatarUrl: userDto.avatarUrl,
-      });
-
-      return await this.userRepository.save(user);
-    } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      if (error instanceof Error) {
-        throw new BadRequestException(
-          `Failed to create user: ${error.message}`,
-        );
-      }
-      throw new BadRequestException('Failed to create user');
+    if (existingUser) {
+      throw new BadRequestException('Username already exists');
     }
+
+    const existingEmail = await this.userRepository.findOne({
+      where: { email: userDto.email },
+    });
+
+    if (existingEmail) {
+      throw new BadRequestException('Email already exists');
+    }
+
+    const hashedPassword = await BcryptUtil.hash(userDto.password);
+
+    const user = this.userRepository.create({
+      username: userDto.username,
+      password: hashedPassword,
+      fullName: userDto.fullName,
+      email: userDto.email,
+      role: userDto.role || Role.USER,
+      avatarUrl: userDto.avatarUrl,
+    });
+
+    return await this.userRepository.save(user);
   }
 }

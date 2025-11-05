@@ -8,7 +8,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Topic } from '../../topics/entities/topic.entity';
-import { Result } from '../../results/entities/result.entity';
+import { QuizQuestion } from '../../quizquestions/entities/quizquestion.entity';
 import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 import type { Relation } from 'typeorm';
 
@@ -17,7 +17,7 @@ export class Vocabulary {
   @PrimaryGeneratedColumn({ name: 'vocab_id' })
   id: number;
 
-  @Column({ name: 'topic_id' })
+  @Column({ name: 'topic_id', nullable: true })
   topicId: number;
 
   @Column({ length: 100 })
@@ -38,13 +38,14 @@ export class Vocabulary {
   @Column({ name: 'audio_path', length: 255, nullable: true })
   audioPath: string;
 
+  // ✅ CORRECT: Use DifficultyLevel enum
   @Column({
     name: 'difficulty_level',
     type: 'enum',
-    enum: DifficultyLevel,
+    enum: DifficultyLevel, // TypeORM extracts: ['Beginner', 'Intermediate', 'Advanced']
     default: DifficultyLevel.BEGINNER,
   })
-  difficultyLevel: DifficultyLevel;
+  difficultyLevel: DifficultyLevel; // TypeScript type
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
@@ -55,6 +56,6 @@ export class Vocabulary {
   @JoinColumn({ name: 'topic_id' })
   topic: Relation<Topic>;
 
-  @OneToMany(() => Result, (result) => result.vocabulary)
-  results: Relation<Result[]>;
+  @OneToMany(() => QuizQuestion, (question) => question.vocabulary)
+  quizQuestions: Relation<QuizQuestion[]>;
 }

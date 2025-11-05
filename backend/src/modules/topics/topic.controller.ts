@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOkResponse } from '@nestjs/swagger';
 import { TopicService } from './topic.service';
-import { TopicDTO, CreateTopicDTO, UpdateTopicDTO } from './dtos/topic.dto';
+import { TopicDTO, CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
