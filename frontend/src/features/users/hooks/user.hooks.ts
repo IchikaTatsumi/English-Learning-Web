@@ -7,7 +7,7 @@ import {
   LoginDTO,
   LoginResponseDTO,
   UserDTO,
-} from "../dtos/user.dto";
+} from "../dto/user.dto";
 import { userService } from "../services/user.service";
 
 // Custom hooks for User APIs

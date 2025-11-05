@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { authService } from '../services/auth.service';
-import { LoginDto, RegisterDto } from '../dtos/auth.dto';
+import { LoginDto, RegisterDto } from '../dto/auth.dto';
 
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(false);

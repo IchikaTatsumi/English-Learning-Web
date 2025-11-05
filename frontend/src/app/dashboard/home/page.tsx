@@ -1,7 +1,7 @@
-'use client';
+'use client'
 
-import { HomeUI } from '@/components/home/HomeUI';
+import { HomeUI } from '@/components/home/HomeUI'
 
-export default function HomeUI() {
-  return <HomeUI />;
+export default function DashboardHomePage() {
+  return <HomeUI />
 }

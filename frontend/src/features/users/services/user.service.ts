@@ -1,6 +1,6 @@
 import { apiFetch } from "../../../lib/api-fetch";
 import { ServerResponseModel } from "../../../lib/typedefs/server-response";
-import { CreateUserDTO, UserDTO } from "../dtos/user.dto";
+import { CreateUserDTO, UserDTO } from "../dto/user.dto";
 
 // User Service API
 export const userService = {

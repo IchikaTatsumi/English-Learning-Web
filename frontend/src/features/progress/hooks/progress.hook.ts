@@ -3,7 +3,7 @@
 
 import { useState, useCallback } from 'react';
 import { progressService } from '../services/progress.service';
-import { UserProgressDto, ProgressStatsDto } from '../dtos/progress.dto';
+import { UserProgressDto, ProgressStatsDto } from '../dto/progress.dto';
 
 export function useProgress(userId: number) { // Đã thay đổi userId: string -> number
   const [progress, setProgress] = useState<UserProgressDto | null>(null);

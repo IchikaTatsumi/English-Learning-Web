@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { topicService } from '../services/topic.service';
-import { TopicDto } from '../dtos/topic.dto';
+import { TopicDto } from '../dto/topic.dto';
 
 export function useTopics() {
   const [topics, setTopics] = useState<TopicDto[]>([]);

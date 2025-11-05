@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { quizService } from '../services/quiz.service';
-import { QuizDto, QuizQuestionDto } from '../dtos/quiz.dto';
+import { QuizDto, QuizQuestionDto } from '../dto/quiz.dto';
 
 export function useQuiz(quizId?: string) {
   const [quiz, setQuiz] = useState<QuizDto | null>(null);

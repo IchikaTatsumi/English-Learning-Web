@@ -9,7 +9,7 @@ import { useQuiz } from '@/features/quiz/hooks/quiz.hook';
 import { useResults } from '@/features/results/hooks/result.hook';
 import { useAuth } from '@/features/auth';
 import { CheckCircle, XCircle, RotateCcw, Trophy } from 'lucide-react';
-import { QuizQuestionDto } from '@/features/quiz/dtos/quiz.dto';
+import { QuizQuestionDto } from '@/features/quiz/dto/quiz.dto';
 
 export function QuizUI() {
   const { user } = useAuth();
