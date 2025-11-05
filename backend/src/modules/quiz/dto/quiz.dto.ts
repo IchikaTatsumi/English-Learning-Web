@@ -11,7 +11,7 @@ import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
 import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 import { QuizMode } from '../entities/quiz.entity';
-import { QuizQuestionResponseDto } from '../../quizquestions/dtos/quizquestion.dto';
+import { QuizQuestionResponseDto } from '../../quizquestions/dto/quizquestion.dto';
 
 export class CreateQuizDto {
   @ApiProperty({

@@ -4,7 +4,7 @@ import { ResultService } from '../results/result.service';
 import {
   RecognizeSpeechDTO,
   SpeechRecognitionResultDTO,
-} from './dtos/speech.dto';
+} from './dto/speech.dto';
 
 @Injectable()
 export class SpeechService {

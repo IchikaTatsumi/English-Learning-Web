@@ -22,7 +22,7 @@ import {
   UpdateVocabularyDTO,
   VocabularyResponseDto,
   VocabularyWithProgressDto,
-} from './dtos/vocabulary.dto';
+} from './dto/vocabulary.dto';
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';

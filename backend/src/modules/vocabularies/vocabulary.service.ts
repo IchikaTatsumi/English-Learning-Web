@@ -15,7 +15,7 @@ export class VocabularyService {
     @InjectRepository(Vocabulary)
     private vocabularyRepository: Repository<Vocabulary>,
     @InjectRepository(Result)
-    private resultRepository: Repository<Result>,
+    private resultRepository: Repository<r>,
   ) {}
 
   async getAllVocabularies(): Promise<Vocabulary[]> {
@@ -90,7 +90,7 @@ export class VocabularyService {
       .orderBy('RANDOM()')
       .limit(count);
 
-    if (difficulty) {
+    if (difficulty && difficulty !== DifficultyLevel.MIXED) {
       queryBuilder.where('vocab.difficultyLevel = :difficulty', { difficulty });
     }
 
@@ -98,7 +98,7 @@ export class VocabularyService {
   }
 
   async getVocabulariesWithProgress(
-    userId: string,
+    userId: number,
     topicId?: number,
   ): Promise<any[]> {
     const queryBuilder = this.vocabularyRepository
@@ -113,15 +113,22 @@ export class VocabularyService {
 
     const vocabulariesWithProgress = await Promise.all(
       vocabularies.map(async (vocab) => {
-        const results = await this.resultRepository.find({
-          where: {
-            vocabId: vocab.id,
-            userId,
-          },
-          order: { score: 'DESC' },
-        });
+        // Get results for this vocabulary through quiz questions
+        const results = await this.resultRepository
+          .createQueryBuilder('result')
+          .leftJoin('result.quizQuestion', 'quizQuestion')
+          .where('result.userId = :userId', { userId })
+          .andWhere('quizQuestion.vocabId = :vocabId', { vocabId: vocab.id })
+          .orderBy('result.createdAt', 'DESC')
+          .getMany();
 
-        const bestScore = results.length > 0 ? results[0].score : 0;
+        // Calculate best score (percentage of correct answers)
+        let bestScore = 0;
+        if (results.length > 0) {
+          const correctCount = results.filter((r) => r.isCorrect).length;
+          bestScore = Math.round((correctCount / results.length) * 100);
+        }
+
         const isLearned = bestScore >= 80;
         const lastReviewed = results.length > 0 ? results[0].createdAt : null;
         const attemptCount = results.length;

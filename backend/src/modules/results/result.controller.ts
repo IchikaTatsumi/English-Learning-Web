@@ -28,7 +28,7 @@ export class ResultController {
   @ApiOperation({ summary: 'Get all results for current user' })
   @ApiOkResponse({ type: [ResultResponseDto] })
   async getUserResults(@Request() req): Promise<ResultResponseDto[]> {
-    const userId = req.user.id.toString();
+    const userId = parseInt(req.user.id);
     const results = await this.resultService.getResultsByUserId(userId);
     return ResultResponseDto.fromEntities(results);
   }
@@ -41,11 +41,31 @@ export class ResultController {
     @Request() req,
     @Query('limit') limit?: number,
   ): Promise<ResultResponseDto[]> {
-    const userId = req.user.id.toString();
+    const userId = parseInt(req.user.id);
     const results = await this.resultService.getRecentResults(
       userId,
       limit || 10,
     );
+    return ResultResponseDto.fromEntities(results);
+  }
+
+  @Get('statistics')
+  @ApiOperation({ summary: 'Get user statistics' })
+  @ApiOkResponse()
+  async getUserStatistics(@Request() req) {
+    const userId = parseInt(req.user.id);
+    return await this.resultService.getUserStatistics(userId);
+  }
+
+  @Get('quiz/:quizId')
+  @ApiOperation({ summary: 'Get results for specific quiz' })
+  @ApiOkResponse({ type: [ResultResponseDto] })
+  async getResultsByQuiz(
+    @Request() req,
+    @Param('quizId', ParseIntPipe) quizId: number,
+  ): Promise<ResultResponseDto[]> {
+    const userId = parseInt(req.user.id);
+    const results = await this.resultService.getResultsByQuizId(quizId, userId);
     return ResultResponseDto.fromEntities(results);
   }
 
@@ -56,7 +76,7 @@ export class ResultController {
     @Request() req,
     @Param('vocabId', ParseIntPipe) vocabId: number,
   ): Promise<ResultResponseDto[]> {
-    const userId = req.user.id.toString();
+    const userId = parseInt(req.user.id);
     const results = await this.resultService.getResultsByVocabId(
       vocabId,
       userId,
@@ -71,7 +91,7 @@ export class ResultController {
     @Request() req,
     @Param('vocabId', ParseIntPipe) vocabId: number,
   ): Promise<{ score: number }> {
-    const userId = req.user.id.toString();
+    const userId = parseInt(req.user.id);
     const score = await this.resultService.getBestScoreForVocab(
       vocabId,
       userId,
@@ -86,7 +106,7 @@ export class ResultController {
     @Request() req,
     @Body() dto: CreateResultDTO,
   ): Promise<ResultResponseDto> {
-    const userId = req.user.id.toString();
+    const userId = parseInt(req.user.id);
     const result = await this.resultService.createResult(userId, dto);
     return ResultResponseDto.fromEntity(result);
   }

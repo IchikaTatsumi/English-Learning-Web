@@ -30,11 +30,10 @@ export class TopicController {
     return TopicDTO.fromEntities(topics);
   }
 
-  @Public()
   @Get('with-progress')
   @ApiOkResponse({ type: [TopicDTO] })
   async getTopicsWithProgress(@Request() req): Promise<any[]> {
-    const userId = req.user?.id || 'guest';
+    const userId = parseInt(req.user.id);
     return await this.topicService.getTopicsWithProgress(userId);
   }
 
@@ -46,7 +45,7 @@ export class TopicController {
     return TopicDTO.fromEntity(topic);
   }
 
-  @Roles(Role.Admin)
+  @Roles(Role.ADMIN)
   @Post()
   @ApiOkResponse({ type: TopicDTO })
   async createTopic(@Body() dto: CreateTopicDTO): Promise<TopicDTO> {
@@ -54,7 +53,7 @@ export class TopicController {
     return TopicDTO.fromEntity(topic);
   }
 
-  @Roles(Role.Admin)
+  @Roles(Role.ADMIN)
   @Put(':id')
   @ApiOkResponse({ type: TopicDTO })
   async updateTopic(
@@ -65,7 +64,7 @@ export class TopicController {
     return TopicDTO.fromEntity(topic);
   }
 
-  @Roles(Role.Admin)
+  @Roles(Role.ADMIN)
   @Delete(':id')
   @ApiOkResponse({ type: TopicDTO })
   async deleteTopic(@Param('id', ParseIntPipe) id: number): Promise<TopicDTO> {

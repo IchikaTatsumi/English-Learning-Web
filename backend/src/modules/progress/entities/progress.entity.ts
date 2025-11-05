@@ -35,4 +35,9 @@ export class Progress {
   @OneToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: Relation<User>;
+
+  // Virtual fields (not in DB, calculated)
+  totalWords?: number;
+  correctWords?: number;
+  avgScore?: number;
 }

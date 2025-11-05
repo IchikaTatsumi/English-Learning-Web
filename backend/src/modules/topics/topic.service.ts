@@ -11,7 +11,7 @@ export class TopicService {
     @InjectRepository(Topic)
     private topicRepository: Repository<Topic>,
     @InjectRepository(Result)
-    private resultRepository: Repository<Result>,
+    private resultRepository: Repository<r>,
   ) {}
 
   async getAllTopics(): Promise<Topic[]> {
@@ -49,7 +49,7 @@ export class TopicService {
     return topic;
   }
 
-  async getTopicsWithProgress(userId: string): Promise<any[]> {
+  async getTopicsWithProgress(userId: number): Promise<any[]> {
     const topics = await this.topicRepository.find({
       relations: ['vocabularies'],
       order: { createdAt: 'DESC' },
@@ -60,20 +60,35 @@ export class TopicService {
         const vocabIdsInTopic = topic.vocabularies.map((v) => v.id);
         const totalWords = vocabIdsInTopic.length;
 
-        // Find distinct vocabularies learned (best score >= 80)
+        if (totalWords === 0) {
+          return {
+            id: topic.id,
+            topicName: topic.topicName,
+            description: topic.description,
+            createdAt: topic.createdAt,
+            totalWords: 0,
+            learnedCount: 0,
+          };
+        }
+
+        // Find results for vocabularies in this topic
         const results = await this.resultRepository
           .createQueryBuilder('result')
-          .select('result.vocabId')
-          .addSelect('MAX(result.score)', 'maxScore')
+          .leftJoin('result.quizQuestion', 'quizQuestion')
+          .select('quizQuestion.vocabId', 'vocabId')
+          .addSelect(
+            'MAX(CASE WHEN result.isCorrect THEN 1 ELSE 0 END)',
+            'maxCorrect',
+          )
           .where('result.userId = :userId', { userId })
-          .andWhere('result.vocabId IN (:...vocabIds)', {
-            vocabIds: vocabIdsInTopic.length > 0 ? vocabIdsInTopic : [0],
+          .andWhere('quizQuestion.vocabId IN (:...vocabIds)', {
+            vocabIds: vocabIdsInTopic,
           })
-          .groupBy('result.vocabId')
-          .having('MAX(result.score) >= 80')
+          .groupBy('quizQuestion.vocabId')
           .getRawMany();
 
-        const learnedCount = results.length;
+        // Count vocabularies that have been answered correctly at least once
+        const learnedCount = results.filter((r) => r.maxCorrect === '1').length;
 
         return {
           id: topic.id,

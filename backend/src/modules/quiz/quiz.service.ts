@@ -9,7 +9,7 @@ import { Quiz, QuizMode } from './entities/quiz.entity';
 import { QuizQuestion } from '../quizquestions/entities/quizquestion.entity';
 import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import { Result } from '../results/entities/result.entity';
-import { CreateQuizDto, SubmitQuizDto, QuizResultDto } from './dtos/quiz.dto';
+import { CreateQuizDto, SubmitQuizDto, QuizResultDto } from './dto/quiz.dto';
 import { QuizQuestionService } from '../quizquestions/quizquestion.service';
 import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 
@@ -21,7 +21,7 @@ export class QuizService {
     @InjectRepository(Vocabulary)
     private vocabularyRepository: Repository<Vocabulary>,
     @InjectRepository(Result)
-    private resultRepository: Repository<Result>,
+    private resultRepository: Repository<r>,
     private quizQuestionService: QuizQuestionService,
   ) {}
 
@@ -48,39 +48,72 @@ export class QuizService {
     }
 
     // Create questions for each vocabulary
-    await this.quizQuestionService.generateQuestionsForQuiz(
+    const questions = await this.quizQuestionService.generateQuestionsForQuiz(
       savedQuiz.id,
       vocabularies,
     );
 
-    // Return quiz with questions
+    // Return quiz with questions loaded
     return await this.getQuizById(savedQuiz.id, userId);
   }
 
   async getQuizById(quizId: number, userId: number): Promise<Quiz> {
     const quiz = await this.quizRepository.findOne({
       where: { id: quizId, userId },
-      relations: [
-        'questions',
-        'questions.vocabulary',
-        'questions.vocabulary.topic',
-      ],
     });
 
     if (!quiz) {
       throw new NotFoundException(`Quiz with ID ${quizId} not found`);
     }
 
+    // Load questions for this quiz through results
+    const results = await this.resultRepository.find({
+      where: { quizId },
+      relations: [
+        'quizQuestion',
+        'quizQuestion.vocabulary',
+        'quizQuestion.vocabulary.topic',
+      ],
+    });
+
+    // Extract unique questions from results
+    const questionsMap = new Map<number, QuizQuestion>();
+    results.forEach((result) => {
+      if (result.quizQuestion) {
+        questionsMap.set(result.quizQuestion.id, result.quizQuestion);
+      }
+    });
+
+    quiz.questions = Array.from(questionsMap.values()) as any;
+
     return quiz;
   }
 
   async getUserQuizzes(userId: number, limit = 20): Promise<Quiz[]> {
-    return await this.quizRepository.find({
+    const quizzes = await this.quizRepository.find({
       where: { userId },
-      relations: ['questions'],
       order: { createdAt: 'DESC' },
       take: limit,
     });
+
+    // Load questions for each quiz
+    for (const quiz of quizzes) {
+      const results = await this.resultRepository.find({
+        where: { quizId: quiz.id },
+        relations: ['quizQuestion'],
+      });
+
+      const questionsMap = new Map<number, QuizQuestion>();
+      results.forEach((result) => {
+        if (result.quizQuestion) {
+          questionsMap.set(result.quizQuestion.id, result.quizQuestion);
+        }
+      });
+
+      quiz.questions = Array.from(questionsMap.values()) as any;
+    }
+
+    return quizzes;
   }
 
   async submitQuiz(
@@ -88,14 +121,22 @@ export class QuizService {
     userId: number,
     dto: SubmitQuizDto,
   ): Promise<QuizResultDto> {
-    const quiz = await this.getQuizById(quizId, userId);
-    const questions = quiz.questions;
+    const quiz = await this.quizRepository.findOne({
+      where: { id: quizId, userId },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${quizId} not found`);
+    }
+
     const results = [];
     let correctCount = 0;
 
     // Process each answer
     for (const answer of dto.answers) {
-      const question = questions.find((q) => q.id === answer.questionId);
+      const question = await this.quizQuestionService.getQuestionById(
+        answer.questionId,
+      );
 
       if (!question) {
         continue;
@@ -129,7 +170,8 @@ export class QuizService {
     }
 
     // Calculate score
-    const score = Math.round((correctCount / questions.length) * 100);
+    const totalQuestions = dto.answers.length;
+    const score = Math.round((correctCount / totalQuestions) * 100);
 
     // Update quiz
     quiz.score = score;
@@ -137,7 +179,7 @@ export class QuizService {
 
     return {
       quizId: quiz.id,
-      totalQuestions: questions.length,
+      totalQuestions,
       correctAnswers: correctCount,
       score,
       completedAt: new Date(),
@@ -217,7 +259,16 @@ export class QuizService {
     // Random order and limit
     queryBuilder.orderBy('RANDOM()').limit(count);
 
-    return await queryBuilder.getMany();
+    const vocabularies = await queryBuilder.getMany();
+
+    if (vocabularies.length < count) {
+      // If not enough vocabularies, try without topic filter
+      if (topicId) {
+        return await this.getVocabulariesForQuiz(difficulty, count);
+      }
+    }
+
+    return vocabularies;
   }
 
   private mapDifficultyToQuizMode(difficulty: DifficultyLevel): QuizMode {
@@ -233,7 +284,6 @@ export class QuizService {
   async getQuizStatistics(userId: number) {
     const quizzes = await this.quizRepository.find({
       where: { userId },
-      relations: ['questions'],
     });
 
     const completedQuizzes = quizzes.filter((q) => q.score > 0);
@@ -261,6 +311,9 @@ export class QuizService {
         ? Math.max(...completedQuizzes.map((q) => q.score))
         : 0;
 
+    // Get recent quizzes
+    const recentQuizzes = await this.getUserQuizzes(userId, 5);
+
     return {
       totalQuizzes,
       averageScore,
@@ -268,12 +321,19 @@ export class QuizService {
       correctAnswers,
       accuracy,
       bestScore,
-      recentQuizzes: quizzes.slice(0, 5),
+      recentQuizzes,
     };
   }
 
   async deleteQuiz(quizId: number, userId: number): Promise<void> {
-    const quiz = await this.getQuizById(quizId, userId);
+    const quiz = await this.quizRepository.findOne({
+      where: { id: quizId, userId },
+    });
+
+    if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${quizId} not found`);
+    }
+
     await this.quizRepository.remove(quiz);
   }
 }

@@ -47,7 +47,7 @@ export class Result {
   @JoinColumn({ name: 'quiz_question_id' })
   quizQuestion: Relation<QuizQuestion>;
 
-  @ManyToOne(() => User, (user) => user.results, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: Relation<User>;
 }

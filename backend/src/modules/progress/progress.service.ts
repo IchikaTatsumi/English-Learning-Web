@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, MoreThanOrEqual } from 'typeorm';
 import { Progress } from './entities/progress.entity';
 import { Result } from '../results/entities/result.entity';
-import { ProgressStatsDTO } from './dtos/progress.dto';
+import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
+import { ProgressStatsDTO } from './dto/progress.dto';
 
 @Injectable()
 export class ProgressService {
@@ -12,9 +13,11 @@ export class ProgressService {
     private progressRepository: Repository<Progress>,
     @InjectRepository(Result)
     private resultRepository: Repository<Result>,
+    @InjectRepository(Vocabulary)
+    private vocabularyRepository: Repository<Vocabulary>,
   ) {}
 
-  async getOrCreateProgress(userId: string): Promise<Progress> {
+  async getOrCreateProgress(userId: number): Promise<Progress> {
     let progress = await this.progressRepository.findOne({
       where: { userId },
     });
@@ -27,60 +30,77 @@ export class ProgressService {
     return progress;
   }
 
-  async updateProgress(userId: string): Promise<Progress> {
+  async updateProgress(userId: number): Promise<Progress> {
     const progress = await this.getOrCreateProgress(userId);
 
+    // Get all results for user
     const results = await this.resultRepository.find({
       where: { userId },
+      relations: ['quizQuestion'],
     });
 
-    // Calculate unique words attempted
-    const uniqueVocabIds = new Set(results.map((r) => r.vocabId));
-    progress.totalWords = uniqueVocabIds.size;
+    // Update basic stats
+    progress.totalQuestions = results.length;
+    progress.correctAnswers = results.filter((r) => r.isCorrect).length;
 
-    // Calculate correct words (score >= 80)
-    const correctWords = new Set();
-    for (const vocabId of uniqueVocabIds) {
-      const vocabResults = results.filter((r) => r.vocabId === vocabId);
-      const bestScore = Math.max(...vocabResults.map((r) => r.score));
-      if (bestScore >= 80) {
-        correctWords.add(vocabId);
-      }
+    if (progress.totalQuestions > 0) {
+      progress.accuracyRate = parseFloat(
+        ((progress.correctAnswers / progress.totalQuestions) * 100).toFixed(2),
+      );
     }
-    progress.correctWords = correctWords.size;
 
-    // Calculate average score
-    if (results.length > 0) {
-      const totalScore = results.reduce((sum, r) => sum + r.score, 0);
-      progress.avgScore = totalScore / results.length;
-    }
+    // Calculate total quizzes (unique quiz_id count)
+    const uniqueQuizIds = new Set(results.map((r) => r.quizId));
+    progress.totalQuizzes = uniqueQuizIds.size;
 
     return await this.progressRepository.save(progress);
   }
 
-  async getProgressStats(userId: string): Promise<ProgressStatsDTO> {
+  async getProgressStats(userId: number): Promise<ProgressStatsDTO> {
     await this.updateProgress(userId);
     const progress = await this.getOrCreateProgress(userId);
 
     const results = await this.resultRepository.find({
       where: { userId },
+      relations: ['quizQuestion'],
       order: { createdAt: 'DESC' },
     });
 
-    // Calculate current streak
-    const currentStreak = await this.calculateStreak(userId);
+    // Calculate total words in system
+    const totalWords = await this.vocabularyRepository.count();
 
-    // Calculate longest streak
+    // Calculate learned words (unique vocab with score >= 80)
+    const vocabResults = new Map<number, boolean[]>();
+
+    for (const result of results) {
+      const vocabId = result.quizQuestion.vocabId;
+      if (!vocabResults.has(vocabId)) {
+        vocabResults.set(vocabId, []);
+      }
+      vocabResults.get(vocabId)!.push(result.isCorrect);
+    }
+
+    let learnedWords = 0;
+    for (const [vocabId, attempts] of vocabResults.entries()) {
+      const correctCount = attempts.filter((a) => a).length;
+      const score = (correctCount / attempts.length) * 100;
+      if (score >= 80) {
+        learnedWords++;
+      }
+    }
+
+    // Calculate streaks
+    const currentStreak = await this.calculateStreak(userId);
     const longestStreak = await this.calculateLongestStreak(userId);
 
-    // Weekly activity (last 7 days)
+    // Weekly activity
     const weeklyActivity = await this.getWeeklyActivity(userId);
 
-    // Learning trends (last 30 days)
+    // Learning trends
     const learningTrends = await this.getLearningTrends(userId);
 
-    // Calculate quiz score (average of all quiz attempts)
-    const quizScore = progress.avgScore;
+    // Calculate quiz score
+    const quizScore = progress.accuracyRate;
 
     // Weekly goal progress (assume goal is 15 words per week)
     const weeklyGoal = 15;
@@ -88,25 +108,28 @@ export class ProgressService {
       (sum, day) => sum + day.count,
       0,
     );
-    const weeklyGoalProgress = Math.round((thisWeekCount / weeklyGoal) * 100);
+    const weeklyGoalProgress = Math.min(
+      Math.round((thisWeekCount / weeklyGoal) * 100),
+      100,
+    );
 
     return {
-      totalWords: progress.totalWords,
-      learnedWords: progress.correctWords,
+      totalWords,
+      learnedWords,
       currentStreak,
       quizScore: Math.round(quizScore),
       overallProgress: Math.round(
-        (progress.correctWords / Math.max(progress.totalWords, 1)) * 100,
+        (learnedWords / Math.max(totalWords, 1)) * 100,
       ),
-      weeklyGoalProgress: Math.min(weeklyGoalProgress, 100),
+      weeklyGoalProgress,
       longestStreak,
-      totalQuizzes: results.length,
+      totalQuizzes: progress.totalQuizzes,
       weeklyActivity,
       learningTrends,
     };
   }
 
-  private async calculateStreak(userId: string): Promise<number> {
+  private async calculateStreak(userId: number): Promise<number> {
     const results = await this.resultRepository.find({
       where: { userId },
       order: { createdAt: 'DESC' },
@@ -142,7 +165,7 @@ export class ProgressService {
     return streak;
   }
 
-  private async calculateLongestStreak(userId: string): Promise<number> {
+  private async calculateLongestStreak(userId: number): Promise<number> {
     const results = await this.resultRepository.find({
       where: { userId },
       order: { createdAt: 'ASC' },
@@ -179,7 +202,7 @@ export class ProgressService {
   }
 
   private async getWeeklyActivity(
-    userId: string,
+    userId: number,
   ): Promise<Array<{ day: string; count: number }>> {
     const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const now = new Date();
@@ -196,7 +219,7 @@ export class ProgressService {
     daysOfWeek.forEach((day) => activityByDay.set(day, 0));
 
     results.forEach((result) => {
-      const dayIndex = (result.createdAt.getDay() + 6) % 7; // Convert Sunday=0 to Monday=0
+      const dayIndex = (result.createdAt.getDay() + 6) % 7;
       const day = daysOfWeek[dayIndex];
       activityByDay.set(day, (activityByDay.get(day) || 0) + 1);
     });
@@ -208,7 +231,7 @@ export class ProgressService {
   }
 
   private async getLearningTrends(
-    userId: string,
+    userId: number,
   ): Promise<Array<{ date: string; score: number }>> {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -228,12 +251,14 @@ export class ProgressService {
       if (!scoresByDate.has(dateStr)) {
         scoresByDate.set(dateStr, []);
       }
-      scoresByDate.get(dateStr)!.push(result.score);
+      // Convert isCorrect to score (100 or 0)
+      const score = result.isCorrect ? 100 : 0;
+      scoresByDate.get(dateStr)!.push(score);
     });
 
     const trends = Array.from(scoresByDate.entries()).map(([date, scores]) => ({
       date,
-      score: scores.reduce((sum, s) => sum + s, 0) / scores.length,
+      score: Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length),
     }));
 
     return trends;

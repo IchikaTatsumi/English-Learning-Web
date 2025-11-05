@@ -102,8 +102,8 @@ BEGIN
     total_questions = total_questions + 1,
     correct_answers = correct_answers + (CASE WHEN NEW.is_correct THEN 1 ELSE 0 END),
     accuracy_rate = ROUND(
-      (correct_answers::FLOAT + (CASE WHEN NEW.is_correct THEN 1 ELSE 0 END)) /
-      (total_questions::FLOAT + 1) * 100, 2
+      ((correct_answers::FLOAT + (CASE WHEN NEW.is_correct THEN 1 ELSE 0 END)) /
+      (total_questions::FLOAT + 1) * 100)::NUMERIC, 2
     )
   WHERE user_id = NEW.user_id;
 
@@ -127,8 +127,8 @@ SELECT
   COUNT(DISTINCT r.quiz_question_id) AS total_answered,
   SUM(CASE WHEN r.is_correct THEN 1 ELSE 0 END) AS total_correct,
   ROUND(
-    (SUM(CASE WHEN r.is_correct THEN 1 ELSE 0 END)::FLOAT /
-    NULLIF(COUNT(DISTINCT r.quiz_question_id), 0)) * 100, 2
+    ((SUM(CASE WHEN r.is_correct THEN 1 ELSE 0 END)::FLOAT /
+    NULLIF(COUNT(DISTINCT r.quiz_question_id), 0)) * 100)::NUMERIC, 2
   ) AS accuracy_percent
 FROM "user" u
 LEFT JOIN result r ON u.user_id = r.user_id

@@ -23,7 +23,7 @@ import {
   QuizResponseDto,
   QuizResultDto,
   QuizStatisticsDto,
-} from './dtos/quiz.dto';
+} from './dto/quiz.dto';
 
 @ApiBearerAuth()
 @ApiTags('Quiz')

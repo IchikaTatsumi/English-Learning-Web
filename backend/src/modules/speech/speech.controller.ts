@@ -11,7 +11,7 @@ import {
   TextToSpeechDTO,
   SpeechRecognitionResultDTO,
   TextToSpeechResultDTO,
-} from './dtos/speech.dto';
+} from './dto/speech.dto';
 
 @ApiBearerAuth()
 @ApiTags('Speech')

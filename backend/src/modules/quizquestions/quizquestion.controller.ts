@@ -21,7 +21,7 @@ import { QuizQuestionService } from './quizquestion.service';
 import {
   CreateQuizQuestionDto,
   QuizQuestionResponseDto,
-} from './dtos/quizquestion.dto';
+} from './dto/quizquestion.dto';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Role } from 'src/core/enums/role.enum';
 import { Public } from 'src/core/decorators/public.decorator';
