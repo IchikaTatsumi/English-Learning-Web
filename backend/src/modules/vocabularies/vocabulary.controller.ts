@@ -27,6 +27,30 @@ import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
 
+interface RequestWithUser {
+  user: {
+    id: number;
+  };
+}
+
+// ✅ FIX: Thêm interface cho VocabularyWithProgress
+interface VocabularyWithProgress {
+  id: number;
+  word: string;
+  meaningEn: string;
+  meaningVi: string;
+  ipa: string;
+  difficultyLevel: string;
+  isLearned: boolean;
+  bestScore: number;
+  lastReviewed: Date | null;
+  attemptCount: number;
+  topic?: {
+    id: number;
+    topicName: string;
+  };
+}
+
 @ApiBearerAuth()
 @ApiTags('Vocabulary')
 @Controller('vocabularies')
@@ -44,10 +68,10 @@ export class VocabularyController {
   @Get('with-progress')
   @ApiOkResponse({ type: [VocabularyWithProgressDto] })
   async getVocabulariesWithProgress(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Query('topicId') topicId?: number,
-  ): Promise<any[]> {
-    const userId = parseInt(req.user.id);
+  ): Promise<VocabularyWithProgress[]> {
+    const userId = Number(req.user.id);
     return await this.vocabularyService.getVocabulariesWithProgress(
       userId,
       topicId,

@@ -10,9 +10,9 @@ export const typeormConfig = {
   port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
   username: process.env.POSTGRES_USER,
   password: process.env.POSTGRES_PASSWORD,
-  database: process.env.POSTGRES_DB,
+  database: process.env.POSTGRES_DB, // ✅ Đọc từ .env
   synchronize: false,
-  logging: false,
+  logging: true, // ✅ Bật logging để debug
   entities: [path.join(__dirname, '../modules/**/entities/*.entity.{ts,js}')],
   migrations: [path.join(__dirname, 'migrations/*.{ts,js}')],
 };

@@ -9,7 +9,6 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
-import { QuizQuestionResponseDto } from '../../quizquestions/dto/quizquestion.dto';
 
 export class CreateQuizDto {
   @ApiProperty({
@@ -72,7 +71,17 @@ export class QuizResponseDto extends BaseResponseDto {
   totalQuestions: number;
   score: number;
   createdAt: Date;
-  results?: any[];
+  results?: unknown[]; // ✅ FIX: Đổi any[] thành unknown[]
+}
+
+// ✅ FIX: Thêm interface cho question result
+interface QuestionResult {
+  questionId: number;
+  questionText: string;
+  userAnswer: string;
+  correctAnswer: string;
+  isCorrect: boolean;
+  word: string;
 }
 
 @AutoExpose()
@@ -82,14 +91,7 @@ export class QuizResultDto extends BaseResponseDto {
   correctAnswers: number;
   score: number;
   completedAt: Date;
-  questions: {
-    questionId: number;
-    questionText: string;
-    userAnswer: string;
-    correctAnswer: string;
-    isCorrect: boolean;
-    word: string;
-  }[];
+  questions: QuestionResult[]; // ✅ FIX: Dùng interface thay vì inline type
 }
 
 @AutoExpose()

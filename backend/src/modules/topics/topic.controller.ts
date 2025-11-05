@@ -16,6 +16,22 @@ import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
 
+interface RequestWithUser {
+  user: {
+    id: number;
+  };
+}
+
+// ✅ FIX: Thêm interface cho TopicWithProgress
+interface TopicWithProgress {
+  id: number;
+  topicName: string;
+  description: string;
+  createdAt: Date;
+  totalWords: number;
+  learnedCount: number;
+}
+
 @ApiBearerAuth()
 @ApiTags('Topics')
 @Controller('topics')
@@ -32,8 +48,10 @@ export class TopicController {
 
   @Get('with-progress')
   @ApiOkResponse({ type: [TopicDTO] })
-  async getTopicsWithProgress(@Request() req): Promise<any[]> {
-    const userId = parseInt(req.user.id);
+  async getTopicsWithProgress(
+    @Request() req: RequestWithUser,
+  ): Promise<TopicWithProgress[]> {
+    const userId = Number(req.user.id);
     return await this.topicService.getTopicsWithProgress(userId);
   }
 

@@ -8,6 +8,12 @@ import {
 import { ProgressService } from './progress.service';
 import { ProgressResponseDto, ProgressStatsDTO } from './dto/progress.dto';
 
+interface RequestWithUser {
+  user: {
+    id: number;
+  };
+}
+
 @ApiBearerAuth()
 @ApiTags('Progress')
 @Controller('progress')
@@ -17,8 +23,10 @@ export class ProgressController {
   @Get()
   @ApiOperation({ summary: 'Get user progress' })
   @ApiOkResponse({ type: ProgressResponseDto })
-  async getUserProgress(@Request() req): Promise<ProgressResponseDto> {
-    const userId = parseInt(req.user.id);
+  async getUserProgress(
+    @Request() req: RequestWithUser,
+  ): Promise<ProgressResponseDto> {
+    const userId = Number(req.user.id); // ✅ FIX: Dùng Number() thay vì parseInt
     const progress = await this.progressService.getOrCreateProgress(userId);
     return ProgressResponseDto.fromEntity(progress);
   }
@@ -26,8 +34,10 @@ export class ProgressController {
   @Get('stats')
   @ApiOperation({ summary: 'Get detailed progress statistics' })
   @ApiOkResponse({ type: ProgressStatsDTO })
-  async getProgressStats(@Request() req): Promise<ProgressStatsDTO> {
-    const userId = parseInt(req.user.id);
+  async getProgressStats(
+    @Request() req: RequestWithUser,
+  ): Promise<ProgressStatsDTO> {
+    const userId = Number(req.user.id);
     const stats = await this.progressService.getProgressStats(userId);
     return ProgressStatsDTO.fromEntity(stats);
   }

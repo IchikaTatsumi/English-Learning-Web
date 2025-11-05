@@ -5,6 +5,16 @@ import { Topic } from './entities/topic.entity';
 import { CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
 import { Result } from '../results/entities/result.entity';
 
+// ✅ FIX: Thêm interface cho TopicWithProgress
+interface TopicWithProgress {
+  id: number;
+  topicName: string;
+  description: string;
+  createdAt: Date;
+  totalWords: number;
+  learnedCount: number;
+}
+
 @Injectable()
 export class TopicService {
   constructor(
@@ -49,7 +59,7 @@ export class TopicService {
     return topic;
   }
 
-  async getTopicsWithProgress(userId: number): Promise<any[]> {
+  async getTopicsWithProgress(userId: number): Promise<TopicWithProgress[]> {
     const topics = await this.topicRepository.find({
       relations: ['vocabularies'],
       order: { createdAt: 'DESC' },

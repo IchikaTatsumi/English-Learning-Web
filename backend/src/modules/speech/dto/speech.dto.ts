@@ -31,7 +31,7 @@ export class PronunciationMetricsDTO extends BaseResponseDto {
   accuracy: number;
   completeness: number;
   fluency: number;
-  prosody: number;
+  prosody?: number; // ✅ FIX: Thêm optional property
 }
 
 @AutoExpose()

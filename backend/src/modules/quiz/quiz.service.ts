@@ -6,11 +6,20 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Quiz } from './entities/quiz.entity';
-import { QuizQuestion } from '../quizquestions/entities/quizquestion.entity';
 import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import { Result } from '../results/entities/result.entity';
 import { CreateQuizDto, SubmitQuizDto, QuizResultDto } from './dto/quiz.dto';
 import { QuizQuestionService } from '../quizquestions/quizquestion.service';
+
+// ✅ FIX: Thêm interface cho question result
+interface QuestionResult {
+  questionId: number;
+  questionText: string;
+  userAnswer: string;
+  correctAnswer: string;
+  isCorrect: boolean;
+  word: string;
+}
 
 @Injectable()
 export class QuizService {
@@ -26,7 +35,7 @@ export class QuizService {
 
   async createQuiz(userId: number, dto: CreateQuizDto): Promise<Quiz> {
     // Map difficulty to quiz mode
-    const difficultyModeMap = {
+    const difficultyModeMap: Record<string, string> = {
       Beginner: 'Beginner Only',
       Intermediate: 'Intermediate Only',
       Advanced: 'Advanced Only',
@@ -35,7 +44,7 @@ export class QuizService {
 
     const quiz = this.quizRepository.create({
       userId,
-      difficultyMode: difficultyModeMap[dto.difficultyLevel] || 'Mixed Levels',
+      difficultyMode: difficultyModeMap[dto.difficultyLevel] as any, // Cast để tránh lỗi enum
       totalQuestions: dto.totalQuestions || 10,
       score: 0,
     });
@@ -101,7 +110,7 @@ export class QuizService {
       throw new NotFoundException(`Quiz with ID ${quizId} not found`);
     }
 
-    const results = [];
+    const results: QuestionResult[] = []; // ✅ FIX: Thêm type annotation
     let correctCount = 0;
 
     for (const answer of dto.answers) {

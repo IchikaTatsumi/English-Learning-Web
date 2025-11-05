@@ -1,7 +1,14 @@
-import { IsString, IsNumber, IsOptional, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsNotEmpty,
+  IsEnum,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
+import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 
 export class CreateVocabularyDTO {
   @ApiProperty({ description: 'Topic ID' })
@@ -59,11 +66,11 @@ export class CreateVocabularyDTO {
 
   @ApiProperty({
     description: 'Difficulty level',
-    enum: ['Beginner', 'Intermediate', 'Advanced'],
-    default: 'Beginner',
+    enum: DifficultyLevel, // ✅ FIX: Dùng enum thay vì string
+    default: DifficultyLevel.BEGINNER,
   })
-  @IsString()
-  difficultyLevel: string;
+  @IsEnum(DifficultyLevel) // ✅ FIX: Validate enum
+  difficultyLevel: DifficultyLevel; // ✅ FIX: Type là DifficultyLevel
 }
 
 export class UpdateVocabularyDTO {
@@ -102,10 +109,14 @@ export class UpdateVocabularyDTO {
   @IsOptional()
   audioPath?: string;
 
-  @ApiProperty({ description: 'Difficulty level', required: false })
-  @IsString()
+  @ApiProperty({
+    description: 'Difficulty level',
+    required: false,
+    enum: DifficultyLevel,
+  })
+  @IsEnum(DifficultyLevel)
   @IsOptional()
-  difficultyLevel?: string;
+  difficultyLevel?: DifficultyLevel; // ✅ FIX: Type là DifficultyLevel
 }
 
 @AutoExpose()

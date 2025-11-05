@@ -24,8 +24,13 @@ import { SpeechModule } from './modules/speech/speech.module';
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) =>
-        configService.get('typeorm'),
+      useFactory: async (configService: ConfigService) => {
+        const config = configService.get('typeorm');
+        return {
+          ...config,
+          autoLoadEntities: true, // ✅ Thêm option này
+        };
+      },
     }),
     // Feature modules
     AuthModule,

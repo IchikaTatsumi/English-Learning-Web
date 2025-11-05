@@ -1,5 +1,6 @@
 import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
+import { ApiProperty } from '@nestjs/swagger';
 
 @AutoExpose()
 export class ProgressResponseDto extends BaseResponseDto {
@@ -12,28 +13,53 @@ export class ProgressResponseDto extends BaseResponseDto {
   createdAt: Date;
 }
 
-@AutoExpose()
-export class ProgressStatsDTO extends BaseResponseDto {
-  totalWords: number;
-  learnedWords: number;
-  currentStreak: number;
-  quizScore: number;
-  overallProgress: number;
-  weeklyGoalProgress: number;
-  longestStreak: number;
-  totalQuizzes: number;
-  weeklyActivity: Array<{ day: string; count: number }>;
-  learningTrends: Array<{ date: string; score: number }>;
-}
-
-@AutoExpose()
-export class WeeklyActivityDto extends BaseResponseDto {
+// ✅ FIX: Tách riêng WeeklyActivityDto
+export class WeeklyActivityDto {
+  @ApiProperty()
   day: string;
+
+  @ApiProperty()
   count: number;
 }
 
-@AutoExpose()
-export class LearningTrendDto extends BaseResponseDto {
+// ✅ FIX: Tách riêng LearningTrendDto
+export class LearningTrendDto {
+  @ApiProperty()
   date: string;
+
+  @ApiProperty()
   score: number;
+}
+
+@AutoExpose()
+export class ProgressStatsDTO extends BaseResponseDto {
+  @ApiProperty()
+  totalWords: number;
+
+  @ApiProperty()
+  learnedWords: number;
+
+  @ApiProperty()
+  currentStreak: number;
+
+  @ApiProperty()
+  quizScore: number;
+
+  @ApiProperty()
+  overallProgress: number;
+
+  @ApiProperty()
+  weeklyGoalProgress: number;
+
+  @ApiProperty()
+  longestStreak: number;
+
+  @ApiProperty()
+  totalQuizzes: number;
+
+  @ApiProperty({ type: [WeeklyActivityDto] }) //  FIX: Dùng type: []
+  weeklyActivity: WeeklyActivityDto[];
+
+  @ApiProperty({ type: [LearningTrendDto] }) //  FIX: Dùng type: []
+  learningTrends: LearningTrendDto[];
 }

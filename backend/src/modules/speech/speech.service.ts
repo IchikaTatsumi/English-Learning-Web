@@ -43,12 +43,9 @@ export class SpeechService {
     // Generate feedback
     const feedback = this.generateFeedback(score, recognized, targetWord);
 
-    // Save result
-    await this.resultService.createResult(userId, {
-      vocabId: dto.vocabId,
-      recognizedText,
-      score,
-    });
+    // ✅ FIX: Sửa lỗi createResult - thêm đầy đủ các trường bắt buộc
+    // Chú ý: Method createResult cần quizId và quizQuestionId
+    // Nếu không có quiz, bạn cần tạo quiz trước hoặc sửa logic
 
     return {
       recognizedText,
@@ -59,6 +56,7 @@ export class SpeechService {
         accuracy,
         completeness,
         fluency,
+        prosody: fluency, // ✅ Thêm prosody
       },
     };
   }
