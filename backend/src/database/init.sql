@@ -91,6 +91,23 @@ CREATE TABLE progress (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE vocabulary_progress (
+  vocab_progress_id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES "user"(user_id) ON DELETE CASCADE,
+  vocab_id INTEGER NOT NULL REFERENCES vocabulary(vocab_id) ON DELETE CASCADE,
+  is_learned BOOLEAN DEFAULT FALSE,
+  is_bookmarked BOOLEAN DEFAULT FALSE,
+  last_reviewed_at TIMESTAMP WITH TIME ZONE,
+  practice_attempts INTEGER DEFAULT 0,
+  practice_correct_count INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, vocab_id)
+);
+
+-- Index để tăng tốc query
+CREATE INDEX idx_vocab_progress_user ON vocabulary_progress(user_id);
+CREATE INDEX idx_vocab_progress_learned ON vocabulary_progress(is_learned);
 -- ============================
 -- TRIGGER: Update progress
 -- ============================
