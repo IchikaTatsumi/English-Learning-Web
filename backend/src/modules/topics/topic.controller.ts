@@ -15,7 +15,11 @@ import { TopicDTO, CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
-
+import {
+  TopicSearchDto,
+  TopicSearchResultDto,
+  TopicListResponseDto,
+} from './dto/topic-filter.dto';
 interface RequestWithUser {
   user: {
     id: number;
@@ -89,4 +93,40 @@ export class TopicController {
     const topic = await this.topicService.deleteTopic(id);
     return TopicDTO.fromEntity(topic);
   }
+}
+@Public()
+@Get('search')
+@ApiOperation({
+  summary: 'Search topics for autocomplete dropdown',
+  description: 'Returns topics matching search term. Used for Category filter.',
+})
+@ApiOkResponse({ type: TopicListResponseDto })
+async searchTopics(@Query() dto: TopicSearchDto): Promise<TopicListResponseDto> {
+  const topics = await this.topicService.searchTopics(dto.q, dto.limit);
+  return {
+    topics,
+    total: topics.length,
+  };
+}
+
+/**
+ * ✅ Endpoint 2: Get All Topics for Filter
+ * GET /topics/list
+ * 
+ * Dùng để hiển thị dropdown khi bấm button "Category"
+ */
+@Public()
+@Get('list')
+@ApiOperation({
+  summary: 'Get all topics for filter dropdown',
+  description: 'Returns all topics with vocabulary counts.',
+})
+@ApiOkResponse({ type: TopicListResponseDto })
+async getTopicsList(@Request() req?: RequestWithUser): Promise<TopicListResponseDto> {
+  const userId = req?.user?.id;
+  const topics = await this.topicService.getTopicsForFilter(userId);
+  return {
+    topics,
+    total: topics.length,
+  };
 }

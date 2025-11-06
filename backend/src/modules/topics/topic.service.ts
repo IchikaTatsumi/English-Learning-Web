@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Topic } from './entities/topic.entity';
 import { CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
 import { Result } from '../results/entities/result.entity';
+import { TopicSearchResultDto } from './dto/topic-filter.dto';
 
 interface TopicWithProgress {
   id: number;
@@ -146,4 +147,104 @@ export class TopicService {
 
     return topicsWithProgress;
   }
+}
+async searchTopics(
+  searchTerm?: string,
+  limit = 10,
+): Promise<TopicSearchResultDto[]> {
+  const queryBuilder = this.topicRepository
+    .createQueryBuilder('topic')
+    .leftJoin('topic.vocabularies', 'vocab')
+    .select([
+      'topic.id AS id',
+      'topic.topic_name AS topicName',
+      'topic.description AS description',
+      'COUNT(vocab.vocab_id) AS vocabularyCount',
+    ])
+    .groupBy('topic.id');
+
+  if (searchTerm && searchTerm.trim()) {
+    queryBuilder.where('LOWER(topic.topic_name) LIKE LOWER(:search)', {
+      search: `%${searchTerm.trim()}%`,
+    });
+  }
+
+  queryBuilder
+    .orderBy('topic.topic_name', 'ASC')
+    .limit(limit);
+
+  const results = await queryBuilder.getRawMany();
+
+  return results.map((r) => ({
+    id: r.id,
+    topicName: r.topicname,
+    description: r.description || null,
+    vocabularyCount: parseInt(r.vocabularycount, 10) || 0,
+  }));
+}
+
+/**
+ * ✅ Get Topics for Filter Dropdown
+ * GET /topics/list
+ */
+async getTopicsForFilter(userId?: number): Promise<TopicSearchResultDto[]> {
+  const topics = await this.topicRepository
+    .createQueryBuilder('topic')
+    .leftJoin('topic.vocabularies', 'vocab')
+    .select([
+      'topic.id AS id',
+      'topic.topic_name AS topicName',
+      'topic.description AS description',
+      'COUNT(vocab.vocab_id) AS vocabularyCount',
+    ])
+    .groupBy('topic.id')
+    .orderBy('topic.topic_name', 'ASC')
+    .getRawMany();
+
+  const results: TopicSearchResultDto[] = topics.map((t) => ({
+    id: t.id,
+    topicName: t.topicname,
+    description: t.description || null,
+    vocabularyCount: parseInt(t.vocabularycount, 10) || 0,
+  }));
+
+  // Optionally add learned count
+  if (userId) {
+    for (const topic of results) {
+      const learnedCount = await this.getLearnedVocabCount(topic.id, userId);
+      topic.learnedCount = learnedCount;
+    }
+  }
+
+  return results;
+}
+
+/**
+ * ✅ Helper: Get learned vocab count for a topic
+ */
+private async getLearnedVocabCount(
+  topicId: number,
+  userId: number,
+): Promise<number> {
+  const results = await this.resultRepository
+    .createQueryBuilder('result')
+    .leftJoin('result.quizQuestion', 'quizQuestion')
+    .leftJoin('quizQuestion.vocabulary', 'vocab')
+    .select('quizQuestion.vocabId', 'vocabId')
+    .addSelect(
+      'MAX(CASE WHEN result.isCorrect THEN 1 ELSE 0 END)',
+      'maxCorrect',
+    )
+    .where('result.userId = :userId', { userId })
+    .andWhere('vocab.topicId = :topicId', { topicId })
+    .groupBy('quizQuestion.vocabId')
+    .getRawMany<VocabProgressRaw>();
+
+  return results.filter((r) => {
+    const maxCorrect =
+      typeof r.maxCorrect === 'string'
+        ? parseInt(r.maxCorrect, 10)
+        : r.maxCorrect;
+    return maxCorrect === 1;
+  }).length;
 }
