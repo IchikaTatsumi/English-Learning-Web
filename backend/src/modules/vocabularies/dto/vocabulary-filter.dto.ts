@@ -13,21 +13,32 @@ import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 import { ViewModeEnum } from 'src/core/enums/view-mode.enum';
 
 /**
- * ✅ Query DTO cho vocabulary filtering với pagination optional
+ * ✅ IMPROVED: Vocabulary Filter DTO với logic rõ ràng hơn
+ *
+ * Flow:
+ * 1. Search từ khóa trong vocabulary (word, meaning)
+ * 2. Filter theo difficulty
+ * 3. Filter theo topic (ID hoặc name)
+ * 4. Optional pagination
  */
 export class VocabularyFilterDto {
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // SEARCH FILTERS
+  // VOCABULARY SEARCH
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @ApiProperty({
-    description: 'Search by word name (vocabulary word)',
+    description:
+      'Search vocabulary by word, English meaning, or Vietnamese meaning',
     required: false,
     example: 'hello',
   })
   @IsString()
   @IsOptional()
   search?: string;
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // DIFFICULTY FILTER
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @ApiProperty({
     description: 'Filter by difficulty level',
@@ -39,8 +50,12 @@ export class VocabularyFilterDto {
   @IsOptional()
   difficulty?: DifficultyLevel;
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // TOPIC FILTER (Either ID or Name, not both)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
   @ApiProperty({
-    description: 'Filter by topic ID (use "all" for all topics)',
+    description: 'Filter by exact topic ID',
     required: false,
     example: 1,
   })
@@ -50,13 +65,14 @@ export class VocabularyFilterDto {
   topicId?: number;
 
   @ApiProperty({
-    description: 'Search topics by name',
+    description: 'Filter by topic name (partial match, case-insensitive)',
     required: false,
     example: 'Animals',
+    // NOTE: If both topicId and topicName are provided, topicId takes priority
   })
   @IsString()
   @IsOptional()
-  topicSearch?: string;
+  topicName?: string;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // VIEW MODE
@@ -73,7 +89,7 @@ export class VocabularyFilterDto {
   viewMode?: ViewModeEnum;
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // PAGINATION (OPTIONAL)
+  // PAGINATION
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @ApiProperty({
@@ -118,13 +134,13 @@ export class VocabularyFilterDto {
 
   @ApiProperty({
     description: 'Sort field',
-    enum: ['word', 'createdAt', 'difficultyLevel'],
+    enum: ['word', 'createdAt', 'difficultyLevel', 'topicName'],
     default: 'word',
     required: false,
   })
   @IsString()
   @IsOptional()
-  sortBy?: 'word' | 'createdAt' | 'difficultyLevel';
+  sortBy?: 'word' | 'createdAt' | 'difficultyLevel' | 'topicName';
 
   @ApiProperty({
     description: 'Sort order',
@@ -138,67 +154,67 @@ export class VocabularyFilterDto {
 }
 
 /**
- * ✅ Response DTO với pagination metadata optional
+ * ✅ Response DTO với metadata đầy đủ
  */
 export class VocabularyListResponseDto {
-  @ApiProperty({
-    description: 'Array of vocabularies',
-    type: 'array',
-  })
+  @ApiProperty({ description: 'Array of vocabularies', type: 'array' })
   data: any[];
 
-  @ApiProperty({
-    description: 'View mode used',
-    enum: ViewModeEnum,
-  })
+  @ApiProperty({ description: 'View mode used', enum: ViewModeEnum })
   viewMode: ViewModeEnum;
 
-  @ApiProperty({
-    description: 'Total count of vocabularies matching filters',
-  })
+  @ApiProperty({ description: 'Total count matching filters' })
   total: number;
 
-  @ApiProperty({
-    description: 'Whether pagination is enabled',
-  })
+  @ApiProperty({ description: 'Whether pagination is enabled' })
   paginated: boolean;
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // PAGINATION FIELDS (only if paginated=true)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  @ApiProperty({
-    description: 'Current page (only if paginated=true)',
-    required: false,
-  })
+  // Pagination metadata (conditional)
+  @ApiProperty({ description: 'Current page', required: false })
   page?: number;
 
-  @ApiProperty({
-    description: 'Items per page (only if paginated=true)',
-    required: false,
-  })
+  @ApiProperty({ description: 'Items per page', required: false })
   limit?: number;
 
-  @ApiProperty({
-    description: 'Total pages (only if paginated=true)',
-    required: false,
-  })
+  @ApiProperty({ description: 'Total pages', required: false })
   totalPages?: number;
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // FILTER METADATA
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  @ApiProperty({
-    description: 'Applied filters',
-    required: false,
-  })
+  // Applied filters
+  @ApiProperty({ description: 'Applied filters', required: false })
   filters?: {
     search?: string;
     difficulty?: DifficultyLevel;
     topicId?: number;
     topicName?: string;
   };
+}
+
+/**
+ * ✅ NEW: Topic lookup DTO for autocomplete
+ */
+export class TopicLookupDto {
+  @ApiProperty({
+    description: 'Search term for topic name',
+    required: false,
+    example: 'Anim',
+  })
+  @IsString()
+  @IsOptional()
+  search?: string;
+
+  @ApiProperty({
+    description: 'Maximum results to return',
+    default: 10,
+    minimum: 1,
+    maximum: 50,
+    required: false,
+  })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(50)
+  @IsOptional()
+  limit?: number;
 }
 
 /**
