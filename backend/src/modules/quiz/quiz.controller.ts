@@ -17,6 +17,7 @@ import {
   ApiOperation,
 } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
+import { RequestWithUser } from 'src/core/types/request.types';
 import {
   CreateQuizDto,
   SubmitQuizDto,
@@ -35,10 +36,10 @@ export class QuizController {
   @ApiOperation({ summary: 'Create a new quiz' })
   @ApiOkResponse({ type: QuizResponseDto })
   async createQuiz(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Body() dto: CreateQuizDto,
   ): Promise<QuizResponseDto> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     const quiz = await this.quizService.createQuiz(userId, dto);
     return QuizResponseDto.fromEntity(quiz);
   }
@@ -46,8 +47,10 @@ export class QuizController {
   @Get()
   @ApiOperation({ summary: 'Get all quizzes for current user' })
   @ApiOkResponse({ type: [QuizResponseDto] })
-  async getUserQuizzes(@Request() req): Promise<QuizResponseDto[]> {
-    const userId = Number(req.user.id); // ✅ FIX
+  async getUserQuizzes(
+    @Request() req: RequestWithUser,
+  ): Promise<QuizResponseDto[]> {
+    const userId = req.user.id;
     const quizzes = await this.quizService.getUserQuizzes(userId);
     return QuizResponseDto.fromEntities(quizzes);
   }
@@ -55,8 +58,10 @@ export class QuizController {
   @Get('statistics')
   @ApiOperation({ summary: 'Get quiz statistics for current user' })
   @ApiOkResponse({ type: QuizStatisticsDto })
-  async getQuizStatistics(@Request() req): Promise<QuizStatisticsDto> {
-    const userId = Number(req.user.id); // ✅ FIX
+  async getQuizStatistics(
+    @Request() req: RequestWithUser,
+  ): Promise<QuizStatisticsDto> {
+    const userId = req.user.id;
     const stats = await this.quizService.getQuizStatistics(userId);
     return QuizStatisticsDto.fromEntity(stats);
   }
@@ -66,9 +71,9 @@ export class QuizController {
   @ApiOkResponse({ type: QuizResponseDto })
   async getQuizById(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req,
+    @Request() req: RequestWithUser,
   ): Promise<QuizResponseDto> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     const quiz = await this.quizService.getQuizById(id, userId);
     return QuizResponseDto.fromEntity(quiz);
   }
@@ -79,10 +84,10 @@ export class QuizController {
   @ApiOkResponse({ type: QuizResultDto })
   async submitQuiz(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Body() dto: SubmitQuizDto,
   ): Promise<QuizResultDto> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     const result = await this.quizService.submitQuiz(id, userId, dto);
     return QuizResultDto.fromEntity(result);
   }
@@ -92,9 +97,9 @@ export class QuizController {
   @ApiOperation({ summary: 'Delete a quiz' })
   async deleteQuiz(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req,
+    @Request() req: RequestWithUser,
   ): Promise<void> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     await this.quizService.deleteQuiz(id, userId);
   }
 }

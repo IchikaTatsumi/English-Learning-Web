@@ -1,11 +1,4 @@
-import {
-  IsEnum,
-  IsNumber,
-  IsOptional,
-  Min,
-  Max,
-  IsString,
-} from 'class-validator';
+import { IsNumber, IsOptional, Min, Max, IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { BaseResponseDto } from 'src/core/dto/base.dto';
@@ -71,10 +64,10 @@ export class QuizResponseDto extends BaseResponseDto {
   totalQuestions: number;
   score: number;
   createdAt: Date;
-  results?: unknown[]; // ✅ FIX: Đổi any[] thành unknown[]
+  results?: unknown[];
 }
 
-// ✅ FIX: Thêm interface cho question result
+// ✅ Interface cho question result
 interface QuestionResult {
   questionId: number;
   questionText: string;
@@ -91,7 +84,7 @@ export class QuizResultDto extends BaseResponseDto {
   correctAnswers: number;
   score: number;
   completedAt: Date;
-  questions: QuestionResult[]; // ✅ FIX: Dùng interface thay vì inline type
+  questions: QuestionResult[];
 }
 
 @AutoExpose()

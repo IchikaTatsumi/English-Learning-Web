@@ -17,6 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { ResultService } from './result.service';
 import { CreateResultDTO, ResultResponseDto } from './dto/result.dto';
+import { RequestWithUser } from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Results')
@@ -27,8 +28,10 @@ export class ResultController {
   @Get()
   @ApiOperation({ summary: 'Get all results for current user' })
   @ApiOkResponse({ type: [ResultResponseDto] })
-  async getUserResults(@Request() req): Promise<ResultResponseDto[]> {
-    const userId = Number(req.user.id); // ✅ FIX
+  async getUserResults(
+    @Request() req: RequestWithUser,
+  ): Promise<ResultResponseDto[]> {
+    const userId = req.user.id;
     const results = await this.resultService.getResultsByUserId(userId);
     return ResultResponseDto.fromEntities(results);
   }
@@ -38,10 +41,10 @@ export class ResultController {
   @ApiOperation({ summary: 'Get recent results' })
   @ApiOkResponse({ type: [ResultResponseDto] })
   async getRecentResults(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Query('limit') limit?: number,
   ): Promise<ResultResponseDto[]> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     const results = await this.resultService.getRecentResults(
       userId,
       limit || 10,
@@ -52,8 +55,8 @@ export class ResultController {
   @Get('statistics')
   @ApiOperation({ summary: 'Get user statistics' })
   @ApiOkResponse()
-  async getUserStatistics(@Request() req) {
-    const userId = Number(req.user.id); // ✅ FIX
+  async getUserStatistics(@Request() req: RequestWithUser) {
+    const userId = req.user.id;
     return await this.resultService.getUserStatistics(userId);
   }
 
@@ -61,10 +64,10 @@ export class ResultController {
   @ApiOperation({ summary: 'Get results for specific quiz' })
   @ApiOkResponse({ type: [ResultResponseDto] })
   async getResultsByQuiz(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Param('quizId', ParseIntPipe) quizId: number,
   ): Promise<ResultResponseDto[]> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     const results = await this.resultService.getResultsByQuizId(quizId, userId);
     return ResultResponseDto.fromEntities(results);
   }
@@ -73,10 +76,10 @@ export class ResultController {
   @ApiOperation({ summary: 'Get results for specific vocabulary' })
   @ApiOkResponse({ type: [ResultResponseDto] })
   async getResultsByVocab(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Param('vocabId', ParseIntPipe) vocabId: number,
   ): Promise<ResultResponseDto[]> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     const results = await this.resultService.getResultsByVocabId(
       vocabId,
       userId,
@@ -88,10 +91,10 @@ export class ResultController {
   @ApiOperation({ summary: 'Get best score for vocabulary' })
   @ApiOkResponse({ type: Number })
   async getBestScore(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Param('vocabId', ParseIntPipe) vocabId: number,
   ): Promise<{ score: number }> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     const score = await this.resultService.getBestScoreForVocab(
       vocabId,
       userId,
@@ -103,10 +106,10 @@ export class ResultController {
   @ApiOperation({ summary: 'Create a new result' })
   @ApiOkResponse({ type: ResultResponseDto })
   async createResult(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Body() dto: CreateResultDTO,
   ): Promise<ResultResponseDto> {
-    const userId = Number(req.user.id); // ✅ FIX
+    const userId = req.user.id;
     const result = await this.resultService.createResult(userId, dto);
     return ResultResponseDto.fromEntity(result);
   }

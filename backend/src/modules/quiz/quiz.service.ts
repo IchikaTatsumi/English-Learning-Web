@@ -5,7 +5,11 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Quiz } from './entities/quiz.entity';
+import {
+  Quiz,
+  QuizMode,
+  DIFFICULTY_TO_QUIZ_MODE,
+} from './entities/quiz.entity';
 import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import { Result } from '../results/entities/result.entity';
 import { QuizQuestion } from '../quizquestions/entities/quizquestion.entity';
@@ -33,30 +37,20 @@ export class QuizService {
     private quizQuestionRepository: Repository<QuizQuestion>,
   ) {}
 
-  /**
-   * ✅ LOGIC MỚI: Tạo quiz với random questions từ QuizQuestion table
-   * - Lấy ngẫu nhiên các câu hỏi đã có trong database
-   * - Không tạo mới câu hỏi
-   */
   async createQuiz(userId: number, dto: CreateQuizDto): Promise<Quiz> {
-    const difficultyModeMap: Record<string, string> = {
-      Beginner: 'Beginner Only',
-      Intermediate: 'Intermediate Only',
-      Advanced: 'Advanced Only',
-      'Mixed Levels': 'Mixed Levels',
-    };
+    // ✅ Type-safe difficulty mapping
+    const difficultyMode =
+      DIFFICULTY_TO_QUIZ_MODE[dto.difficultyLevel] || QuizMode.MIXED_LEVELS;
 
-    // 1. Create quiz record
     const quiz = this.quizRepository.create({
       userId,
-      difficultyMode: difficultyModeMap[dto.difficultyLevel] as any,
+      difficultyMode,
       totalQuestions: dto.totalQuestions || 10,
       score: 0,
     });
 
     const savedQuiz = await this.quizRepository.save(quiz);
 
-    // 2. ✅ Lấy random questions từ QuizQuestion table
     const randomQuestions = await this.getRandomQuizQuestions(
       dto.totalQuestions || 10,
       dto.difficultyLevel,
@@ -69,16 +63,9 @@ export class QuizService {
       );
     }
 
-    // 3. Return quiz with questions
     return await this.getQuizById(savedQuiz.id, userId);
   }
 
-  /**
-   * ✅ Get random questions from existing QuizQuestion table
-   * - Filter by difficulty level
-   * - Filter by topic (optional)
-   * - Return random questions
-   */
   private async getRandomQuizQuestions(
     count: number,
     difficulty: string,
@@ -89,19 +76,16 @@ export class QuizService {
       .leftJoinAndSelect('qq.vocabulary', 'vocab')
       .leftJoinAndSelect('vocab.topic', 'topic');
 
-    // Filter by topic
     if (topicId) {
       queryBuilder.andWhere('vocab.topicId = :topicId', { topicId });
     }
 
-    // Filter by difficulty
     if (difficulty !== 'Mixed Levels') {
       queryBuilder.andWhere('vocab.difficultyLevel = :difficulty', {
         difficulty,
       });
     }
 
-    // Get random questions
     queryBuilder.orderBy('RANDOM()').limit(count);
 
     return await queryBuilder.getMany();
@@ -133,9 +117,6 @@ export class QuizService {
     });
   }
 
-  /**
-   * ✅ Submit quiz và tính điểm
-   */
   async submitQuiz(
     quizId: number,
     userId: number,
@@ -168,7 +149,6 @@ export class QuizService {
         correctCount++;
       }
 
-      // Save result
       const result = this.resultRepository.create({
         quizId: quiz.id,
         quizQuestionId: question.id,
@@ -189,11 +169,9 @@ export class QuizService {
       });
     }
 
-    // Calculate score
     const totalQuestions = dto.answers.length;
     const score = Math.round((correctCount / totalQuestions) * 100);
 
-    // Update quiz score
     quiz.score = score;
     await this.quizRepository.save(quiz);
 

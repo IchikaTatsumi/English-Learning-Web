@@ -5,7 +5,6 @@ import { Topic } from './entities/topic.entity';
 import { CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
 import { Result } from '../results/entities/result.entity';
 
-// ✅ FIX: Thêm interface cho TopicWithProgress
 interface TopicWithProgress {
   id: number;
   topicName: string;
@@ -13,6 +12,12 @@ interface TopicWithProgress {
   createdAt: Date;
   totalWords: number;
   learnedCount: number;
+}
+
+// ✅ Type for raw query result
+interface VocabProgressRaw {
+  vocabId: number;
+  maxCorrect: number | string; // Can be both from PostgreSQL
 }
 
 @Injectable()
@@ -81,7 +86,7 @@ export class TopicService {
           };
         }
 
-        // Count unique vocab IDs that have been answered correctly
+        // ✅ Type-safe raw query with proper interface
         const results = await this.resultRepository
           .createQueryBuilder('result')
           .leftJoin('result.quizQuestion', 'quizQuestion')
@@ -95,11 +100,16 @@ export class TopicService {
             vocabIds: vocabIdsInTopic,
           })
           .groupBy('quizQuestion.vocabId')
-          .getRawMany();
+          .getRawMany<VocabProgressRaw>();
 
-        const learnedCount = results.filter(
-          (r) => r.maxCorrect === 1 || r.maxCorrect === '1',
-        ).length;
+        // ✅ Type-safe filtering with proper type guards
+        const learnedCount = results.filter((r) => {
+          const maxCorrect =
+            typeof r.maxCorrect === 'string'
+              ? parseInt(r.maxCorrect, 10)
+              : r.maxCorrect;
+          return maxCorrect === 1;
+        }).length;
 
         return {
           id: topic.id,
