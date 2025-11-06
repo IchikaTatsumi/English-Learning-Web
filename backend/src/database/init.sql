@@ -45,7 +45,6 @@ CREATE TABLE vocabulary (
   ipa VARCHAR(100),
   meaning_en TEXT NOT NULL,
   meaning_vi TEXT NOT NULL,
-  example_sentence TEXT,
   audio_path VARCHAR(255),
   difficulty_level difficulty_enum NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

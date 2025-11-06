@@ -9,7 +9,7 @@ import {
   Unique,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Vocabulary } from './vocabulary.entity';
+import { Vocabulary } from '../../vocabularies/entities/vocabulary.entity';
 import type { Relation } from 'typeorm';
 
 @Entity('vocabulary_progress')

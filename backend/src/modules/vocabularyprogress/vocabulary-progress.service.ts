@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { VocabularyProgress } from './entities/vocabulary-progress.entity';
-import { Vocabulary } from './entities/vocabulary.entity';
+import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import {
   SubmitPracticeDto,
   BookmarkVocabDto,
