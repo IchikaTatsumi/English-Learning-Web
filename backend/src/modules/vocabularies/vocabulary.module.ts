@@ -9,10 +9,16 @@ import { VocabularyProgressService } from '../vocabularyprogress/vocabulary-prog
 import { ResultModule } from '../results/result.module';
 import { TopicModule } from '../topics/topic.module';
 import { Result } from '../results/entities/result.entity';
+import { Topic } from '../topics/entities/topic.entity'; // ✅ Add this
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Vocabulary, VocabularyProgress, Result]),
+    TypeOrmModule.forFeature([
+      Vocabulary,
+      VocabularyProgress,
+      Result,
+      Topic, // ✅ Add Topic
+    ]),
     forwardRef(() => TopicModule),
     forwardRef(() => ResultModule),
   ],

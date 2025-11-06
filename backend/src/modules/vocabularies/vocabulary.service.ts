@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Vocabulary } from './entities/vocabulary.entity';
 import { CreateVocabularyDTO, UpdateVocabularyDTO } from './dto/vocabulary.dto';
+import { VocabularyFilterDto } from './dto/vocabulary-filter.dto';
 import { Result } from '../results/entities/result.entity';
+import { Topic } from '../topics/entities/topic.entity';
 
-// ✅ FIX: Thêm interface cho VocabularyWithProgress
 interface VocabularyWithProgress {
   id: number;
   topicId: number;
@@ -34,7 +35,159 @@ export class VocabularyService {
     private vocabularyRepository: Repository<Vocabulary>,
     @InjectRepository(Result)
     private resultRepository: Repository<Result>,
+    @InjectRepository(Topic)
+    private topicRepository: Repository<Topic>,
   ) {}
+
+  /**
+   * ✅ MAIN METHOD: Get vocabularies with flexible filtering and optional pagination
+   */
+  async getVocabulariesWithFilters(
+    filters: VocabularyFilterDto,
+  ): Promise<{ data: Vocabulary[]; total: number }> {
+    // Build base query
+    const queryBuilder = this.createFilteredQuery(filters);
+
+    // Apply sorting
+    this.applySorting(queryBuilder, filters);
+
+    // Apply pagination if enabled
+    if (filters.paginate) {
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      const skip = (page - 1) * limit;
+
+      queryBuilder.skip(skip).take(limit);
+    }
+
+    // Execute query
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return { data, total };
+  }
+
+  /**
+   * ✅ Create filtered query builder
+   */
+  private createFilteredQuery(
+    filters: VocabularyFilterDto,
+  ): SelectQueryBuilder<Vocabulary> {
+    const queryBuilder = this.vocabularyRepository
+      .createQueryBuilder('vocab')
+      .leftJoinAndSelect('vocab.topic', 'topic');
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FILTER 1: Search by word name
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (filters.search && filters.search.trim()) {
+      queryBuilder.andWhere(
+        '(LOWER(vocab.word) LIKE LOWER(:search) OR ' +
+          'LOWER(vocab.meaningEn) LIKE LOWER(:search) OR ' +
+          'LOWER(vocab.meaningVi) LIKE LOWER(:search))',
+        { search: `%${filters.search.trim()}%` },
+      );
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FILTER 2: Filter by difficulty level
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (filters.difficulty && filters.difficulty !== DifficultyLevel.MIXED) {
+      queryBuilder.andWhere('vocab.difficultyLevel = :difficulty', {
+        difficulty: filters.difficulty,
+      });
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FILTER 3: Filter by topic
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (filters.topicId) {
+      queryBuilder.andWhere('vocab.topicId = :topicId', {
+        topicId: filters.topicId,
+      });
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FILTER 4: Search topics by name (for category filter)
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    if (filters.topicSearch && filters.topicSearch.trim()) {
+      queryBuilder.andWhere('LOWER(topic.topicName) LIKE LOWER(:topicSearch)', {
+        topicSearch: `%${filters.topicSearch.trim()}%`,
+      });
+    }
+
+    return queryBuilder;
+  }
+
+  /**
+   * ✅ Apply sorting
+   */
+  private applySorting(
+    queryBuilder: SelectQueryBuilder<Vocabulary>,
+    filters: VocabularyFilterDto,
+  ): void {
+    const sortBy = filters.sortBy || 'word';
+    const sortOrder = (filters.sortOrder || 'ASC').toUpperCase() as
+      | 'ASC'
+      | 'DESC';
+
+    switch (sortBy) {
+      case 'word':
+        queryBuilder.orderBy('vocab.word', sortOrder);
+        break;
+      case 'createdAt':
+        queryBuilder.orderBy('vocab.createdAt', sortOrder);
+        break;
+      case 'difficultyLevel':
+        queryBuilder.orderBy('vocab.difficultyLevel', sortOrder);
+        break;
+      default:
+        queryBuilder.orderBy('vocab.word', 'ASC');
+    }
+  }
+
+  /**
+   * ✅ Search topics for category dropdown
+   */
+  async searchTopics(searchTerm?: string): Promise<
+    Array<{
+      id: number;
+      topicName: string;
+      description: string;
+      vocabularyCount: number;
+    }>
+  > {
+    const queryBuilder = this.topicRepository
+      .createQueryBuilder('topic')
+      .leftJoin('topic.vocabularies', 'vocab')
+      .select([
+        'topic.id',
+        'topic.topicName',
+        'topic.description',
+        'COUNT(vocab.id) as vocabularyCount',
+      ])
+      .groupBy('topic.id');
+
+    if (searchTerm && searchTerm.trim()) {
+      queryBuilder.where('LOWER(topic.topicName) LIKE LOWER(:search)', {
+        search: `%${searchTerm.trim()}%`,
+      });
+    }
+
+    queryBuilder.orderBy('topic.topicName', 'ASC');
+
+    const results = await queryBuilder.getRawMany();
+
+    return results.map((r) => ({
+      id: r.topic_id,
+      topicName: r.topic_topicName,
+      description: r.topic_description,
+      vocabularyCount: parseInt(r.vocabularyCount, 10) || 0,
+    }));
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // EXISTING METHODS (unchanged)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   async getAllVocabularies(): Promise<Vocabulary[]> {
     return await this.vocabularyRepository.find({
@@ -65,7 +218,6 @@ export class VocabularyService {
   }
 
   async createVocabulary(dto: CreateVocabularyDTO): Promise<Vocabulary> {
-    // ✅ FIX: Bây giờ đơn giản hơn vì DTO đã có type đúng
     const vocabulary = this.vocabularyRepository.create(dto);
     return await this.vocabularyRepository.save(vocabulary);
   }

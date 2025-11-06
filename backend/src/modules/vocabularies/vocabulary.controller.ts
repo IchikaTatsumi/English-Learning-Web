@@ -15,6 +15,7 @@ import {
   ApiTags,
   ApiOkResponse,
   ApiQuery,
+  ApiOperation,
 } from '@nestjs/swagger';
 import { VocabularyService } from './vocabulary.service';
 import {
@@ -23,31 +24,19 @@ import {
   VocabularyResponseDto,
   VocabularyWithProgressDto,
 } from './dto/vocabulary.dto';
+import {
+  VocabularyFilterDto,
+  VocabularyListResponseDto,
+  TopicSearchResponseDto,
+} from './dto/vocabulary-filter.dto';
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
+import { ViewModeEnum } from 'src/core/enums/view-mode.enum';
 
 interface RequestWithUser {
   user: {
     id: number;
-  };
-}
-
-// ✅ FIX: Thêm interface cho VocabularyWithProgress
-interface VocabularyWithProgress {
-  id: number;
-  word: string;
-  meaningEn: string;
-  meaningVi: string;
-  ipa: string;
-  difficultyLevel: string;
-  isLearned: boolean;
-  bestScore: number;
-  lastReviewed: Date | null;
-  attemptCount: number;
-  topic?: {
-    id: number;
-    topicName: string;
   };
 }
 
@@ -56,6 +45,71 @@ interface VocabularyWithProgress {
 @Controller('vocabularies')
 export class VocabularyController {
   constructor(private readonly vocabularyService: VocabularyService) {}
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ✅ NEW: Main endpoint với filtering và pagination
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  @Public()
+  @Get('filter')
+  @ApiOperation({
+    summary: 'Get vocabularies with flexible filtering and optional pagination',
+  })
+  @ApiOkResponse({ type: VocabularyListResponseDto })
+  async getVocabulariesWithFilter(
+    @Query() filters: VocabularyFilterDto,
+  ): Promise<VocabularyListResponseDto> {
+    const viewMode = filters.viewMode || ViewModeEnum.GRID;
+    const paginate = filters.paginate === true;
+
+    // Get filtered data
+    const { data, total } =
+      await this.vocabularyService.getVocabulariesWithFilters(filters);
+
+    // Build response
+    const response: VocabularyListResponseDto = {
+      data: VocabularyResponseDto.fromEntities(data),
+      viewMode,
+      total,
+      paginated: paginate,
+    };
+
+    // Add pagination metadata if enabled
+    if (paginate) {
+      const page = filters.page || 1;
+      const limit = filters.limit || 20;
+      response.page = page;
+      response.limit = limit;
+      response.totalPages = Math.ceil(total / limit);
+    }
+
+    // Add applied filters
+    response.filters = {};
+    if (filters.search) response.filters.search = filters.search;
+    if (filters.difficulty) response.filters.difficulty = filters.difficulty;
+    if (filters.topicId) response.filters.topicId = filters.topicId;
+
+    return response;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ✅ NEW: Search topics endpoint
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  @Public()
+  @Get('topics/search')
+  @ApiOperation({ summary: 'Search topics for category filter' })
+  @ApiQuery({ name: 'q', required: false, type: String })
+  @ApiOkResponse({ type: [TopicSearchResponseDto] })
+  async searchTopics(
+    @Query('q') searchTerm?: string,
+  ): Promise<TopicSearchResponseDto[]> {
+    return await this.vocabularyService.searchTopics(searchTerm);
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // EXISTING ENDPOINTS (unchanged)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @Public()
   @Get()
@@ -70,7 +124,7 @@ export class VocabularyController {
   async getVocabulariesWithProgress(
     @Request() req: RequestWithUser,
     @Query('topicId') topicId?: number,
-  ): Promise<VocabularyWithProgress[]> {
+  ) {
     const userId = Number(req.user.id);
     return await this.vocabularyService.getVocabulariesWithProgress(
       userId,
