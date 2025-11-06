@@ -82,7 +82,7 @@ export class ProgressService {
 
     let learnedWords = 0;
     // ✅ FIX: Thêm underscore để báo ESLint biết vocabId không được dùng
-    for (const [_vocabId, attempts] of vocabResults.entries()) {
+    for (const [, attempts] of vocabResults.entries()) {
       const correctCount = attempts.filter((a) => a).length;
       const score = (correctCount / attempts.length) * 100;
       if (score >= 80) {

@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { Vocabulary } from './entities/vocabulary.entity';
 import { CreateVocabularyDTO, UpdateVocabularyDTO } from './dto/vocabulary.dto';
 import { Result } from '../results/entities/result.entity';
-import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 
 // ✅ FIX: Thêm interface cho VocabularyWithProgress
 interface VocabularyWithProgress {

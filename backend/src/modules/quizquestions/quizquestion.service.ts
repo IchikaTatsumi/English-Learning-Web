@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { QuizQuestion } from './entities/quizquestion.entity';
@@ -32,10 +36,22 @@ export class QuizQuestionService {
     return question;
   }
 
+  /**
+   * ✅ GENERATE QUESTIONS WITH WRONG ANSWERS
+   * Cần ít nhất 4 vocabularies để tạo 1 đúng + 3 sai
+   */
   async generateQuestionsForQuiz(
     quizId: number,
     vocabularies: Vocabulary[],
   ): Promise<QuizQuestion[]> {
+    // ✅ VALIDATION: Check minimum vocabulary count
+    if (vocabularies.length < 4) {
+      throw new BadRequestException(
+        `Cannot generate quiz questions: Need at least 4 vocabularies, but only ${vocabularies.length} provided. ` +
+          `Add more vocabularies to generate valid multiple-choice questions.`,
+      );
+    }
+
     const questionTypes = [
       'WordToMeaning',
       'MeaningToWord',

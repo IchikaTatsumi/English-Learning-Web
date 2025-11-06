@@ -14,10 +14,9 @@ interface TopicWithProgress {
   learnedCount: number;
 }
 
-// ✅ Type for raw query result
 interface VocabProgressRaw {
   vocabId: number;
-  maxCorrect: number | string; // Can be both from PostgreSQL
+  maxCorrect: number | string;
 }
 
 @Injectable()
@@ -58,9 +57,34 @@ export class TopicService {
     return await this.topicRepository.save(topic);
   }
 
+  /**
+   * ✅ DELETE CASCADE LOGIC:
+   * Khi xóa topic -> tự động xóa:
+   * 1. Tất cả vocabularies thuộc topic
+   * 2. Tất cả quiz_questions của các vocabularies đó
+   * 3. Tất cả results liên quan
+   * (Nhờ vào ON DELETE CASCADE trong database)
+   */
   async deleteTopic(id: number): Promise<Topic> {
     const topic = await this.getTopicById(id);
+
+    // Lấy số lượng vocabularies để log
+    const vocabCount = topic.vocabularies?.length || 0;
+
+    console.log(
+      `🗑️ Deleting topic "${topic.topicName}" with ${vocabCount} vocabularies`,
+    );
+
+    // TypeORM + Database CASCADE sẽ tự động xóa:
+    // - vocabularies (ON DELETE CASCADE)
+    // - quiz_questions (ON DELETE CASCADE từ vocab)
+    // - results (ON DELETE CASCADE từ quiz_questions)
     await this.topicRepository.remove(topic);
+
+    console.log(
+      `✅ Topic deleted successfully (${vocabCount} vocabularies removed)`,
+    );
+
     return topic;
   }
 
@@ -86,7 +110,6 @@ export class TopicService {
           };
         }
 
-        // ✅ Type-safe raw query with proper interface
         const results = await this.resultRepository
           .createQueryBuilder('result')
           .leftJoin('result.quizQuestion', 'quizQuestion')
@@ -102,7 +125,6 @@ export class TopicService {
           .groupBy('quizQuestion.vocabId')
           .getRawMany<VocabProgressRaw>();
 
-        // ✅ Type-safe filtering with proper type guards
         const learnedCount = results.filter((r) => {
           const maxCorrect =
             typeof r.maxCorrect === 'string'

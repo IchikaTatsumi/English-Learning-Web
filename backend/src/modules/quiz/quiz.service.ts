@@ -38,7 +38,6 @@ export class QuizService {
   ) {}
 
   async createQuiz(userId: number, dto: CreateQuizDto): Promise<Quiz> {
-    // ✅ Type-safe difficulty mapping
     const difficultyMode =
       DIFFICULTY_TO_QUIZ_MODE[dto.difficultyLevel] || QuizMode.MIXED_LEVELS;
 
@@ -66,6 +65,10 @@ export class QuizService {
     return await this.getQuizById(savedQuiz.id, userId);
   }
 
+  /**
+   * ✅ VALIDATE VOCABULARY COUNT FOR QUIZ GENERATION
+   * Cần ít nhất 4 vocabularies để tạo quiz questions (1 đúng + 3 sai)
+   */
   private async getRandomQuizQuestions(
     count: number,
     difficulty: string,
@@ -86,9 +89,38 @@ export class QuizService {
       });
     }
 
+    // ✅ CHECK: Đếm số lượng vocabularies available
+    const totalVocabs = await this.vocabularyRepository.count({
+      where: topicId
+        ? {
+            topicId,
+            difficultyLevel:
+              difficulty !== 'Mixed Levels' ? (difficulty as any) : undefined,
+          }
+        : difficulty !== 'Mixed Levels'
+          ? { difficultyLevel: difficulty as any }
+          : {},
+    });
+
+    // ✅ VALIDATION: Cần ít nhất 4 vocabularies
+    if (totalVocabs < 4) {
+      throw new BadRequestException(
+        `Cannot generate quiz: Need at least 4 vocabularies, but only ${totalVocabs} available. ` +
+          `Please add more vocabularies to this ${topicId ? 'topic' : 'difficulty level'}.`,
+      );
+    }
+
     queryBuilder.orderBy('RANDOM()').limit(count);
 
-    return await queryBuilder.getMany();
+    const questions = await queryBuilder.getMany();
+
+    if (questions.length === 0) {
+      throw new BadRequestException(
+        'No quiz questions found. Please ensure vocabularies have generated questions.',
+      );
+    }
+
+    return questions;
   }
 
   async getQuizById(quizId: number, userId: number): Promise<Quiz> {
