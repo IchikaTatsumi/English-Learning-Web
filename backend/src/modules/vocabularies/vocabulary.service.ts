@@ -2,37 +2,20 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Vocabulary } from './entities/vocabulary.entity';
+import { VocabularyProgress } from '../vocabularyprogress/entities/vocabulary-progress.entity';
 import { CreateVocabularyDTO, UpdateVocabularyDTO } from './dto/vocabulary.dto';
 import { VocabularyFilterDto } from './dto/vocabulary-filter.dto';
 import { Result } from '../results/entities/result.entity';
 import { Topic } from '../topics/entities/topic.entity';
-
-interface VocabularyWithProgress {
-  id: number;
-  topicId: number;
-  word: string;
-  ipa: string;
-  meaningEn: string;
-  meaningVi: string;
-  exampleSentence: string;
-  audioPath: string;
-  difficultyLevel: string;
-  createdAt: Date;
-  topic?: {
-    id: number;
-    topicName: string;
-  };
-  isLearned: boolean;
-  bestScore: number;
-  lastReviewed: Date | null;
-  attemptCount: number;
-}
+import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 
 @Injectable()
 export class VocabularyService {
   constructor(
     @InjectRepository(Vocabulary)
     private vocabularyRepository: Repository<Vocabulary>,
+    @InjectRepository(VocabularyProgress)
+    private progressRepository: Repository<VocabularyProgress>,
     @InjectRepository(Result)
     private resultRepository: Repository<Result>,
     @InjectRepository(Topic)
@@ -40,13 +23,22 @@ export class VocabularyService {
   ) {}
 
   /**
-   * ✅ MAIN METHOD: Get vocabularies with flexible filtering and optional pagination
+   * ✅ MAIN METHOD: Get vocabularies with flexible filtering
+   *
+   * Logic Flow:
+   * 1. All topics (topicId = null)
+   * 2. Specific topic (topicId = X)
+   * 3. All difficulties (difficulty = Mixed Levels hoặc null)
+   * 4. Specific difficulty (Beginner/Intermediate/Advanced)
+   * 5. Learned only (onlyLearned = true)
+   * 6. Recently learned (recentlyLearned = true)
    */
   async getVocabulariesWithFilters(
     filters: VocabularyFilterDto,
+    userId?: number,
   ): Promise<{ data: Vocabulary[]; total: number }> {
     // Build base query
-    const queryBuilder = this.createFilteredQuery(filters);
+    const queryBuilder = this.createFilteredQuery(filters, userId);
 
     // Apply sorting
     this.applySorting(queryBuilder, filters);
@@ -71,13 +63,14 @@ export class VocabularyService {
    */
   private createFilteredQuery(
     filters: VocabularyFilterDto,
+    userId?: number,
   ): SelectQueryBuilder<Vocabulary> {
     const queryBuilder = this.vocabularyRepository
       .createQueryBuilder('vocab')
       .leftJoinAndSelect('vocab.topic', 'topic');
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // FILTER 1: Search by word name
+    // FILTER 1: Search by word/meaning
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (filters.search && filters.search.trim()) {
       queryBuilder.andWhere(
@@ -89,7 +82,8 @@ export class VocabularyService {
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // FILTER 2: Filter by difficulty level
+    // FILTER 2: Difficulty Level
+    // All = Mixed Levels hoặc không truyền
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (filters.difficulty && filters.difficulty !== DifficultyLevel.MIXED) {
       queryBuilder.andWhere('vocab.difficultyLevel = :difficulty', {
@@ -98,7 +92,9 @@ export class VocabularyService {
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // FILTER 3: Filter by topic
+    // FILTER 3: Topic
+    // All topics = topicId is null/undefined
+    // Specific topic = topicId is provided
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (filters.topicId) {
       queryBuilder.andWhere('vocab.topicId = :topicId', {
@@ -107,12 +103,18 @@ export class VocabularyService {
     }
 
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // FILTER 4: Search topics by name (for category filter)
+    // FILTER 4: Learned Vocabularies (Tab "Learned")
+    // Join với vocabulary_progress
     // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    if (filters.topicSearch && filters.topicSearch.trim()) {
-      queryBuilder.andWhere('LOWER(topic.topicName) LIKE LOWER(:topicSearch)', {
-        topicSearch: `%${filters.topicSearch.trim()}%`,
-      });
+    if (filters.onlyLearned && userId) {
+      queryBuilder
+        .innerJoin(
+          'vocabulary_progress',
+          'vp',
+          'vp.vocab_id = vocab.vocab_id AND vp.user_id = :userId AND vp.is_learned = true',
+          { userId },
+        )
+        .addSelect('vp.first_learned_at', 'firstLearnedAt');
     }
 
     return queryBuilder;
@@ -130,6 +132,12 @@ export class VocabularyService {
       | 'ASC'
       | 'DESC';
 
+    // ✅ Special case: Recently learned (sort by first_learned_at DESC)
+    if (filters.recentlyLearned && filters.onlyLearned) {
+      queryBuilder.orderBy('vp.first_learned_at', 'DESC');
+      return;
+    }
+
     switch (sortBy) {
       case 'word':
         queryBuilder.orderBy('vocab.word', sortOrder);
@@ -140,15 +148,26 @@ export class VocabularyService {
       case 'difficultyLevel':
         queryBuilder.orderBy('vocab.difficultyLevel', sortOrder);
         break;
+      case 'firstLearnedAt':
+        if (filters.onlyLearned) {
+          queryBuilder.orderBy('vp.first_learned_at', sortOrder);
+        } else {
+          queryBuilder.orderBy('vocab.createdAt', sortOrder);
+        }
+        break;
       default:
         queryBuilder.orderBy('vocab.word', 'ASC');
     }
   }
 
   /**
-   * ✅ Search topics for category dropdown
+   * ✅ Search topics for autocomplete dropdown
+   * GET /vocabularies/topics/search?q=Anim
    */
-  async searchTopics(searchTerm?: string): Promise<
+  async searchTopics(
+    searchTerm?: string,
+    limit = 10,
+  ): Promise<
     Array<{
       id: number;
       topicName: string;
@@ -160,29 +179,40 @@ export class VocabularyService {
       .createQueryBuilder('topic')
       .leftJoin('topic.vocabularies', 'vocab')
       .select([
-        'topic.id',
-        'topic.topicName',
-        'topic.description',
-        'COUNT(vocab.id) as vocabularyCount',
+        'topic.id AS id',
+        'topic.topic_name AS topicName',
+        'topic.description AS description',
+        'COUNT(vocab.vocab_id) AS vocabularyCount',
       ])
       .groupBy('topic.id');
 
     if (searchTerm && searchTerm.trim()) {
-      queryBuilder.where('LOWER(topic.topicName) LIKE LOWER(:search)', {
+      queryBuilder.where('LOWER(topic.topic_name) LIKE LOWER(:search)', {
         search: `%${searchTerm.trim()}%`,
       });
     }
 
-    queryBuilder.orderBy('topic.topicName', 'ASC');
+    queryBuilder.orderBy('topic.topic_name', 'ASC').limit(limit);
 
     const results = await queryBuilder.getRawMany();
 
     return results.map((r) => ({
-      id: r.topic_id,
-      topicName: r.topic_topicName,
-      description: r.topic_description,
-      vocabularyCount: parseInt(r.vocabularyCount, 10) || 0,
+      id: r.id,
+      topicName: r.topicname,
+      description: r.description || '',
+      vocabularyCount: parseInt(r.vocabularycount, 10) || 0,
     }));
+  }
+
+  /**
+   * ✅ Reset filter - trả về default state
+   * Gọi method này với filters = {}
+   */
+  async getDefaultVocabularies(): Promise<Vocabulary[]> {
+    return await this.vocabularyRepository.find({
+      relations: ['topic'],
+      order: { word: 'ASC' },
+    });
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -266,68 +296,5 @@ export class VocabularyService {
     }
 
     return await queryBuilder.getMany();
-  }
-
-  async getVocabulariesWithProgress(
-    userId: number,
-    topicId?: number,
-  ): Promise<VocabularyWithProgress[]> {
-    const queryBuilder = this.vocabularyRepository
-      .createQueryBuilder('vocab')
-      .leftJoinAndSelect('vocab.topic', 'topic');
-
-    if (topicId) {
-      queryBuilder.where('vocab.topicId = :topicId', { topicId });
-    }
-
-    const vocabularies = await queryBuilder.getMany();
-
-    const vocabulariesWithProgress: VocabularyWithProgress[] =
-      await Promise.all(
-        vocabularies.map(async (vocab) => {
-          const results = await this.resultRepository
-            .createQueryBuilder('result')
-            .leftJoin('result.quizQuestion', 'quizQuestion')
-            .where('result.userId = :userId', { userId })
-            .andWhere('quizQuestion.vocabId = :vocabId', { vocabId: vocab.id })
-            .orderBy('result.createdAt', 'DESC')
-            .getMany();
-
-          let bestScore = 0;
-          if (results.length > 0) {
-            const correctCount = results.filter((r) => r.isCorrect).length;
-            bestScore = Math.round((correctCount / results.length) * 100);
-          }
-
-          const isLearned = bestScore >= 80;
-          const lastReviewed = results.length > 0 ? results[0].createdAt : null;
-          const attemptCount = results.length;
-
-          return {
-            id: vocab.id,
-            topicId: vocab.topicId,
-            word: vocab.word,
-            ipa: vocab.ipa,
-            meaningEn: vocab.meaningEn,
-            meaningVi: vocab.meaningVi,
-            exampleSentence: vocab.exampleSentence,
-            audioPath: vocab.audioPath,
-            difficultyLevel: vocab.difficultyLevel,
-            createdAt: vocab.createdAt,
-            topic: vocab.topic
-              ? {
-                  id: vocab.topic.id,
-                  topicName: vocab.topic.topicName,
-                }
-              : undefined,
-            isLearned,
-            bestScore,
-            lastReviewed,
-            attemptCount,
-          };
-        }),
-      );
-
-    return vocabulariesWithProgress;
   }
 }

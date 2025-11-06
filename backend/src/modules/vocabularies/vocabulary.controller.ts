@@ -22,12 +22,12 @@ import {
   CreateVocabularyDTO,
   UpdateVocabularyDTO,
   VocabularyResponseDto,
-  VocabularyWithProgressDto,
 } from './dto/vocabulary.dto';
 import {
   VocabularyFilterDto,
   VocabularyListResponseDto,
-  TopicSearchResponseDto,
+  TopicSearchDto,
+  TopicSearchResultDto,
 } from './dto/vocabulary-filter.dto';
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
@@ -47,24 +47,35 @@ export class VocabularyController {
   constructor(private readonly vocabularyService: VocabularyService) {}
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ NEW: Main endpoint với filtering và pagination
+  // ✅ ENDPOINT 1: Main filter endpoint
+  // GET /vocabularies/filter?difficulty=Beginner&topicId=1&onlyLearned=true
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  @Public()
   @Get('filter')
   @ApiOperation({
-    summary: 'Get vocabularies with flexible filtering and optional pagination',
+    summary: 'Get vocabularies with flexible filtering',
+    description: `
+      Filter options:
+      - All topics: omit topicId
+      - Specific topic: topicId=1
+      - All difficulties: difficulty=Mixed Levels or omit
+      - Specific difficulty: difficulty=Beginner/Intermediate/Advanced
+      - Learned only: onlyLearned=true
+      - Recently learned: recentlyLearned=true
+    `,
   })
   @ApiOkResponse({ type: VocabularyListResponseDto })
   async getVocabulariesWithFilter(
+    @Request() req: RequestWithUser,
     @Query() filters: VocabularyFilterDto,
   ): Promise<VocabularyListResponseDto> {
+    const userId = req.user?.id; // Optional user ID for learned filter
     const viewMode = filters.viewMode || ViewModeEnum.GRID;
     const paginate = filters.paginate === true;
 
     // Get filtered data
     const { data, total } =
-      await this.vocabularyService.getVocabulariesWithFilters(filters);
+      await this.vocabularyService.getVocabulariesWithFilters(filters, userId);
 
     // Build response
     const response: VocabularyListResponseDto = {
@@ -88,23 +99,50 @@ export class VocabularyController {
     if (filters.search) response.filters.search = filters.search;
     if (filters.difficulty) response.filters.difficulty = filters.difficulty;
     if (filters.topicId) response.filters.topicId = filters.topicId;
+    if (filters.onlyLearned) response.filters.onlyLearned = filters.onlyLearned;
+    if (filters.recentlyLearned)
+      response.filters.recentlyLearned = filters.recentlyLearned;
 
     return response;
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ NEW: Search topics endpoint
+  // ✅ ENDPOINT 2: Topic autocomplete search
+  // GET /vocabularies/topics/search?q=Anim
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @Public()
   @Get('topics/search')
-  @ApiOperation({ summary: 'Search topics for category filter' })
-  @ApiQuery({ name: 'q', required: false, type: String })
-  @ApiOkResponse({ type: [TopicSearchResponseDto] })
+  @ApiOperation({
+    summary: 'Search topics for category dropdown',
+    description:
+      'Returns list of topics matching search term. Used for autocomplete.',
+  })
+  @ApiOkResponse({ type: [TopicSearchResultDto] })
   async searchTopics(
-    @Query('q') searchTerm?: string,
-  ): Promise<TopicSearchResponseDto[]> {
-    return await this.vocabularyService.searchTopics(searchTerm);
+    @Query() dto: TopicSearchDto,
+  ): Promise<TopicSearchResultDto[]> {
+    return await this.vocabularyService.searchTopics(
+      dto.search,
+      dto.limit || 10,
+    );
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ✅ ENDPOINT 3: Reset filter (get default list)
+  // GET /vocabularies/default
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  @Public()
+  @Get('default')
+  @ApiOperation({
+    summary: 'Get default vocabulary list (reset filter)',
+    description: 'Returns all vocabularies sorted by word (A-Z)',
+  })
+  @ApiOkResponse({ type: [VocabularyResponseDto] })
+  async getDefaultVocabularies(): Promise<VocabularyResponseDto[]> {
+    const vocabularies = await this.vocabularyService.getDefaultVocabularies();
+    return VocabularyResponseDto.fromEntities(vocabularies);
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -117,19 +155,6 @@ export class VocabularyController {
   async getAllVocabularies(): Promise<VocabularyResponseDto[]> {
     const vocabularies = await this.vocabularyService.getAllVocabularies();
     return VocabularyResponseDto.fromEntities(vocabularies);
-  }
-
-  @Get('with-progress')
-  @ApiOkResponse({ type: [VocabularyWithProgressDto] })
-  async getVocabulariesWithProgress(
-    @Request() req: RequestWithUser,
-    @Query('topicId') topicId?: number,
-  ) {
-    const userId = Number(req.user.id);
-    return await this.vocabularyService.getVocabulariesWithProgress(
-      userId,
-      topicId,
-    );
   }
 
   @Public()
