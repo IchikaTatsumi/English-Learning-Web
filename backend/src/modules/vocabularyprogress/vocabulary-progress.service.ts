@@ -36,6 +36,12 @@ export class VocabularyProgressService {
     return progress;
   }
 
+  /**
+   * ✅ LOGIC MỚI: Submit Practice
+   * - Luôn update last_reviewed_at khi Practice
+   * - Chỉ set first_learned_at một lần duy nhất khi đạt 3/4 câu đúng
+   * - first_learned_at không bao giờ thay đổi sau khi được set
+   */
   async submitPractice(
     userId: number,
     dto: SubmitPracticeDto,
@@ -58,19 +64,33 @@ export class VocabularyProgressService {
     const correctCount = dto.answers.filter((a) => a.isCorrect).length;
     const totalQuestions = dto.answers.length;
 
-    // Update progress
+    // Update practice stats
     progress.practiceAttempts += 1;
     progress.practiceCorrectCount += correctCount;
 
-    // Mark as learned if 3/4 or more correct
+    // ✅ CRITICAL: Luôn update last_reviewed_at khi Practice
+    progress.lastReviewedAt = new Date();
+
+    // ✅ CRITICAL: Chỉ set first_learned_at MỘT LẦN duy nhất
+    // Khi đạt 3/4 câu đúng và chưa có first_learned_at
     if (correctCount >= 3 && totalQuestions === 4) {
       progress.isLearned = true;
-      progress.lastReviewedAt = new Date();
+
+      // Chỉ set first_learned_at nếu chưa có (null)
+      if (!progress.firstLearnedAt) {
+        progress.firstLearnedAt = new Date();
+      }
     }
 
     return await this.progressRepository.save(progress);
   }
 
+  /**
+   * ✅ LOGIC MỚI: Toggle Bookmark
+   * - Khi bookmark (true): update last_reviewed_at
+   * - Khi gỡ bookmark (false): KHÔNG update last_reviewed_at
+   * - Khi bookmark lại (false -> true): update last_reviewed_at
+   */
   async toggleBookmark(
     userId: number,
     dto: BookmarkVocabDto,
@@ -89,13 +109,14 @@ export class VocabularyProgressService {
     // Get or create progress
     const progress = await this.getOrCreateProgress(userId, dto.vocabId);
 
-    // Update bookmark status
-    progress.isBookmarked = dto.isBookmarked;
-
-    // Update review datetime when bookmarking
+    // ✅ CRITICAL: Chỉ update last_reviewed_at khi bookmark (true)
+    // Không update khi gỡ bookmark (false)
     if (dto.isBookmarked) {
       progress.lastReviewedAt = new Date();
     }
+
+    // Update bookmark status
+    progress.isBookmarked = dto.isBookmarked;
 
     return await this.progressRepository.save(progress);
   }
@@ -107,7 +128,7 @@ export class VocabularyProgressService {
         isLearned: true,
       },
       relations: ['vocabulary', 'vocabulary.topic'],
-      order: { lastReviewedAt: 'DESC' },
+      order: { firstLearnedAt: 'DESC' }, // ✅ Sort by firstLearnedAt
     });
   }
 
@@ -142,6 +163,7 @@ export class VocabularyProgressService {
         vocabId,
         isLearned: false,
         isBookmarked: false,
+        firstLearnedAt: null,
         lastReviewedAt: null,
         practiceAttempts: 0,
         practiceCorrectCount: 0,
@@ -161,6 +183,7 @@ export class VocabularyProgressService {
       vocabId: progress.vocabId,
       isLearned: progress.isLearned,
       isBookmarked: progress.isBookmarked,
+      firstLearnedAt: progress.firstLearnedAt, // ✅ Thêm field này
       lastReviewedAt: progress.lastReviewedAt,
       practiceAttempts: progress.practiceAttempts,
       practiceCorrectCount: progress.practiceCorrectCount,

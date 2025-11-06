@@ -30,12 +30,32 @@ export class VocabularyProgress {
   @Column({ name: 'is_bookmarked', default: false })
   isBookmarked: boolean;
 
+  /**
+   * ✅ CRITICAL: first_learned_at
+   * - Chỉ được set MỘT LẦN duy nhất khi lần đầu đạt 3/4 câu đúng
+   * - Không bao giờ thay đổi sau khi được set
+   * - Dùng để hiển thị trong tab "Learned"
+   */
+  @Column({
+    name: 'first_learned_at',
+    type: 'timestamp with time zone',
+    nullable: true,
+  })
+  firstLearnedAt: Date | null;
+
+  /**
+   * ✅ last_reviewed_at
+   * - Update mỗi khi:
+   *   + User bookmark vocab
+   *   + User practice vocab
+   * - KHÔNG update khi gỡ bookmark
+   */
   @Column({
     name: 'last_reviewed_at',
     type: 'timestamp with time zone',
     nullable: true,
   })
-  lastReviewedAt: Date;
+  lastReviewedAt: Date | null;
 
   @Column({ name: 'practice_attempts', default: 0 })
   practiceAttempts: number;

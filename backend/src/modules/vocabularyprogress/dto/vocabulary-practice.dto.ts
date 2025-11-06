@@ -1,4 +1,3 @@
-// backend/src/modules/vocabularies/dto/vocabulary-practice.dto.ts
 import { IsNumber, IsString, IsBoolean, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -47,6 +46,9 @@ export class BookmarkVocabDto {
   isBookmarked: boolean;
 }
 
+/**
+ * ✅ Updated Response DTO with firstLearnedAt
+ */
 export class VocabularyProgressResponseDto {
   @ApiProperty()
   vocabId: number;
@@ -57,7 +59,18 @@ export class VocabularyProgressResponseDto {
   @ApiProperty()
   isBookmarked: boolean;
 
-  @ApiProperty()
+  /**
+   * ✅ Ngày học xong đầu tiên (chỉ set một lần)
+   * Hiển thị trong tab "Learned"
+   */
+  @ApiProperty({ nullable: true })
+  firstLearnedAt: Date | null;
+
+  /**
+   * ✅ Ngày ôn tập gần nhất
+   * Update khi bookmark hoặc practice
+   */
+  @ApiProperty({ nullable: true })
   lastReviewedAt: Date | null;
 
   @ApiProperty()

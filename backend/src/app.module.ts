@@ -1,49 +1,54 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { SnakeCaseInterceptor } from './core/interceptors/snake_case.interceptor';
 import typeormConfig from './core/config/typeorm.config';
 
-// Import all modules
+// ✅ Import all modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/users/user.module';
 import { TopicModule } from './modules/topics/topic.module';
 import { VocabularyModule } from './modules/vocabularies/vocabulary.module';
-import { QuizModule } from './modules/quiz/quiz.module';
+import { VocabularyProgressModule } from './modules/vocabularyprogress/vocabulary-progress.module'; // ✅
 import { QuizQuestionModule } from './modules/quizquestions/quizquestion.module';
+import { QuizModule } from './modules/quiz/quiz.module';
 import { ResultModule } from './modules/results/result.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { SpeechModule } from './modules/speech/speech.module';
 
 @Module({
   imports: [
+    // ✅ Environment Configuration
     ConfigModule.forRoot({
       isGlobal: true,
       load: [typeormConfig],
     }),
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => {
-        const config = configService.get('typeorm');
-        return {
-          ...config,
-          autoLoadEntities: true, // ✅ Thêm option này
-        };
-      },
-    }),
-    // Feature modules
+
+    // ✅ Database Configuration
+    TypeOrmModule.forRoot({
+      ...typeormConfig,
+      autoLoadEntities: true,
+    } as any),
+
+    // ✅ Feature Modules
     AuthModule,
     UserModule,
     TopicModule,
     VocabularyModule,
-    QuizModule,
+    VocabularyProgressModule, // ✅ ADD THIS
     QuizQuestionModule,
+    QuizModule,
     ResultModule,
     ProgressModule,
     SpeechModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    // ✅ Global Interceptor for snake_case conversion
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: SnakeCaseInterceptor,
+    },
+  ],
 })
 export class AppModule {}

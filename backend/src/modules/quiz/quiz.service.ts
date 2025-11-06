@@ -8,10 +8,9 @@ import { Repository } from 'typeorm';
 import { Quiz } from './entities/quiz.entity';
 import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import { Result } from '../results/entities/result.entity';
+import { QuizQuestion } from '../quizquestions/entities/quizquestion.entity';
 import { CreateQuizDto, SubmitQuizDto, QuizResultDto } from './dto/quiz.dto';
-import { QuizQuestionService } from '../quizquestions/quizquestion.service';
 
-// ✅ FIX: Thêm interface cho question result
 interface QuestionResult {
   questionId: number;
   questionText: string;
@@ -30,11 +29,16 @@ export class QuizService {
     private vocabularyRepository: Repository<Vocabulary>,
     @InjectRepository(Result)
     private resultRepository: Repository<Result>,
-    private quizQuestionService: QuizQuestionService,
+    @InjectRepository(QuizQuestion)
+    private quizQuestionRepository: Repository<QuizQuestion>,
   ) {}
 
+  /**
+   * ✅ LOGIC MỚI: Tạo quiz với random questions từ QuizQuestion table
+   * - Lấy ngẫu nhiên các câu hỏi đã có trong database
+   * - Không tạo mới câu hỏi
+   */
   async createQuiz(userId: number, dto: CreateQuizDto): Promise<Quiz> {
-    // Map difficulty to quiz mode
     const difficultyModeMap: Record<string, string> = {
       Beginner: 'Beginner Only',
       Intermediate: 'Intermediate Only',
@@ -42,33 +46,65 @@ export class QuizService {
       'Mixed Levels': 'Mixed Levels',
     };
 
+    // 1. Create quiz record
     const quiz = this.quizRepository.create({
       userId,
-      difficultyMode: difficultyModeMap[dto.difficultyLevel] as any, // Cast để tránh lỗi enum
+      difficultyMode: difficultyModeMap[dto.difficultyLevel] as any,
       totalQuestions: dto.totalQuestions || 10,
       score: 0,
     });
 
     const savedQuiz = await this.quizRepository.save(quiz);
 
-    // Get vocabularies based on difficulty and topic
-    const vocabularies = await this.getVocabulariesForQuiz(
-      dto.difficultyLevel,
+    // 2. ✅ Lấy random questions từ QuizQuestion table
+    const randomQuestions = await this.getRandomQuizQuestions(
       dto.totalQuestions || 10,
+      dto.difficultyLevel,
       dto.topicId,
     );
 
-    if (vocabularies.length === 0) {
-      throw new BadRequestException('No vocabularies available for this quiz');
+    if (randomQuestions.length === 0) {
+      throw new BadRequestException(
+        'No questions available for this quiz configuration',
+      );
     }
 
-    // Create questions for the quiz
-    await this.quizQuestionService.generateQuestionsForQuiz(
-      savedQuiz.id,
-      vocabularies,
-    );
-
+    // 3. Return quiz with questions
     return await this.getQuizById(savedQuiz.id, userId);
+  }
+
+  /**
+   * ✅ Get random questions from existing QuizQuestion table
+   * - Filter by difficulty level
+   * - Filter by topic (optional)
+   * - Return random questions
+   */
+  private async getRandomQuizQuestions(
+    count: number,
+    difficulty: string,
+    topicId?: number,
+  ): Promise<QuizQuestion[]> {
+    const queryBuilder = this.quizQuestionRepository
+      .createQueryBuilder('qq')
+      .leftJoinAndSelect('qq.vocabulary', 'vocab')
+      .leftJoinAndSelect('vocab.topic', 'topic');
+
+    // Filter by topic
+    if (topicId) {
+      queryBuilder.andWhere('vocab.topicId = :topicId', { topicId });
+    }
+
+    // Filter by difficulty
+    if (difficulty !== 'Mixed Levels') {
+      queryBuilder.andWhere('vocab.difficultyLevel = :difficulty', {
+        difficulty,
+      });
+    }
+
+    // Get random questions
+    queryBuilder.orderBy('RANDOM()').limit(count);
+
+    return await queryBuilder.getMany();
   }
 
   async getQuizById(quizId: number, userId: number): Promise<Quiz> {
@@ -97,6 +133,9 @@ export class QuizService {
     });
   }
 
+  /**
+   * ✅ Submit quiz và tính điểm
+   */
   async submitQuiz(
     quizId: number,
     userId: number,
@@ -110,13 +149,14 @@ export class QuizService {
       throw new NotFoundException(`Quiz with ID ${quizId} not found`);
     }
 
-    const results: QuestionResult[] = []; // ✅ FIX: Thêm type annotation
+    const results: QuestionResult[] = [];
     let correctCount = 0;
 
     for (const answer of dto.answers) {
-      const question = await this.quizQuestionService.getQuestionById(
-        answer.questionId,
-      );
+      const question = await this.quizQuestionRepository.findOne({
+        where: { id: answer.questionId },
+        relations: ['vocabulary'],
+      });
 
       if (!question) {
         continue;
@@ -171,30 +211,6 @@ export class QuizService {
     const correct = correctAnswer.toLowerCase().trim();
     const user = userAnswer.toLowerCase().trim();
     return correct === user;
-  }
-
-  private async getVocabulariesForQuiz(
-    difficulty: string,
-    count: number,
-    topicId?: number,
-  ): Promise<Vocabulary[]> {
-    const queryBuilder = this.vocabularyRepository
-      .createQueryBuilder('vocab')
-      .leftJoinAndSelect('vocab.topic', 'topic');
-
-    if (topicId) {
-      queryBuilder.andWhere('vocab.topicId = :topicId', { topicId });
-    }
-
-    if (difficulty !== 'Mixed Levels') {
-      queryBuilder.andWhere('vocab.difficultyLevel = :difficulty', {
-        difficulty,
-      });
-    }
-
-    queryBuilder.orderBy('RANDOM()').limit(count);
-
-    return await queryBuilder.getMany();
   }
 
   async getQuizStatistics(userId: number) {

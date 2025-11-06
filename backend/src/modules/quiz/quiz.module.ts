@@ -7,10 +7,16 @@ import { QuizQuestionModule } from '../quizquestions/quizquestion.module';
 import { VocabularyModule } from '../vocabularies/vocabulary.module';
 import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import { Result } from '../results/entities/result.entity';
+import { QuizQuestion } from '../quizquestions/entities/quizquestion.entity'; // ✅ Add this
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Quiz, Vocabulary, Result]),
+    TypeOrmModule.forFeature([
+      Quiz,
+      Vocabulary,
+      Result,
+      QuizQuestion, // ✅ Add QuizQuestion to repositories
+    ]),
     forwardRef(() => QuizQuestionModule),
     forwardRef(() => VocabularyModule),
   ],
