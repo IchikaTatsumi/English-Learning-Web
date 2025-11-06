@@ -17,7 +17,7 @@ import {
   ApiOperation,
 } from '@nestjs/swagger';
 import { QuizService } from './quiz.service';
-import { RequestWithUser } from 'src/core/types/request.types';
+import type { RequestWithUser } from 'src/core/types/request.types';
 import {
   CreateQuizDto,
   SubmitQuizDto,

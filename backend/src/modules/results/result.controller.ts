@@ -17,7 +17,7 @@ import {
 } from '@nestjs/swagger';
 import { ResultService } from './result.service';
 import { CreateResultDTO, ResultResponseDto } from './dto/result.dto';
-import { RequestWithUser } from 'src/core/types/request.types';
+import type { RequestWithUser } from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Results')

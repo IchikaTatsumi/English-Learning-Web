@@ -3,6 +3,7 @@ services:
     image: postgres:16
     container_name: english_learning_db
     restart: unless-stopped
+    pull_policy: missing  # Only pull if not available locally
     ports:
       - "5432:5432"
     environment:
@@ -11,6 +12,8 @@ services:
       POSTGRES_DB: mydatabase
       TZ: Asia/Ho_Chi_Minh
       PGTZ: Asia/Ho_Chi_Minh
+      # Add connection pool settings
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     volumes:
       - ./backend/src/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql
       - postgres_data:/var/lib/postgresql/data
@@ -19,26 +22,37 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - english_learning_network
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: english_learning_pgadmin
-    restart: unless-stopped
-    ports:
-      - "5050:80"
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - english_learning_network
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: english_learning_pgadmin
+  #   restart: unless-stopped
+  #   pull_policy: missing
+  #   ports:
+  #     - "5050:80"
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@admin.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #     PGADMIN_CONFIG_SERVER_MODE: 'False'
+  #   volumes:
+  #     - pgadmin_data:/var/lib/pgadmin
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - english_learning_network
 
 volumes:
   postgres_data:
@@ -49,3 +63,6 @@ volumes:
 networks:
   english_learning_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

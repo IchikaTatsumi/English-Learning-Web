@@ -1,27 +1,22 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Vocabulary } from './entities/vocabulary.entity';
-import { VocabularyController } from './vocabulary.controller';
-import { VocabularyService } from './vocabulary.service';
-import { ResultModule } from '../results/result.module';
-import { TopicModule } from '../topics/topic.module';
-import { Result } from '../results/entities/result.entity';
-import { VocabularyProgressModule } from '../vocabularyprogress/vocabulary-progress.module'; // ✅ Import
+import { VocabularyProgress } from './entities/vocabulary-progress.entity';
+import { VocabularyPracticeController } from './vocabulary-practice.controller';
+import { VocabularyProgressService } from './vocabulary-progress.service';
+import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 
 /**
- * ✅ VocabularyModule
- * - Quản lý CRUD vocabulary
- * - Tích hợp với VocabularyProgressModule để track tiến độ
+ * ✅ VocabularyProgressModule
+ * - Quản lý progress tracking cho vocabulary
+ * - Xử lý practice submissions và bookmarks
  */
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Vocabulary, Result]),
-    forwardRef(() => TopicModule),
-    forwardRef(() => ResultModule),
-    forwardRef(() => VocabularyProgressModule), // ✅ Import VocabularyProgressModule
+  imports: [TypeOrmModule.forFeature([VocabularyProgress, Vocabulary])],
+  controllers: [VocabularyPracticeController],
+  providers: [VocabularyProgressService],
+  exports: [
+    VocabularyProgressService,
+    TypeOrmModule.forFeature([VocabularyProgress]),
   ],
-  controllers: [VocabularyController],
-  providers: [VocabularyService],
-  exports: [VocabularyService, TypeOrmModule.forFeature([Vocabulary])],
 })
-export class VocabularyModule {}
+export class VocabularyProgressModule {}

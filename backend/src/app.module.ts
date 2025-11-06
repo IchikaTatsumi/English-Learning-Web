@@ -3,14 +3,15 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { SnakeCaseInterceptor } from './core/interceptors/snake_case.interceptor';
-import typeormConfig from './core/config/typeorm.config';
+import { DataSourceOptions } from 'typeorm';
+import * as path from 'path';
 
 // ✅ Import all modules
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/users/user.module';
 import { TopicModule } from './modules/topics/topic.module';
 import { VocabularyModule } from './modules/vocabularies/vocabulary.module';
-import { VocabularyProgressModule } from './modules/vocabularyprogress/vocabulary-progress.module'; // ✅
+import { VocabularyProgressModule } from './modules/vocabularyprogress/vocabulary-progress.module';
 import { QuizQuestionModule } from './modules/quizquestions/quizquestion.module';
 import { QuizModule } from './modules/quiz/quiz.module';
 import { ResultModule } from './modules/results/result.module';
@@ -22,21 +23,29 @@ import { SpeechModule } from './modules/speech/speech.module';
     // ✅ Environment Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [typeormConfig],
+      envFilePath: '.env',
     }),
 
     // ✅ Database Configuration
     TypeOrmModule.forRoot({
-      ...typeormConfig,
+      type: 'postgres',
+      host: process.env.POSTGRES_HOST || 'localhost',
+      port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
+      username: process.env.POSTGRES_USER || 'dbuser',
+      password: process.env.POSTGRES_PASSWORD || 'dbpassword',
+      database: process.env.POSTGRES_DB || 'mydatabase',
+      synchronize: true,
+      logging: true,
+      entities: [path.join(__dirname, 'modules/**/entities/*.entity.{ts,js}')],
       autoLoadEntities: true,
-    } as any),
+    } as DataSourceOptions),
 
     // ✅ Feature Modules
     AuthModule,
     UserModule,
     TopicModule,
     VocabularyModule,
-    VocabularyProgressModule, // ✅ ADD THIS
+    VocabularyProgressModule,
     QuizQuestionModule,
     QuizModule,
     ResultModule,
