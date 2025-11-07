@@ -27,37 +27,22 @@ export class VocabularyService {
 
   /**
    * ✅ MAIN METHOD: Get vocabularies with flexible filtering
-   *
-   * Logic Flow:
-   * 1. All topics (topicId = null)
-   * 2. Specific topic (topicId = X)
-   * 3. All difficulties (difficulty = Mixed Levels hoặc null)
-   * 4. Specific difficulty (Beginner/Intermediate/Advanced)
-   * 5. Learned only (onlyLearned = true)
-   * 6. Recently learned (recentlyLearned = true)
    */
   async getVocabulariesWithFilters(
     filters: VocabularyFilterDto,
     userId?: number,
   ): Promise<{ data: Vocabulary[]; total: number }> {
-    // Build base query
     const queryBuilder = this.createFilteredQuery(filters, userId);
-
-    // Apply sorting
     this.applySorting(queryBuilder, filters);
 
-    // Apply pagination if enabled
     if (filters.paginate) {
       const page = filters.page || 1;
       const limit = filters.limit || 20;
       const skip = (page - 1) * limit;
-
       queryBuilder.skip(skip).take(limit);
     }
 
-    // Execute query
     const [data, total] = await queryBuilder.getManyAndCount();
-
     return { data, total };
   }
 
@@ -72,9 +57,7 @@ export class VocabularyService {
       .createQueryBuilder('vocab')
       .leftJoinAndSelect('vocab.topic', 'topic');
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // FILTER 1: Search by word/meaning
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (filters.search && filters.search.trim()) {
       queryBuilder.andWhere(
         '(LOWER(vocab.word) LIKE LOWER(:search) OR ' +
@@ -84,31 +67,21 @@ export class VocabularyService {
       );
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // FILTER 2: Difficulty Level
-    // All = Mixed Levels hoặc không truyền
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (filters.difficulty && filters.difficulty !== DifficultyLevel.MIXED) {
       queryBuilder.andWhere('vocab.difficultyLevel = :difficulty', {
         difficulty: filters.difficulty,
       });
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     // FILTER 3: Topic
-    // All topics = topicId is null/undefined
-    // Specific topic = topicId is provided
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     if (filters.topicId) {
       queryBuilder.andWhere('vocab.topicId = :topicId', {
         topicId: filters.topicId,
       });
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // FILTER 4: Learned Vocabularies (Tab "Learned")
-    // Join với vocabulary_progress
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // FILTER 4: Learned Vocabularies
     if (filters.onlyLearned && userId) {
       queryBuilder
         .innerJoin(
@@ -135,7 +108,6 @@ export class VocabularyService {
       | 'ASC'
       | 'DESC';
 
-    // ✅ Special case: Recently learned (sort by first_learned_at DESC)
     if (filters.recentlyLearned && filters.onlyLearned) {
       queryBuilder.orderBy('vp.first_learned_at', 'DESC');
       return;
@@ -164,8 +136,7 @@ export class VocabularyService {
   }
 
   /**
-   * ✅ Search topics for autocomplete dropdown
-   * GET /vocabularies/topics/search?q=Anim
+   * ✅ FIX: Search topics with proper typing
    */
   async searchTopics(
     searchTerm?: string,
@@ -197,19 +168,20 @@ export class VocabularyService {
 
     queryBuilder.orderBy('topic.topic_name', 'ASC').limit(limit);
 
-    const results = await queryBuilder.getRawMany();
+    // ✅ FIX: Use proper typing with TopicSearchRawResult interface
+    const results = await queryBuilder.getRawMany<TopicSearchRawResult>();
 
-    return results.map((r) => ({
-      id: r.id,
-      topicName: r.topicname,
-      description: r.description || '',
-      vocabularyCount: parseInt(r.vocabularycount, 10) || 0,
+    // ✅ FIX: Map với type-safe approach
+    return results.map((result: TopicSearchRawResult) => ({
+      id: result.id,
+      topicName: result.topicname,
+      description: result.description || '',
+      vocabularyCount: parseInt(result.vocabularycount, 10) || 0,
     }));
   }
 
   /**
-   * ✅ Reset filter - trả về default state
-   * Gọi method này với filters = {}
+   * ✅ Reset filter - default state
    */
   async getDefaultVocabularies(): Promise<Vocabulary[]> {
     return await this.vocabularyRepository.find({
@@ -219,7 +191,7 @@ export class VocabularyService {
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // EXISTING METHODS (unchanged)
+  // EXISTING METHODS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   async getAllVocabularies(): Promise<Vocabulary[]> {

@@ -14,6 +14,7 @@ import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 import { Result } from '../results/entities/result.entity';
 import { QuizQuestion } from '../quizquestions/entities/quizquestion.entity';
 import { CreateQuizDto, SubmitQuizDto, QuizResultDto } from './dto/quiz.dto';
+import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 
 interface QuestionResult {
   questionId: number;
@@ -89,17 +90,20 @@ export class QuizService {
       });
     }
 
+    // ✅ FIX: Type-safe difficulty level checking
+    const isMixedLevels = difficulty === 'Mixed Levels';
+    const difficultyLevel = this.validateDifficultyLevel(difficulty);
+
     // ✅ CHECK: Đếm số lượng vocabularies available
     const totalVocabs = await this.vocabularyRepository.count({
       where: topicId
         ? {
             topicId,
-            difficultyLevel:
-              difficulty !== 'Mixed Levels' ? (difficulty as any) : undefined,
+            ...(isMixedLevels ? {} : { difficultyLevel }),
           }
-        : difficulty !== 'Mixed Levels'
-          ? { difficultyLevel: difficulty as any }
-          : {},
+        : isMixedLevels
+          ? {}
+          : { difficultyLevel },
     });
 
     // ✅ VALIDATION: Cần ít nhất 4 vocabularies
@@ -121,6 +125,22 @@ export class QuizService {
     }
 
     return questions;
+  }
+
+  /**
+   * ✅ NEW: Validate and convert difficulty string to DifficultyLevel enum
+   * Ensures type safety when working with difficulty levels
+   */
+  private validateDifficultyLevel(difficulty: string): DifficultyLevel {
+    // Check if difficulty is a valid enum value
+    const validDifficulties = Object.values(DifficultyLevel);
+
+    if (validDifficulties.includes(difficulty as DifficultyLevel)) {
+      return difficulty as DifficultyLevel;
+    }
+
+    // Default to BEGINNER if invalid
+    return DifficultyLevel.BEGINNER;
   }
 
   async getQuizById(quizId: number, userId: number): Promise<Quiz> {

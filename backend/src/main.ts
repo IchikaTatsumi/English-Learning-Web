@@ -64,4 +64,8 @@ async function bootstrap() {
   console.log(`📚 Swagger documentation: http://localhost:${port}/api/docs\n`);
 }
 
-bootstrap();
+// ✅ FIX: Handle Promise rejection properly
+bootstrap().catch((error) => {
+  console.error('❌ Failed to start application:', error);
+  process.exit(1);
+});
