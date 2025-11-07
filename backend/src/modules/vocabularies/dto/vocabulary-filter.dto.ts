@@ -248,15 +248,30 @@ export class TopicSearchDto {
  * ✅ Topic in search results
  */
 export class TopicSearchResultDto {
-  @ApiProperty()
+  @ApiProperty({ description: 'Topic ID', example: 1 })
   id: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Topic name', example: 'Animals' })
   topicName: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Topic description', nullable: true })
   description: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: 'Number of vocabularies', example: 25 })
   vocabularyCount: number;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ✅ TYPE-SAFE INTERFACES FOR RAW QUERY RESULTS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/**
+ * ✅ Raw result from searchTopics query (vocabulary.service.ts)
+ * Used in: VocabularyService.searchTopics()
+ */
+export interface TopicSearchRawResult {
+  id: number;
+  topicname: string; // PostgreSQL returns lowercase
+  description: string | null;
+  vocabularycount: string; // COUNT() returns string
 }

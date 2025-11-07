@@ -4,8 +4,16 @@ import { Repository } from 'typeorm';
 import { Topic } from './entities/topic.entity';
 import { CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
 import { Result } from '../results/entities/result.entity';
-import { TopicSearchResultDto } from './dto/topic-filter.dto';
+import {
+  TopicSearchResultDto,
+  TopicSearchRawResult,
+  TopicListRawResult,
+  VocabProgressRaw,
+} from './dto/topic-filter.dto';
 
+/**
+ * ✅ Type-safe interface for topic with progress
+ */
 interface TopicWithProgress {
   id: number;
   topicName: string;
@@ -13,11 +21,6 @@ interface TopicWithProgress {
   createdAt: Date;
   totalWords: number;
   learnedCount: number;
-}
-
-interface VocabProgressRaw {
-  vocabId: number;
-  maxCorrect: number | string;
 }
 
 @Injectable()
@@ -28,6 +31,10 @@ export class TopicService {
     @InjectRepository(Result)
     private resultRepository: Repository<Result>,
   ) {}
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // BASIC CRUD OPERATIONS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   async getAllTopics(): Promise<Topic[]> {
     return await this.topicRepository.find({
@@ -75,6 +82,102 @@ export class TopicService {
     return topic;
   }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ✅ FILTER & SEARCH ENDPOINTS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /**
+   * ✅ Search topics by name (autocomplete)
+   * Used for: GET /topics/search?q=Anim&limit=10
+   *
+   * @param searchTerm - Optional search string
+   * @param limit - Max results (default 10)
+   * @returns Array of topics with vocab counts
+   */
+  async searchTopics(
+    searchTerm?: string,
+    limit = 10,
+  ): Promise<TopicSearchResultDto[]> {
+    const queryBuilder = this.topicRepository
+      .createQueryBuilder('topic')
+      .leftJoin('topic.vocabularies', 'vocab')
+      .select([
+        'topic.id AS id',
+        'topic.topic_name AS topicName',
+        'topic.description AS description',
+        'COUNT(vocab.vocab_id) AS vocabularyCount',
+      ])
+      .groupBy('topic.id');
+
+    // Apply search filter if provided
+    if (searchTerm && searchTerm.trim()) {
+      queryBuilder.where('LOWER(topic.topic_name) LIKE LOWER(:search)', {
+        search: `%${searchTerm.trim()}%`,
+      });
+    }
+
+    queryBuilder.orderBy('topic.topic_name', 'ASC').limit(limit);
+
+    // ✅ Type-safe raw query results
+    const results = await queryBuilder.getRawMany<TopicSearchRawResult>();
+
+    // ✅ Transform to DTO with explicit type conversion
+    return results.map((r) => ({
+      id: r.id,
+      topicName: r.topicname, // PostgreSQL returns lowercase
+      description: r.description || null,
+      vocabularyCount: parseInt(r.vocabularycount, 10) || 0, // String → Number
+    }));
+  }
+
+  /**
+   * ✅ Get all topics for filter dropdown
+   * Used for: GET /topics/list
+   *
+   * @param userId - Optional user ID to include learned counts
+   * @returns Array of topics with vocab counts and optional learned counts
+   */
+  async getTopicsForFilter(userId?: number): Promise<TopicSearchResultDto[]> {
+    // Get all topics with vocabulary counts
+    const topics = await this.topicRepository
+      .createQueryBuilder('topic')
+      .leftJoin('topic.vocabularies', 'vocab')
+      .select([
+        'topic.id AS id',
+        'topic.topic_name AS topicName',
+        'topic.description AS description',
+        'COUNT(vocab.vocab_id) AS vocabularyCount',
+      ])
+      .groupBy('topic.id')
+      .orderBy('topic.topic_name', 'ASC')
+      .getRawMany<TopicListRawResult>();
+
+    // ✅ Transform to DTO
+    const results: TopicSearchResultDto[] = topics.map((t) => ({
+      id: t.id,
+      topicName: t.topicname,
+      description: t.description || null,
+      vocabularyCount: parseInt(t.vocabularycount, 10) || 0,
+    }));
+
+    // ✅ Add learned count if user is authenticated
+    if (userId) {
+      for (const topic of results) {
+        const learnedCount = await this.getLearnedVocabCount(topic.id, userId);
+        topic.learnedCount = learnedCount;
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * ✅ Get topics with learning progress
+   * Used for: GET /topics/progress (authenticated users)
+   *
+   * @param userId - Current user ID
+   * @returns Topics with learned/total word counts
+   */
   async getTopicsWithProgress(userId: number): Promise<TopicWithProgress[]> {
     const topics = await this.topicRepository.find({
       relations: ['vocabularies'],
@@ -86,6 +189,7 @@ export class TopicService {
         const vocabIdsInTopic = topic.vocabularies.map((v) => v.id);
         const totalWords = vocabIdsInTopic.length;
 
+        // Return empty progress if no vocabularies
         if (totalWords === 0) {
           return {
             id: topic.id,
@@ -97,6 +201,7 @@ export class TopicService {
           };
         }
 
+        // ✅ Type-safe query for vocabulary progress
         const results = await this.resultRepository
           .createQueryBuilder('result')
           .leftJoin('result.quizQuestion', 'quizQuestion')
@@ -112,6 +217,7 @@ export class TopicService {
           .groupBy('quizQuestion.vocabId')
           .getRawMany<VocabProgressRaw>();
 
+        // ✅ Count learned vocabularies with type-safe conversion
         const learnedCount = results.filter((r) => {
           const maxCorrect =
             typeof r.maxCorrect === 'string'
@@ -134,86 +240,22 @@ export class TopicService {
     return topicsWithProgress;
   }
 
-  /**
-   * ✅ Search topics by name (autocomplete)
-   * Used for: GET /topics/search?q=Anim&limit=10
-   */
-  async searchTopics(
-    searchTerm?: string,
-    limit = 10,
-  ): Promise<TopicSearchResultDto[]> {
-    const queryBuilder = this.topicRepository
-      .createQueryBuilder('topic')
-      .leftJoin('topic.vocabularies', 'vocab')
-      .select([
-        'topic.id AS id',
-        'topic.topic_name AS topicName',
-        'topic.description AS description',
-        'COUNT(vocab.vocab_id) AS vocabularyCount',
-      ])
-      .groupBy('topic.id');
-
-    if (searchTerm && searchTerm.trim()) {
-      queryBuilder.where('LOWER(topic.topic_name) LIKE LOWER(:search)', {
-        search: `%${searchTerm.trim()}%`,
-      });
-    }
-
-    queryBuilder.orderBy('topic.topic_name', 'ASC').limit(limit);
-
-    const results = await queryBuilder.getRawMany();
-
-    return results.map((r) => ({
-      id: r.id,
-      topicName: r.topicname,
-      description: r.description || null,
-      vocabularyCount: parseInt(r.vocabularycount, 10) || 0,
-    }));
-  }
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ✅ HELPER METHODS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   /**
-   * ✅ Get all topics for filter dropdown
-   * Used for: GET /topics/list
-   */
-  async getTopicsForFilter(userId?: number): Promise<TopicSearchResultDto[]> {
-    const topics = await this.topicRepository
-      .createQueryBuilder('topic')
-      .leftJoin('topic.vocabularies', 'vocab')
-      .select([
-        'topic.id AS id',
-        'topic.topic_name AS topicName',
-        'topic.description AS description',
-        'COUNT(vocab.vocab_id) AS vocabularyCount',
-      ])
-      .groupBy('topic.id')
-      .orderBy('topic.topic_name', 'ASC')
-      .getRawMany();
-
-    const results: TopicSearchResultDto[] = topics.map((t) => ({
-      id: t.id,
-      topicName: t.topicname,
-      description: t.description || null,
-      vocabularyCount: parseInt(t.vocabularycount, 10) || 0,
-    }));
-
-    // Optionally add learned count if user is authenticated
-    if (userId) {
-      for (const topic of results) {
-        const learnedCount = await this.getLearnedVocabCount(topic.id, userId);
-        topic.learnedCount = learnedCount;
-      }
-    }
-
-    return results;
-  }
-
-  /**
-   * ✅ Helper method: Count learned vocabularies in a topic
+   * ✅ Count learned vocabularies in a topic for a user
+   *
+   * @param topicId - Topic ID
+   * @param userId - User ID
+   * @returns Number of learned vocabularies
    */
   private async getLearnedVocabCount(
     topicId: number,
     userId: number,
   ): Promise<number> {
+    // ✅ Type-safe query
     const results = await this.resultRepository
       .createQueryBuilder('result')
       .leftJoin('result.quizQuestion', 'quizQuestion')
@@ -228,6 +270,7 @@ export class TopicService {
       .groupBy('quizQuestion.vocabId')
       .getRawMany<VocabProgressRaw>();
 
+    // ✅ Type-safe filtering
     return results.filter((r) => {
       const maxCorrect =
         typeof r.maxCorrect === 'string'
