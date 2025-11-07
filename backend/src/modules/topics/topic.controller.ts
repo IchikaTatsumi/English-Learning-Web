@@ -1,32 +1,11 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  Request,
-  ParseIntPipe,
-} from '@nestjs/common';
-import { ApiBearerAuth, ApiTags, ApiOkResponse } from '@nestjs/swagger';
-import { TopicService } from './topic.service';
-import { TopicDTO, CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
-import { Role } from 'src/core/enums/role.enum';
-import { Roles } from 'src/core/decorators/role.decorator';
-import { Public } from 'src/core/decorators/public.decorator';
-import {
-  TopicSearchDto,
-  TopicSearchResultDto,
-  TopicListResponseDto,
-} from './dto/topic-filter.dto';
-interface RequestWithUser {
-  user: {
-    id: number;
-  };
-}
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Topic } from './entities/topic.entity';
+import { CreateTopicDTO, UpdateTopicDTO } from './dto/topic.dto';
+import { Result } from '../results/entities/result.entity';
+import { TopicSearchResultDto } from './dto/topic-filter.dto';
 
-// ✅ FIX: Thêm interface cho TopicWithProgress
 interface TopicWithProgress {
   id: number;
   topicName: string;
@@ -36,97 +15,217 @@ interface TopicWithProgress {
   learnedCount: number;
 }
 
-@ApiBearerAuth()
-@ApiTags('Topics')
-@Controller('topics')
-export class TopicController {
-  constructor(private readonly topicService: TopicService) {}
-
-  @Public()
-  @Get()
-  @ApiOkResponse({ type: [TopicDTO] })
-  async getAllTopics(): Promise<TopicDTO[]> {
-    const topics = await this.topicService.getAllTopics();
-    return TopicDTO.fromEntities(topics);
-  }
-
-  @Get('with-progress')
-  @ApiOkResponse({ type: [TopicDTO] })
-  async getTopicsWithProgress(
-    @Request() req: RequestWithUser,
-  ): Promise<TopicWithProgress[]> {
-    const userId = Number(req.user.id);
-    return await this.topicService.getTopicsWithProgress(userId);
-  }
-
-  @Public()
-  @Get(':id')
-  @ApiOkResponse({ type: TopicDTO })
-  async getTopicById(@Param('id', ParseIntPipe) id: number): Promise<TopicDTO> {
-    const topic = await this.topicService.getTopicById(id);
-    return TopicDTO.fromEntity(topic);
-  }
-
-  @Roles(Role.ADMIN)
-  @Post()
-  @ApiOkResponse({ type: TopicDTO })
-  async createTopic(@Body() dto: CreateTopicDTO): Promise<TopicDTO> {
-    const topic = await this.topicService.createTopic(dto);
-    return TopicDTO.fromEntity(topic);
-  }
-
-  @Roles(Role.ADMIN)
-  @Put(':id')
-  @ApiOkResponse({ type: TopicDTO })
-  async updateTopic(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateTopicDTO,
-  ): Promise<TopicDTO> {
-    const topic = await this.topicService.updateTopic(id, dto);
-    return TopicDTO.fromEntity(topic);
-  }
-
-  @Roles(Role.ADMIN)
-  @Delete(':id')
-  @ApiOkResponse({ type: TopicDTO })
-  async deleteTopic(@Param('id', ParseIntPipe) id: number): Promise<TopicDTO> {
-    const topic = await this.topicService.deleteTopic(id);
-    return TopicDTO.fromEntity(topic);
-  }
-}
-@Public()
-@Get('search')
-@ApiOperation({
-  summary: 'Search topics for autocomplete dropdown',
-  description: 'Returns topics matching search term. Used for Category filter.',
-})
-@ApiOkResponse({ type: TopicListResponseDto })
-async searchTopics(@Query() dto: TopicSearchDto): Promise<TopicListResponseDto> {
-  const topics = await this.topicService.searchTopics(dto.q, dto.limit);
-  return {
-    topics,
-    total: topics.length,
-  };
+interface VocabProgressRaw {
+  vocabId: number;
+  maxCorrect: number | string;
 }
 
-/**
- * ✅ Endpoint 2: Get All Topics for Filter
- * GET /topics/list
- * 
- * Dùng để hiển thị dropdown khi bấm button "Category"
- */
-@Public()
-@Get('list')
-@ApiOperation({
-  summary: 'Get all topics for filter dropdown',
-  description: 'Returns all topics with vocabulary counts.',
-})
-@ApiOkResponse({ type: TopicListResponseDto })
-async getTopicsList(@Request() req?: RequestWithUser): Promise<TopicListResponseDto> {
-  const userId = req?.user?.id;
-  const topics = await this.topicService.getTopicsForFilter(userId);
-  return {
-    topics,
-    total: topics.length,
-  };
+@Injectable()
+export class TopicService {
+  constructor(
+    @InjectRepository(Topic)
+    private topicRepository: Repository<Topic>,
+    @InjectRepository(Result)
+    private resultRepository: Repository<Result>,
+  ) {}
+
+  async getAllTopics(): Promise<Topic[]> {
+    return await this.topicRepository.find({
+      relations: ['vocabularies'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getTopicById(id: number): Promise<Topic> {
+    const topic = await this.topicRepository.findOne({
+      where: { id },
+      relations: ['vocabularies'],
+    });
+    if (!topic) {
+      throw new NotFoundException(`Topic with ID ${id} not found`);
+    }
+    return topic;
+  }
+
+  async createTopic(dto: CreateTopicDTO): Promise<Topic> {
+    const topic = this.topicRepository.create(dto);
+    return await this.topicRepository.save(topic);
+  }
+
+  async updateTopic(id: number, dto: UpdateTopicDTO): Promise<Topic> {
+    const topic = await this.getTopicById(id);
+    Object.assign(topic, dto);
+    return await this.topicRepository.save(topic);
+  }
+
+  async deleteTopic(id: number): Promise<Topic> {
+    const topic = await this.getTopicById(id);
+    const vocabCount = topic.vocabularies?.length || 0;
+
+    console.log(
+      `🗑️ Deleting topic "${topic.topicName}" with ${vocabCount} vocabularies`,
+    );
+
+    await this.topicRepository.remove(topic);
+
+    console.log(
+      `✅ Topic deleted successfully (${vocabCount} vocabularies removed)`,
+    );
+
+    return topic;
+  }
+
+  async getTopicsWithProgress(userId: number): Promise<TopicWithProgress[]> {
+    const topics = await this.topicRepository.find({
+      relations: ['vocabularies'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const topicsWithProgress = await Promise.all(
+      topics.map(async (topic) => {
+        const vocabIdsInTopic = topic.vocabularies.map((v) => v.id);
+        const totalWords = vocabIdsInTopic.length;
+
+        if (totalWords === 0) {
+          return {
+            id: topic.id,
+            topicName: topic.topicName,
+            description: topic.description,
+            createdAt: topic.createdAt,
+            totalWords: 0,
+            learnedCount: 0,
+          };
+        }
+
+        const results = await this.resultRepository
+          .createQueryBuilder('result')
+          .leftJoin('result.quizQuestion', 'quizQuestion')
+          .select('quizQuestion.vocabId', 'vocabId')
+          .addSelect(
+            'MAX(CASE WHEN result.isCorrect THEN 1 ELSE 0 END)',
+            'maxCorrect',
+          )
+          .where('result.userId = :userId', { userId })
+          .andWhere('quizQuestion.vocabId IN (:...vocabIds)', {
+            vocabIds: vocabIdsInTopic,
+          })
+          .groupBy('quizQuestion.vocabId')
+          .getRawMany<VocabProgressRaw>();
+
+        const learnedCount = results.filter((r) => {
+          const maxCorrect =
+            typeof r.maxCorrect === 'string'
+              ? parseInt(r.maxCorrect, 10)
+              : r.maxCorrect;
+          return maxCorrect === 1;
+        }).length;
+
+        return {
+          id: topic.id,
+          topicName: topic.topicName,
+          description: topic.description,
+          createdAt: topic.createdAt,
+          totalWords,
+          learnedCount,
+        };
+      }),
+    );
+
+    return topicsWithProgress;
+  }
+
+  // ✅ FIX: Thêm method searchTopics
+  async searchTopics(
+    searchTerm?: string,
+    limit = 10,
+  ): Promise<TopicSearchResultDto[]> {
+    const queryBuilder = this.topicRepository
+      .createQueryBuilder('topic')
+      .leftJoin('topic.vocabularies', 'vocab')
+      .select([
+        'topic.id AS id',
+        'topic.topic_name AS topicName',
+        'topic.description AS description',
+        'COUNT(vocab.vocab_id) AS vocabularyCount',
+      ])
+      .groupBy('topic.id');
+
+    if (searchTerm && searchTerm.trim()) {
+      queryBuilder.where('LOWER(topic.topic_name) LIKE LOWER(:search)', {
+        search: `%${searchTerm.trim()}%`,
+      });
+    }
+
+    queryBuilder.orderBy('topic.topic_name', 'ASC').limit(limit);
+
+    const results = await queryBuilder.getRawMany();
+
+    return results.map((r) => ({
+      id: r.id,
+      topicName: r.topicname,
+      description: r.description || null,
+      vocabularyCount: parseInt(r.vocabularycount, 10) || 0,
+    }));
+  }
+
+  // ✅ FIX: Thêm method getTopicsForFilter
+  async getTopicsForFilter(userId?: number): Promise<TopicSearchResultDto[]> {
+    const topics = await this.topicRepository
+      .createQueryBuilder('topic')
+      .leftJoin('topic.vocabularies', 'vocab')
+      .select([
+        'topic.id AS id',
+        'topic.topic_name AS topicName',
+        'topic.description AS description',
+        'COUNT(vocab.vocab_id) AS vocabularyCount',
+      ])
+      .groupBy('topic.id')
+      .orderBy('topic.topic_name', 'ASC')
+      .getRawMany();
+
+    const results: TopicSearchResultDto[] = topics.map((t) => ({
+      id: t.id,
+      topicName: t.topicname,
+      description: t.description || null,
+      vocabularyCount: parseInt(t.vocabularycount, 10) || 0,
+    }));
+
+    // Optionally add learned count
+    if (userId) {
+      for (const topic of results) {
+        const learnedCount = await this.getLearnedVocabCount(topic.id, userId);
+        topic.learnedCount = learnedCount;
+      }
+    }
+
+    return results;
+  }
+
+  // ✅ FIX: Thêm helper method getLearnedVocabCount
+  private async getLearnedVocabCount(
+    topicId: number,
+    userId: number,
+  ): Promise<number> {
+    const results = await this.resultRepository
+      .createQueryBuilder('result')
+      .leftJoin('result.quizQuestion', 'quizQuestion')
+      .leftJoin('quizQuestion.vocabulary', 'vocab')
+      .select('quizQuestion.vocabId', 'vocabId')
+      .addSelect(
+        'MAX(CASE WHEN result.isCorrect THEN 1 ELSE 0 END)',
+        'maxCorrect',
+      )
+      .where('result.userId = :userId', { userId })
+      .andWhere('vocab.topicId = :topicId', { topicId })
+      .groupBy('quizQuestion.vocabId')
+      .getRawMany<VocabProgressRaw>();
+
+    return results.filter((r) => {
+      const maxCorrect =
+        typeof r.maxCorrect === 'string'
+          ? parseInt(r.maxCorrect, 10)
+          : r.maxCorrect;
+      return maxCorrect === 1;
+    }).length;
+  }
 }
