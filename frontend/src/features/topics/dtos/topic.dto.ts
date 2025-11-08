@@ -1,18 +1,17 @@
-// src/features/topics/dtos/topic.dto.ts
 export interface TopicDto {
-  id: number; // topic_id
-  name: string; // topic_name
+  topic_id: number;
+  topic_name: string;
   description?: string;
-  totalWords: number; // Sẽ được tính từ vocabularies
-  learnedWords: number; // Sẽ được tính từ progress
+  vocab_count?: number;
+  created_at?: string;
 }
 
 export interface CreateTopicDto {
-  name: string;
+  topic_name: string;
   description?: string;
 }
 
 export interface UpdateTopicDto {
-  name?: string;
+  topic_name?: string;
   description?: string;
 }

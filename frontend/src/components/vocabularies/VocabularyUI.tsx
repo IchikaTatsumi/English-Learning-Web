@@ -1,33 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, Leaf, Cloud, Utensils, Cpu, Zap, BookOpen, Gamepad2 } from 'lucide-react';
+import { AddButton } from '@/components/buttons/AddButton';
+import { BookmarkButton } from '@/components/buttons/BookmarkButton';
+import { LoudspeakerButton } from '@/components/buttons/LoudspeakerButton';
+import { ViewModeButton, ViewMode } from '@/components/buttons/ViewModeButton';
+import { MicroRecordingButton } from '@/components/buttons/MicroRecordingButton';
 import { useVocabularies } from '@/features/vocabularies/hooks/vocabulary.hook';
 import { useTopics } from '@/features/topics/hooks/topic.hook';
-import { Search, Volume2, Grid3X3, List, Leaf, Gamepad2, Cloud, Utensils, Cpu, Zap, BookOpen } from 'lucide-react';
+import { useAuth } from '@/features/auth/hooks/auth.hooks';
+import { Role } from '@/lib/constants/enums';
 
 export function VocabularyUI() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === Role.ADMIN;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
   const [filterTopicId, setFilterTopicId] = useState<number | undefined>(undefined);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [activeTab, setActiveTab] = useState('all');
 
-  const { topics, isLoading: topicsLoading } = useTopics();
-  const { vocabularies, isLoading: vocabLoading } = useVocabularies({
+  const { topics, fetchTopics, isLoading: topicsLoading } = useTopics();
+  const { vocabularies, fetchVocabularies, isLoading: vocabLoading } = useVocabularies({
     topic_id: filterTopicId,
     difficulty_level: filterDifficulty !== 'all' ? filterDifficulty as any : undefined,
     searchTerm: searchTerm || undefined
   });
 
+  useEffect(() => {
+    fetchTopics();
+  }, [fetchTopics]);
+
+  useEffect(() => {
+    fetchVocabularies();
+  }, [filterTopicId, filterDifficulty, searchTerm, fetchVocabularies]);
+
+  // Filter by active tab
   const filteredWords = vocabularies.filter(word => {
-    const matchesTab = activeTab === 'all' || word.topic_name === activeTab;
-    return matchesTab;
+    if (activeTab === 'all') return true;
+    return word.topic_name === activeTab;
   });
 
   const getCategoryIcon = (topicName: string) => {
@@ -37,55 +55,84 @@ export function VocabularyUI() {
       'Food': Utensils,
       'Weather': Cloud,
       'Daily Activities': Gamepad2,
-      'Colors': Cpu,
-      'Numbers': BookOpen,
+      'Technology': Cpu,
+      'Education': BookOpen,
     };
-    const Icon = iconMap[topicName] || Grid3X3;
+    const Icon = iconMap[topicName] || BookOpen;
     return <Icon className="h-4 w-4" />;
   };
 
   const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case 'beginner': return 'bg-green-100 text-green-700';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-700';
-      case 'advanced': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
+    const colors: Record<string, string> = {
+      'Beginner': 'bg-green-100 text-green-700',
+      'Intermediate': 'bg-yellow-100 text-yellow-700',
+      'Advanced': 'bg-red-100 text-red-700',
+    };
+    return colors[difficulty] || 'bg-gray-100 text-gray-700';
   };
 
-  const playAudio = (audioPath: string | null) => {
-    if (audioPath) {
-      const audio = new Audio(audioPath);
-      audio.play();
-    }
+  const handleBookmarkToggle = async (vocabId: number, isBookmarked: boolean) => {
+    console.log('Toggle bookmark:', vocabId, isBookmarked);
+    // TODO: Call API to toggle bookmark
+    // await vocabularyService.toggleBookmark(vocabId, isBookmarked);
+    // fetchVocabularies(); // Refresh list
+  };
+
+  const handlePronunciationResult = (result: any) => {
+    console.log('Pronunciation result:', result);
+    // TODO: Handle pronunciation result
+    // - Show score notification
+    // - Update progress
+    // - Save to results table
+  };
+
+  const handleAddVocab = () => {
+    console.log('Add vocabulary');
+    // TODO: Open dialog to add vocabulary (Admin only)
   };
 
   if (topicsLoading || vocabLoading) {
     return (
-      <div className="p-8 space-y-6">
-        <div className="text-center">Loading...</div>
+      <div className="p-8 flex justify-center items-center min-h-screen">
+        <div className="text-gray-600">Loading vocabularies...</div>
       </div>
     );
   }
 
   return (
     <div className="p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl mb-2">Vocabulary Learning</h1>
-        <p className="text-gray-600">Explore words by topic and build your vocabulary</p>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Vocabulary Learning</h1>
+          <p className="text-gray-600">Explore words by topic and build your vocabulary</p>
+        </div>
+        {isAdmin && (
+          <AddButton onClick={handleAddVocab} label="Add Vocabulary" />
+        )}
       </div>
 
-      {/* Topic Overview */}
+      {/* Topic Overview Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {topics.map(topic => {
           const topicWords = vocabularies.filter(v => v.topic_id === topic.topic_id);
+          const isActive = filterTopicId === topic.topic_id;
+          
           return (
-            <Card key={topic.topic_id} className="cursor-pointer hover:shadow-md transition-shadow">
+            <Card 
+              key={topic.topic_id} 
+              className={`cursor-pointer transition-all ${
+                isActive 
+                  ? 'ring-2 ring-blue-500 shadow-lg' 
+                  : 'hover:shadow-md'
+              }`}
+              onClick={() => setFilterTopicId(isActive ? undefined : topic.topic_id)}
+            >
               <CardContent className="p-4 text-center">
                 <div className="flex justify-center mb-2">
                   {getCategoryIcon(topic.topic_name)}
                 </div>
-                <h3 className="text-sm mb-1">{topic.topic_name}</h3>
+                <h3 className="text-sm font-medium mb-1">{topic.topic_name}</h3>
                 <p className="text-xs text-gray-600">{topicWords.length} words</p>
               </CardContent>
             </Card>
@@ -95,8 +142,8 @@ export function VocabularyUI() {
 
       {/* Category Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex items-center justify-between">
-          <TabsList className="grid w-full grid-cols-4 lg:w-fit">
+        <div className="flex items-center justify-between mb-4">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="all">All</TabsTrigger>
             {topics.slice(0, 3).map(topic => (
               <TabsTrigger key={topic.topic_id} value={topic.topic_name} className="flex items-center gap-1">
@@ -106,28 +153,13 @@ export function VocabularyUI() {
             ))}
           </TabsList>
           
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-          </div>
+          <ViewModeButton mode={viewMode} onModeChange={setViewMode} />
         </div>
 
         {/* Filters */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-4 items-end">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
@@ -137,6 +169,7 @@ export function VocabularyUI() {
                   className="pl-10"
                 />
               </div>
+              
               <Select value={filterDifficulty} onValueChange={setFilterDifficulty}>
                 <SelectTrigger className="w-full md:w-48">
                   <SelectValue placeholder="Difficulty" />
@@ -148,79 +181,120 @@ export function VocabularyUI() {
                   <SelectItem value="Advanced">Advanced</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select 
+                value={filterTopicId?.toString() || 'all'} 
+                onValueChange={(val) => setFilterTopicId(val === 'all' ? undefined : parseInt(val))}
+              >
+                <SelectTrigger className="w-full md:w-48">
+                  <SelectValue placeholder="Topic" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Topics</SelectItem>
+                  {topics.map(topic => (
+                    <SelectItem key={topic.topic_id} value={topic.topic_id.toString()}>
+                      {topic.topic_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        <TabsContent value={activeTab} className="space-y-6">
-          {/* Word Display */}
+        <TabsContent value={activeTab} className="space-y-6 mt-6">
+          {/* Word Cards */}
           <div className={viewMode === 'grid' ? 
             "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : 
             "space-y-4"
           }>
-            {filteredWords.map((word) => (
-              <Card key={word.vocab_id} className={`hover:shadow-lg transition-shadow ${
-                viewMode === 'list' ? 'p-4' : ''
-              }`}>
+            {filteredWords.map((vocab) => (
+              <Card key={vocab.vocab_id} className="hover:shadow-lg transition-shadow">
                 {viewMode === 'grid' ? (
                   <>
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <CardTitle className="flex items-center gap-2">
-                            {word.word}
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-6 w-6 p-0"
-                              onClick={() => playAudio(word.audio_path)}
-                            >
-                              <Volume2 className="h-3 w-3" />
-                            </Button>
+                          <CardTitle className="flex items-center gap-2 text-xl">
+                            {vocab.word}
+                            <LoudspeakerButton 
+                              audioPath={vocab.audio_path} 
+                              word={vocab.word}
+                              size="sm"
+                            />
                           </CardTitle>
-                          <p className="text-sm text-gray-500 mt-1">{word.ipa}</p>
+                          <p className="text-sm text-gray-500 mt-1">{vocab.ipa}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <BookmarkButton
+                            vocabId={vocab.vocab_id}
+                            isBookmarked={vocab.is_learned || false}
+                            onToggle={handleBookmarkToggle}
+                          />
+                          <MicroRecordingButton
+                            vocabId={vocab.vocab_id}
+                            targetWord={vocab.word}
+                            onResult={handlePronunciationResult}
+                          />
                         </div>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <p className="text-gray-700">{word.meaning_en}</p>
-                      <p className="text-sm text-blue-600">{word.meaning_vi}</p>
-                      {word.example_sentence && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Definition:</p>
+                        <p className="text-gray-700">{vocab.meaning_en}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Nghĩa tiếng Việt:</p>
+                        <p className="text-sm text-blue-600">{vocab.meaning_vi}</p>
+                      </div>
+                      {vocab.example_sentence && (
                         <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-sm italic">{word.example_sentence}</p>
+                          <p className="text-xs font-medium text-gray-500 mb-1">Example:</p>
+                          <p className="text-sm italic">{vocab.example_sentence}</p>
                         </div>
                       )}
-                      <div className="flex items-center justify-between">
-                        <Badge className={getDifficultyColor(word.difficulty_level)}>
-                          {word.difficulty_level}
+                      <div className="flex items-center justify-between pt-2">
+                        <Badge className={getDifficultyColor(vocab.difficulty_level)}>
+                          {vocab.difficulty_level}
                         </Badge>
-                        <Badge variant="outline">{word.topic_name}</Badge>
+                        <Badge variant="outline">{vocab.topic_name}</Badge>
                       </div>
                     </CardContent>
                   </>
                 ) : (
-                  <div className="flex items-center justify-between">
+                  <div className="p-4 flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3>{word.word}</h3>
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-6 w-6 p-0"
-                          onClick={() => playAudio(word.audio_path)}
-                        >
-                          <Volume2 className="h-3 w-3" />
-                        </Button>
-                        <span className="text-sm text-gray-500">{word.ipa}</span>
-                        <Badge className={getDifficultyColor(word.difficulty_level)} variant="secondary">
-                          {word.difficulty_level}
+                        <h3 className="font-semibold text-lg">{vocab.word}</h3>
+                        <LoudspeakerButton 
+                          audioPath={vocab.audio_path} 
+                          word={vocab.word}
+                          size="sm"
+                        />
+                        <span className="text-sm text-gray-500">{vocab.ipa}</span>
+                        <Badge className={getDifficultyColor(vocab.difficulty_level)} variant="secondary">
+                          {vocab.difficulty_level}
                         </Badge>
+                        <Badge variant="outline">{vocab.topic_name}</Badge>
                       </div>
-                      <p className="text-gray-700 mb-1">{word.meaning_en}</p>
-                      <p className="text-sm text-blue-600 mb-1">{word.meaning_vi}</p>
-                      {word.example_sentence && (
-                        <p className="text-sm text-gray-600 italic">{word.example_sentence}</p>
+                      <p className="text-gray-700 mb-1">{vocab.meaning_en}</p>
+                      <p className="text-sm text-blue-600 mb-1">{vocab.meaning_vi}</p>
+                      {vocab.example_sentence && (
+                        <p className="text-sm text-gray-600 italic mt-2">"{vocab.example_sentence}"</p>
                       )}
+                    </div>
+                    <div className="flex items-center gap-1 ml-4">
+                      <BookmarkButton
+                        vocabId={vocab.vocab_id}
+                        isBookmarked={vocab.is_learned || false}
+                        onToggle={handleBookmarkToggle}
+                      />
+                      <MicroRecordingButton
+                        vocabId={vocab.vocab_id}
+                        targetWord={vocab.word}
+                        onResult={handlePronunciationResult}
+                      />
                     </div>
                   </div>
                 )}
@@ -231,7 +305,9 @@ export function VocabularyUI() {
           {filteredWords.length === 0 && (
             <Card>
               <CardContent className="p-8 text-center">
-                <p className="text-gray-500">No words found matching your criteria.</p>
+                <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 mb-2">No words found matching your criteria.</p>
+                <p className="text-sm text-gray-400">Try adjusting your filters or search term.</p>
               </CardContent>
             </Card>
           )}

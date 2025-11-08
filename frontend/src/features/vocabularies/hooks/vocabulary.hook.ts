@@ -1,209 +1,128 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Filter } from 'lucide-react';
-import { useVocabularies } from '@/features/vocabularies/hooks/vocabulary.hook';
-import { useTopics } from '@/features/topics/hooks/topic.hook';
-import { AddButton } from '@/components/buttons/AddButton';
-import { BookmarkButton } from '@/components/buttons/BookmarkButton';
-import { LoudspeakerButton } from '@/components/buttons/LoudspeakerButton';
-import { ViewModeButton, ViewMode } from '@/components/buttons/ViewModeButton';
-import { MicroRecordingButton } from '@/components/buttons/MicroRecordingButton';
+import { useState, useCallback } from 'react';
+import { vocabularyService } from '../services/vocabulary.service';
+import { VocabularyDto, VocabularyFilterDto, CreateVocabularyDto, UpdateVocabularyDto } from '../dtos/vocabulary.dto';
 
-export function VocabularyUI() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
-  const [filterTopicId, setFilterTopicId] = useState<number | undefined>(undefined);
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
+export function useVocabularies(filters?: VocabularyFilterDto) {
+  const [vocabularies, setVocabularies] = useState<VocabularyDto[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const { topics } = useTopics();
-  const { vocabularies, isLoading } = useVocabularies({
-    topic_id: filterTopicId,
-    difficulty_level: filterDifficulty !== 'all' ? filterDifficulty as any : undefined,
-    searchTerm: searchTerm || undefined
-  });
+  const fetchVocabularies = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await vocabularyService.getVocabularies(filters);
+      setVocabularies(data);
+      return data;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch vocabularies';
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters]);
 
-  const handleBookmarkToggle = async (vocabId: number, isBookmarked: boolean) => {
-    // API call to toggle bookmark
-    console.log('Toggle bookmark:', vocabId, isBookmarked);
+  const createVocabulary = useCallback(async (dto: CreateVocabularyDto) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const newVocab = await vocabularyService.createVocabulary(dto);
+      setVocabularies(prev => [...prev, newVocab]);
+      return newVocab;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to create vocabulary';
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const updateVocabulary = useCallback(async (id: number, dto: UpdateVocabularyDto) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const updated = await vocabularyService.updateVocabulary(id, dto);
+      setVocabularies(prev => prev.map(v => v.vocab_id === id ? updated : v));
+      return updated;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update vocabulary';
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const deleteVocabulary = useCallback(async (id: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await vocabularyService.deleteVocabulary(id);
+      setVocabularies(prev => prev.filter(v => v.vocab_id !== id));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete vocabulary';
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const toggleBookmark = useCallback(async (vocabId: number, isBookmarked: boolean) => {
+    setError(null);
+    try {
+      await vocabularyService.toggleBookmark(vocabId, isBookmarked);
+      setVocabularies(prev => prev.map(v => 
+        v.vocab_id === vocabId ? { ...v, is_learned: isBookmarked } : v
+      ));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to toggle bookmark';
+      setError(message);
+      throw err;
+    }
+  }, []);
+
+  return {
+    vocabularies,
+    isLoading,
+    error,
+    fetchVocabularies,
+    createVocabulary,
+    updateVocabulary,
+    deleteVocabulary,
+    toggleBookmark,
   };
+}
 
-  const handlePronunciationResult = (result: any) => {
-    console.log('Pronunciation result:', result);
+export function useVocabulary(id: number) {
+  const [vocabulary, setVocabulary] = useState<VocabularyDto | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchVocabulary = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await vocabularyService.getVocabularyById(id);
+      setVocabulary(data);
+      return data;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch vocabulary';
+      setError(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [id]);
+
+  return {
+    vocabulary,
+    isLoading,
+    error,
+    fetchVocabulary,
   };
-
-  const getDifficultyColor = (difficulty: string) => {
-    const colors: Record<string, string> = {
-      'Beginner': 'bg-green-100 text-green-700',
-      'Intermediate': 'bg-yellow-100 text-yellow-700',
-      'Advanced': 'bg-red-100 text-red-700',
-    };
-    return colors[difficulty] || 'bg-gray-100 text-gray-700';
-  };
-
-  if (isLoading) {
-    return <div className="p-8">Loading...</div>;
-  }
-
-  return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl mb-2">Vocabulary Learning</h1>
-          <p className="text-gray-600">Explore words by category and build your vocabulary</p>
-        </div>
-        <AddButton onClick={() => console.log('Add vocab')} label="Add Word" />
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search words or definitions..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            
-            <Select value={filterDifficulty} onValueChange={setFilterDifficulty}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Difficulty" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Difficulties</SelectItem>
-                <SelectItem value="Beginner">Beginner</SelectItem>
-                <SelectItem value="Intermediate">Intermediate</SelectItem>
-                <SelectItem value="Advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select 
-              value={filterTopicId?.toString() || 'all'} 
-              onValueChange={(val) => setFilterTopicId(val === 'all' ? undefined : parseInt(val))}
-            >
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {topics.map(topic => (
-                  <SelectItem key={topic.topic_id} value={topic.topic_id.toString()}>
-                    {topic.topic_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <ViewModeButton mode={viewMode} onModeChange={setViewMode} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Word Cards */}
-      <div className={viewMode === 'grid' ? 
-        "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : 
-        "space-y-4"
-      }>
-        {vocabularies.map((vocab) => (
-          <Card key={vocab.vocab_id} className="hover:shadow-lg transition-shadow">
-            {viewMode === 'grid' ? (
-              <>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="flex items-center gap-2">
-                        {vocab.word}
-                        <LoudspeakerButton 
-                          audioPath={vocab.audio_path} 
-                          word={vocab.word}
-                          size="sm"
-                        />
-                      </CardTitle>
-                      <p className="text-sm text-gray-500 mt-1">{vocab.ipa}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <BookmarkButton
-                        vocabId={vocab.vocab_id}
-                        isBookmarked={false}
-                        onToggle={handleBookmarkToggle}
-                      />
-                      <MicroRecordingButton
-                        vocabId={vocab.vocab_id}
-                        targetWord={vocab.word}
-                        onResult={handlePronunciationResult}
-                      />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-gray-700">{vocab.meaning_en}</p>
-                  <p className="text-sm text-blue-600">{vocab.meaning_vi}</p>
-                  {vocab.example_sentence && (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm italic">{vocab.example_sentence}</p>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <Badge className={getDifficultyColor(vocab.difficulty_level)}>
-                      {vocab.difficulty_level}
-                    </Badge>
-                    <Badge variant="outline">{vocab.topic_name}</Badge>
-                  </div>
-                </CardContent>
-              </>
-            ) : (
-              <div className="p-4 flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-semibold">{vocab.word}</h3>
-                    <LoudspeakerButton 
-                      audioPath={vocab.audio_path} 
-                      word={vocab.word}
-                      size="sm"
-                    />
-                    <span className="text-sm text-gray-500">{vocab.ipa}</span>
-                    <Badge className={getDifficultyColor(vocab.difficulty_level)} variant="secondary">
-                      {vocab.difficulty_level}
-                    </Badge>
-                  </div>
-                  <p className="text-gray-700 mb-1">{vocab.meaning_en}</p>
-                  <p className="text-sm text-blue-600">{vocab.meaning_vi}</p>
-                </div>
-                <div className="flex items-center gap-1">
-                  <BookmarkButton
-                    vocabId={vocab.vocab_id}
-                    isBookmarked={false}
-                    onToggle={handleBookmarkToggle}
-                  />
-                  <MicroRecordingButton
-                    vocabId={vocab.vocab_id}
-                    targetWord={vocab.word}
-                    onResult={handlePronunciationResult}
-                  />
-                </div>
-              </div>
-            )}
-          </Card>
-        ))}
-      </div>
-
-      {vocabularies.length === 0 && (
-        <Card>
-          <CardContent className="p-8 text-center">
-            <p className="text-gray-500">No words found matching your criteria.</p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
 }

@@ -1,43 +1,46 @@
-// src/features/vocabularies/dtos/vocabulary.dto.ts
 export interface VocabularyDto {
-  id: number; // vocab_id
+  vocab_id: number;
   word: string;
-  pronunciation: string; // ipa
-  partOfSpeech: string; // Cần thêm từ database hoặc mock
-  definition: string; // meaning
-  example: string; // Cần thêm từ database hoặc mock
-  difficulty: 'A1' | 'A2' | 'B1' | 'B2' | 'C1'; // level
-  topicId: number; // Sẽ được thêm vào để dễ lọc
-  lessonId: number;
-  isLearned: boolean; // Sẽ tính từ bảng `results`
-  dateAdded: string; // created_at
-  lastReviewed?: string; // Dựa trên `results.created_at` mới nhất
+  ipa: string;
+  meaning_en: string;
+  meaning_vi: string;
+  example_sentence?: string;
+  audio_path?: string;
+  difficulty_level: 'Beginner' | 'Intermediate' | 'Advanced';
+  topic_id: number;
+  topic_name: string;
+  lesson_id: number;
+  is_learned: boolean;
+  created_at: string;
 }
 
 export interface CreateVocabularyDto {
   word: string;
-  pronunciation: string;
-  partOfSpeech: string;
-  definition: string;
-  example: string;
-  difficulty: 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
-  lessonId: number;
+  ipa: string;
+  meaning_en: string;
+  meaning_vi: string;
+  example_sentence?: string;
+  audio_path?: string;
+  difficulty_level: 'Beginner' | 'Intermediate' | 'Advanced';
+  topic_id: number;
+  lesson_id: number;
 }
 
 export interface UpdateVocabularyDto {
   word?: string;
-  pronunciation?: string;
-  partOfSpeech?: string;
-  definition?: string;
-  example?: string;
-  difficulty?: 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
-  lessonId?: number;
-  isLearned?: boolean;
+  ipa?: string;
+  meaning_en?: string;
+  meaning_vi?: string;
+  example_sentence?: string;
+  audio_path?: string;
+  difficulty_level?: 'Beginner' | 'Intermediate' | 'Advanced';
+  topic_id?: number;
+  lesson_id?: number;
 }
 
 export interface VocabularyFilterDto {
-  topicId?: number;
-  difficulty?: string;
+  topic_id?: number;
+  difficulty_level?: 'Beginner' | 'Intermediate' | 'Advanced';
   isLearned?: boolean;
   searchTerm?: string;
 }

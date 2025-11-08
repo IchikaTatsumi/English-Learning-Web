@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ProfileDropdown } from '@/components/profile-dropdown';
 import { Role } from '@/lib/constants/enums';
+import { useAuth } from '@/features/auth/hooks/auth.hooks';
 
 interface NavigationItem {
   id: string;
@@ -65,8 +66,8 @@ const navigationItems: NavigationItem[] = [
 
 export function NavigationSidebar() {
   const pathname = usePathname();
-  // TODO: Get user role from auth context
-  const userRole = Role.USER; // Replace with actual role from useAuth()
+  const { user } = useAuth();
+  const userRole = user?.role || Role.USER;
 
   const filteredItems = navigationItems.filter(item => 
     !item.roles || item.roles.includes(userRole)

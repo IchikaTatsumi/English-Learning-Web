@@ -1,32 +1,38 @@
-// src/features/progress/dtos/progress.dto.ts
 export interface UserProgressDto {
-  userId: number; // Đã thay đổi
-  totalWords: number;
-  learnedWords: number; // Ánh xạ từ correct_words
-  currentStreak: number;
-  longestStreak: number;
-  totalQuizzes: number;
-  correctAnswers: number;
-  weeklyGoal: number;
+  user_id: number;
+  total_quizzes: number;
+  total_questions: number;
+  correct_answers: number;
+  accuracy_rate: number;
+  total_words_learned: number;
+  current_streak: number;
+  longest_streak: number;
+  last_quiz_date?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VocabProgressDto {
+  vocab_id: number;
+  user_id: number;
+  total_answered: number;
+  total_correct: number;
+  accuracy_percent: number;
+  last_attempted?: string;
+}
+
+export interface TopicProgressDto {
+  topic_id: number;
+  topic_name: string;
+  total_words: number;
+  learned_words: number;
+  accuracy_rate: number;
 }
 
 export interface DailyProgressDto {
   date: string;
-  wordsLearned: number;
-  quizzesTaken: number;
-  timeSpent: number;
-}
-
-export interface ProgressStatsDto {
-  userProgress: UserProgressDto;
-  dailyProgress: DailyProgressDto[];
-  topicProgress: TopicProgressDto[];
-}
-
-export interface TopicProgressDto {
-  topicId: number; // Đã thay đổi
-  topicName: string;
-  totalWords: number;
-  learnedWords: number;
-  accuracy: number;
+  words_learned: number;
+  quizzes_taken: number;
+  correct_answers: number;
+  time_spent: number;
 }
