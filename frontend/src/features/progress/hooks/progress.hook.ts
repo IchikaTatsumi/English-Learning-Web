@@ -110,4 +110,4 @@ export function useDailyProgress(userId: number, days: number = 7) {
     try {
       const data = await progressService.getDailyProgress(userId, days);
       setDailyProgress(data);
-      return data;
+      return data;                                
