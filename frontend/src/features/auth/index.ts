@@ -1,4 +1,4 @@
-export * from './dto/auth.dto';
+export * from './dtos/auth.dto';
 export * from './services/auth.service';
 export * from './hooks/auth.hooks';
-export * from './context/auth.context';
+export * from './actions/auth.actions';

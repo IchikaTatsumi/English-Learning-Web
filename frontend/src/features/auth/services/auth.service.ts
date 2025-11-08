@@ -1,4 +1,4 @@
-import { LoginDto, RegisterDto, AuthResponseDto } from '../dto/auth.dto';
+import { LoginDto, RegisterDto, AuthResponseDto } from '../dtos/auth.dto';
 
 export class AuthService {
 

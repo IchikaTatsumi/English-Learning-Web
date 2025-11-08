@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { vocabularyService } from '../services/vocabulary.service';
-import { VocabularyDto, VocabularyFilterDto } from '../dto/vocabulary.dto';
+import { VocabularyDto, VocabularyFilterDto } from '../dtos/vocabulary.dto';
 
 export function useVocabularies(filter?: VocabularyFilterDto) {
   const [vocabularies, setVocabularies] = useState<VocabularyDto[]>([]);

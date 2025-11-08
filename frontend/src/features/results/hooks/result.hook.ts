@@ -3,7 +3,7 @@
 
 import { useState, useCallback } from 'react';
 import { resultService } from '../services/result.service';
-import { QuizResultDto, ResultSummaryDto } from '../dto/result.dto';
+import { QuizResultDto, ResultSummaryDto } from '../dtos/result.dto';
 
 export function useResults(userId: number) { // Đã thay đổi userId: string -> number
   const [results, setResults] = useState<QuizResultDto[]>([]);

@@ -1,5 +1,5 @@
 // src/features/topics/services/topic.service.ts
-import { TopicDto, CreateTopicDto, UpdateTopicDto } from '../dto/topic.dto';
+import { TopicDto, CreateTopicDto, UpdateTopicDto } from '../dtos/topic.dto';
 
 
 export class TopicService {
