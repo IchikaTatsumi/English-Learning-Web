@@ -1,4 +1,3 @@
-import { getAuthTokenServer } from "./cookie/cookie-server";
 import { ServerResponseModel } from "./typedefs/server-response";
 
 type ApiFetchOptions = {
@@ -16,62 +15,86 @@ export async function apiFetch<T = any>(
     const {
       withCredentials = false,
       withUpload = false,
-      baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT,
+      baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api',
       ...fetchOptions
     } = options || {};
 
     const headers: Record<string, any> = {
       ...fetchOptions?.headers,
-      apikey: process.env.API_KEY || "",
     };
 
-    if (withCredentials) {
-      const accessToken = await getAuthTokenServer();
-      if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
-      else
-        return {
-          success: false,
-          statusCode: 401,
-          message: "Unauthorized",
-        };
+    // Add auth token if needed
+    if (withCredentials && typeof window !== 'undefined') {
+      const accessToken = localStorage.getItem('accessToken');
+      if (accessToken) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
     }
 
-    if (!withUpload) headers["Content-Type"] = "application/json";
-    if (options?.isBlob) headers["Accept"] = "application/octet-stream";
-
-    const fullUrl = `${baseUrl}${url}`;
-    const response = await fetch(fullUrl, { ...fetchOptions, headers });
-
-    if (!response.ok) {
-      let message = "Unknown error";
-      try {
-        const errorData = await response.json();
-        message = errorData.message || message;
-      } catch (_) {}
-      return { success: false, statusCode: response.status, message };
+    // Set content type for non-upload requests
+    if (!withUpload && !headers["Content-Type"]) {
+      headers["Content-Type"] = "application/json";
     }
 
     if (options?.isBlob) {
-      return {
-        success: true,
-        statusCode: response.status,
-        data: (await response.blob()) as T,
+      headers["Accept"] = "application/octet-stream";
+    }
+
+    const fullUrl = `${baseUrl}${url}`;
+    
+    const response = await fetch(fullUrl, { 
+      ...fetchOptions, 
+      headers 
+    });
+
+    // Handle non-OK responses
+    if (!response.ok) {
+      let message = `HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        message = errorData.message || errorData.error || message;
+      } catch (_) {
+        // If response is not JSON, use status text
+      }
+      
+      return { 
+        success: false, 
+        statusCode: response.status, 
+        message 
       };
     }
 
-    // Default: JSON
+    // Handle blob responses
+    if (options?.isBlob) {
+      const blob = await response.blob();
+      return {
+        success: true,
+        statusCode: response.status,
+        data: blob as T,
+      };
+    }
+
+    // Handle JSON responses
     const data = await response.json();
     return {
       success: true,
       statusCode: response.status,
-      data: data.data ? (data.data as T) : (data as T),
+      data: data as T,
     };
   } catch (error: any) {
-    console.error(error);
+    console.error('API Fetch Error:', error);
     return {
       success: false,
       statusCode: 500,
-      message: error.message || "Unknown error",
+      message: error.message || "Network error occurred",
     };
   }
+}
+
+// Client-side only API fetch with token from localStorage
+export async function apiFetchClient<T = any>(
+  url: string,
+  options?: Omit<ApiFetchOptions, 'withCredentials'>
+): Promise<ServerResponseModel<T>> {
+  return apiFetch<T>(url, { ...options, withCredentials: true });
 }

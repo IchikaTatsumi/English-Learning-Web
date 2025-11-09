@@ -1,109 +1,78 @@
-import { LoginDto, RegisterDto, AuthResponseDto } from '../dtos/auth.dto';
+import { apiClient } from '@/lib/api/client';
+import { LoginDto } from '../dtos/request/login.dto';
+import { RegisterDto } from '../dtos/request/register.dto';
+import { AuthResponseDto } from '../dtos/response/auth-response.dto';
+import { ServerResponseModel } from '@/lib/typedefs/server-response';
 
 export class AuthService {
-  private baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
-
-  async login(dto: LoginDto): Promise<AuthResponseDto> {
-    try {
-      const response = await fetch(`${this.baseUrl}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          usernameOrEmail: dto.email, // Backend expects usernameOrEmail
-          password: dto.password
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Login failed');
-      }
-
-      const data = await response.json();
-      
-      // Backend returns: { access_token, user }
-      return {
-        accessToken: data.access_token,
-        refreshToken: '', // Backend doesn't return refresh token in this version
-        user: {
-          id: data.user.id.toString(),
-          email: data.user.email,
-          name: data.user.full_name,
-          username: data.user.username,
-          role: data.user.role
-        }
-      };
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+  async login(dto: LoginDto): Promise<ServerResponseModel<AuthResponseDto>> {
+    const response = await apiClient.post<AuthResponseDto>('/auth/login', dto);
+    
+    if (response.success && response.data) {
+      // Store token in localStorage
+      localStorage.setItem('accessToken', response.data.accessToken);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
     }
+    
+    return response;
   }
 
-  async register(dto: RegisterDto): Promise<AuthResponseDto> {
-    try {
-      const response = await fetch(`${this.baseUrl}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: dto.name.toLowerCase().replace(/\s+/g, ''),
-          email: dto.email,
-          password: dto.password,
-          fullName: dto.name
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Registration failed');
-      }
-
-      const data = await response.json();
-      
-      // After registration, need to login
-      return await this.login({ email: dto.email, password: dto.password });
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
-    }
+  async register(dto: RegisterDto): Promise<ServerResponseModel<{ id: number; username: string; email: string; fullName: string; role: string }>> {
+    return apiClient.post('/auth/register', dto);
   }
 
-  async logout(): Promise<void> {
-    // Backend doesn't have logout endpoint, just clear local storage
+  async logout(): Promise<ServerResponseModel<void>> {
+    // Clear local storage
     localStorage.removeItem('accessToken');
     localStorage.removeItem('user');
+    
+    return {
+      success: true,
+      statusCode: 200,
+    };
   }
 
-  async getMe(): Promise<any> {
-    try {
-      const token = localStorage.getItem('accessToken');
-      if (!token) throw new Error('No token');
+  async getIdentity(): Promise<ServerResponseModel<AuthResponseDto['user']>> {
+    return apiClient.get('/users/me');
+  }
 
-      const response = await fetch(`${this.baseUrl}/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) throw new Error('Failed to get user info');
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Get me error:', error);
-      throw error;
+  async check(params?: { role?: string }): Promise<ServerResponseModel<boolean>> {
+    const token = localStorage.getItem('accessToken');
+    
+    if (!token) {
+      return {
+        success: false,
+        statusCode: 401,
+        message: 'Not authenticated'
+      };
     }
+
+    const response = await this.getIdentity();
+    
+    if (!response.success) {
+      return {
+        success: false,
+        statusCode: 401,
+        message: 'Invalid token'
+      };
+    }
+
+    // Check role if specified
+    if (params?.role && response.data) {
+      const hasRole = response.data.role === params.role;
+      return {
+        success: hasRole,
+        statusCode: hasRole ? 200 : 403,
+        data: hasRole
+      };
+    }
+
+    return {
+      success: true,
+      statusCode: 200,
+      data: true
+    };
   }
 }
 
 export const authService = new AuthService();
-
-// Auth DTO with complete types
-export interface UserInfo {
-  id: string;
-  email: string;
-  name: string;
-  username: string;
-  role: 'Admin' | 'User';
-  full_name?: string;
-  created_at?: string;
-}

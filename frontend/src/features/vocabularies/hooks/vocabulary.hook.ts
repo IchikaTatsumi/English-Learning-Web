@@ -1,37 +1,46 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { vocabularyService } from '../services/vocabulary.service';
 import { VocabularyDto, VocabularyFilterDto, CreateVocabularyDto, UpdateVocabularyDto } from '../dtos/vocabulary.dto';
 
-export function useVocabularies(filters?: VocabularyFilterDto) {
+export function useVocabularies(initialFilters?: VocabularyFilterDto) {
   const [vocabularies, setVocabularies] = useState<VocabularyDto[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchVocabularies = useCallback(async () => {
+  const fetchVocabularies = useCallback(async (filters?: VocabularyFilterDto) => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await vocabularyService.getVocabularies(filters);
-      setVocabularies(data);
-      return data;
+      const response = await vocabularyService.getVocabularies(filters);
+      if (response.success && response.data) {
+        setVocabularies(response.data);
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Failed to fetch vocabularies');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch vocabularies';
       setError(message);
+      setVocabularies([]);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   const createVocabulary = useCallback(async (dto: CreateVocabularyDto) => {
     setIsLoading(true);
     setError(null);
     try {
-      const newVocab = await vocabularyService.createVocabulary(dto);
-      setVocabularies(prev => [...prev, newVocab]);
-      return newVocab;
+      const response = await vocabularyService.createVocabulary(dto);
+      if (response.success && response.data) {
+        setVocabularies(prev => [...prev, response.data!]);
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Failed to create vocabulary');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create vocabulary';
       setError(message);
@@ -45,9 +54,13 @@ export function useVocabularies(filters?: VocabularyFilterDto) {
     setIsLoading(true);
     setError(null);
     try {
-      const updated = await vocabularyService.updateVocabulary(id, dto);
-      setVocabularies(prev => prev.map(v => v.vocab_id === id ? updated : v));
-      return updated;
+      const response = await vocabularyService.updateVocabulary(id, dto);
+      if (response.success && response.data) {
+        setVocabularies(prev => prev.map(v => v.vocab_id === id ? response.data! : v));
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Failed to update vocabulary');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update vocabulary';
       setError(message);
@@ -61,8 +74,12 @@ export function useVocabularies(filters?: VocabularyFilterDto) {
     setIsLoading(true);
     setError(null);
     try {
-      await vocabularyService.deleteVocabulary(id);
-      setVocabularies(prev => prev.filter(v => v.vocab_id !== id));
+      const response = await vocabularyService.deleteVocabulary(id);
+      if (response.success) {
+        setVocabularies(prev => prev.filter(v => v.vocab_id !== id));
+      } else {
+        throw new Error(response.message || 'Failed to delete vocabulary');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete vocabulary';
       setError(message);
@@ -72,19 +89,12 @@ export function useVocabularies(filters?: VocabularyFilterDto) {
     }
   }, []);
 
-  const toggleBookmark = useCallback(async (vocabId: number, isBookmarked: boolean) => {
-    setError(null);
-    try {
-      await vocabularyService.toggleBookmark(vocabId, isBookmarked);
-      setVocabularies(prev => prev.map(v => 
-        v.vocab_id === vocabId ? { ...v, is_learned: isBookmarked } : v
-      ));
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to toggle bookmark';
-      setError(message);
-      throw err;
+  // Auto-fetch on mount if filters provided
+  useEffect(() => {
+    if (initialFilters) {
+      fetchVocabularies(initialFilters);
     }
-  }, []);
+  }, [initialFilters, fetchVocabularies]);
 
   return {
     vocabularies,
@@ -94,7 +104,6 @@ export function useVocabularies(filters?: VocabularyFilterDto) {
     createVocabulary,
     updateVocabulary,
     deleteVocabulary,
-    toggleBookmark,
   };
 }
 
@@ -104,12 +113,18 @@ export function useVocabulary(id: number) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchVocabulary = useCallback(async () => {
+    if (!id) return;
+    
     setIsLoading(true);
     setError(null);
     try {
-      const data = await vocabularyService.getVocabularyById(id);
-      setVocabulary(data);
-      return data;
+      const response = await vocabularyService.getVocabularyById(id);
+      if (response.success && response.data) {
+        setVocabulary(response.data);
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Failed to fetch vocabulary');
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch vocabulary';
       setError(message);
@@ -118,6 +133,10 @@ export function useVocabulary(id: number) {
       setIsLoading(false);
     }
   }, [id]);
+
+  useEffect(() => {
+    fetchVocabulary();
+  }, [fetchVocabulary]);
 
   return {
     vocabulary,

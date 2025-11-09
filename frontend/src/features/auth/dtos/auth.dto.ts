@@ -1,22 +1,28 @@
 export interface LoginDto {
-  email: string;
+  usernameOrEmail: string;
   password: string;
 }
 
 export interface RegisterDto {
+  username: string;
   email: string;
+  fullName: string;
   password: string;
-  name: string;
 }
 
 export interface AuthResponseDto {
   accessToken: string;
-  refreshToken: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-  };
+  user: UserDto;
+}
+
+export interface UserDto {
+  id: number;
+  username: string;
+  email: string;
+  fullName: string;
+  role: 'Admin' | 'User';
+  avatarUrl?: string;
+  createdAt: string;
 }
 
 export interface RefreshTokenDto {
