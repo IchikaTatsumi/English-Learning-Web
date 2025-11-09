@@ -1,10 +1,20 @@
 import { apiClient } from '@/lib/api/client';
 import { LoginDto } from '../dtos/request/login.dto';
 import { RegisterDto } from '../dtos/request/register.dto';
+import { ResetPasswordDto } from '../dtos/request/reset-password.dto';
 import { AuthResponseDto } from '../dtos/response/auth-response.dto';
 import { ServerResponseModel } from '@/lib/typedefs/server-response';
 
+/**
+ * Authentication Service
+ * Maps to backend AuthController endpoints
+ */
 export class AuthService {
+  /**
+   * User login
+   * POST /auth/login
+   * Backend: AuthController.login()
+   */
   async login(dto: LoginDto): Promise<ServerResponseModel<AuthResponseDto>> {
     const response = await apiClient.post<AuthResponseDto>('/auth/login', dto);
     
@@ -17,10 +27,34 @@ export class AuthService {
     return response;
   }
 
-  async register(dto: RegisterDto): Promise<ServerResponseModel<{ id: number; username: string; email: string; fullName: string; role: string }>> {
+  /**
+   * User registration
+   * POST /auth/register
+   * Backend: AuthController.register()
+   */
+  async register(dto: RegisterDto): Promise<ServerResponseModel<{ 
+    id: number; 
+    username: string; 
+    email: string; 
+    fullName: string; 
+    role: string 
+  }>> {
     return apiClient.post('/auth/register', dto);
   }
 
+  /**
+   * Reset password
+   * POST /auth/reset-password
+   * Backend: AuthController.resetPassword()
+   */
+  async resetPassword(dto: ResetPasswordDto): Promise<ServerResponseModel<{ message: string }>> {
+    return apiClient.post('/auth/reset-password', dto);
+  }
+
+  /**
+   * Logout user
+   * Clear local storage (no backend endpoint needed)
+   */
   async logout(): Promise<ServerResponseModel<void>> {
     // Clear local storage
     localStorage.removeItem('accessToken');
@@ -32,10 +66,19 @@ export class AuthService {
     };
   }
 
+  /**
+   * Get current user identity
+   * GET /users/me
+   * Backend: UsersController.getMe()
+   */
   async getIdentity(): Promise<ServerResponseModel<AuthResponseDto['user']>> {
     return apiClient.get('/users/me');
   }
 
+  /**
+   * Check authentication status
+   * Optionally check for specific role
+   */
   async check(params?: { role?: string }): Promise<ServerResponseModel<boolean>> {
     const token = localStorage.getItem('accessToken');
     

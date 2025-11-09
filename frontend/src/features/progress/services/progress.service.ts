@@ -1,80 +1,89 @@
-import { UserProgressDto, VocabProgressDto, TopicProgressDto, DailyProgressDto } from '../dtos/progress.dto';
+export interface ProgressResponseDto {
+  id: number;
+  user_id: number;
+  total_quizzes: number;
+  total_questions: number;
+  correct_answers: number;
+  accuracy_rate: number;
+  created_at: string;
+}
+
+export interface ProgressStatsDto {
+  total_words: number;
+  learned_words: number;
+  current_streak: number;
+  quiz_score: number;
+  overall_progress: number;
+  weekly_goal_progress: number;
+  longest_streak: number;
+  total_quizzes: number;
+  weekly_activity: Array<{
+    day: string;
+    count: number;
+  }>;
+  learning_trends: Array<{
+    date: string;
+    score: number;
+  }>;
+}
+
+// ============================================
+// Service
+// ============================================
 
 export class ProgressService {
-  private baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:3000/api';
+  private baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
 
-  async getUserProgress(userId: number): Promise<UserProgressDto> {
+  private getAuthHeaders(): HeadersInit {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+  }
+
+  /**
+   * Get user progress
+   * GET /progress
+   * Backend: ProgressController.getUserProgress()
+   */
+  async getUserProgress(): Promise<ProgressResponseDto> {
     try {
-      const response = await fetch(`${this.baseUrl}/progress/user/${userId}`);
-      if (!response.ok) throw new Error('Failed to fetch user progress');
-      
-      const data = await response.json();
-      return data.data || data;
+      const response = await fetch(`${this.baseUrl}/progress`, {
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch user progress');
+      }
+
+      return await response.json();
     } catch (error) {
       console.error('Error fetching user progress:', error);
-      // Return mock data
-      return this.getMockUserProgress(userId);
+      throw error;
     }
   }
 
-  async getVocabProgress(userId: number, vocabId?: number): Promise<VocabProgressDto[]> {
+  /**
+   * Get detailed progress statistics
+   * GET /progress/stats
+   * Backend: ProgressController.getProgressStats()
+   */
+  async getProgressStats(): Promise<ProgressStatsDto> {
     try {
-      const url = vocabId 
-        ? `${this.baseUrl}/progress/vocab/${userId}/${vocabId}`
-        : `${this.baseUrl}/progress/vocab/${userId}`;
-      
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch vocab progress');
-      
-      const data = await response.json();
-      return data.data || data;
-    } catch (error) {
-      console.error('Error fetching vocab progress:', error);
-      return [];
-    }
-  }
+      const response = await fetch(`${this.baseUrl}/progress/stats`, {
+        headers: this.getAuthHeaders()
+      });
 
-  async getTopicProgress(userId: number): Promise<TopicProgressDto[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/progress/topics/${userId}`);
-      if (!response.ok) throw new Error('Failed to fetch topic progress');
-      
-      const data = await response.json();
-      return data.data || data;
-    } catch (error) {
-      console.error('Error fetching topic progress:', error);
-      return [];
-    }
-  }
+      if (!response.ok) {
+        throw new Error('Failed to fetch progress statistics');
+      }
 
-  async getDailyProgress(userId: number, days: number = 7): Promise<DailyProgressDto[]> {
-    try {
-      const response = await fetch(`${this.baseUrl}/progress/daily/${userId}?days=${days}`);
-      if (!response.ok) throw new Error('Failed to fetch daily progress');
-      
-      const data = await response.json();
-      return data.data || data;
+      return await response.json();
     } catch (error) {
-      console.error('Error fetching daily progress:', error);
-      return [];
+      console.error('Error fetching progress statistics:', error);
+      throw error;
     }
-  }
-
-  // Mock data
-  private getMockUserProgress(userId: number): UserProgressDto {
-    return {
-      user_id: userId,
-      total_quizzes: 15,
-      total_questions: 75,
-      correct_answers: 60,
-      accuracy_rate: 80,
-      total_words_learned: 45,
-      current_streak: 5,
-      longest_streak: 12,
-      last_quiz_date: new Date().toISOString(),
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: new Date().toISOString(),
-    };
   }
 }
 
