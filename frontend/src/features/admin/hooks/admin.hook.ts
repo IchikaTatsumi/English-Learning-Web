@@ -5,7 +5,8 @@ import { adminService } from '../services/admin.service';
 import {
   DashboardStatsDto,
   RecentActivityDto,
-} from '../dtos/admin.dto';
+  AdminAccessDto,
+} from '../dtos/admin-response.dto';
 
 export function useAdmin() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStatsDto | null>(null);

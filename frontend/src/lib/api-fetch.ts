@@ -1,4 +1,5 @@
 import { ServerResponseModel } from "./typedefs/server-response";
+import { apiLogger } from "./utils/api-logger";
 
 type ApiFetchOptions = {
   baseUrl?: string;
@@ -11,6 +12,8 @@ export async function apiFetch<T = any>(
   url: string,
   options?: ApiFetchOptions
 ): Promise<ServerResponseModel<T>> {
+  const startTimer = apiLogger.startTimer();
+  
   try {
     const {
       withCredentials = false,
@@ -41,21 +44,42 @@ export async function apiFetch<T = any>(
     }
 
     const fullUrl = `${baseUrl}${url}`;
+    const method = fetchOptions.method || 'GET';
+
+    // Log request
+    apiLogger.logRequest({
+      url: fullUrl,
+      method,
+      body: fetchOptions.body,
+      headers,
+    });
     
     const response = await fetch(fullUrl, { 
       ...fetchOptions, 
       headers 
     });
 
+    const duration = startTimer();
+
     // Handle non-OK responses
     if (!response.ok) {
       let message = `HTTP ${response.status}: ${response.statusText}`;
+      let data;
+      
       try {
-        const errorData = await response.json();
-        message = errorData.message || errorData.error || message;
+        data = await response.json();
+        message = data.message || data.error || message;
       } catch (_) {
         // If response is not JSON, use status text
       }
+
+      apiLogger.logResponse({
+        url: fullUrl,
+        method,
+        status: response.status,
+        data,
+        duration,
+      });
       
       return { 
         success: false, 
@@ -67,6 +91,14 @@ export async function apiFetch<T = any>(
     // Handle blob responses
     if (options?.isBlob) {
       const blob = await response.blob();
+      
+      apiLogger.logResponse({
+        url: fullUrl,
+        method,
+        status: response.status,
+        duration,
+      });
+      
       return {
         success: true,
         statusCode: response.status,
@@ -76,13 +108,23 @@ export async function apiFetch<T = any>(
 
     // Handle JSON responses
     const data = await response.json();
+    
+    apiLogger.logResponse({
+      url: fullUrl,
+      method,
+      status: response.status,
+      data,
+      duration,
+    });
+    
     return {
       success: true,
       statusCode: response.status,
       data: data as T,
     };
   } catch (error: any) {
-    console.error('API Fetch Error:', error);
+    apiLogger.logError(url, options?.method || 'GET', error);
+    
     return {
       success: false,
       statusCode: 500,

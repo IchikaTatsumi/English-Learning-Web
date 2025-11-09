@@ -2,7 +2,7 @@ import { apiClient } from '@/lib/api/client';
 import { LoginDto } from '../dtos/request/login.dto';
 import { RegisterDto } from '../dtos/request/register.dto';
 import { ResetPasswordDto } from '../dtos/request/reset-password.dto';
-import { AuthResponseDto } from '../dtos/response/auth-response.dto';
+import { AuthResponseDto, UserDto } from '../dtos/response/auth-response.dto';
 import { ServerResponseModel } from '@/lib/typedefs/server-response';
 
 /**
@@ -32,13 +32,7 @@ export class AuthService {
    * POST /auth/register
    * Backend: AuthController.register()
    */
-  async register(dto: RegisterDto): Promise<ServerResponseModel<{ 
-    id: number; 
-    username: string; 
-    email: string; 
-    fullName: string; 
-    role: string 
-  }>> {
+  async register(dto: RegisterDto): Promise<ServerResponseModel<UserDto>> {
     return apiClient.post('/auth/register', dto);
   }
 
@@ -71,7 +65,7 @@ export class AuthService {
    * GET /users/me
    * Backend: UsersController.getMe()
    */
-  async getIdentity(): Promise<ServerResponseModel<AuthResponseDto['user']>> {
+  async getIdentity(): Promise<ServerResponseModel<UserDto>> {
     return apiClient.get('/users/me');
   }
 

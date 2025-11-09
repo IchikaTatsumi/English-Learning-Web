@@ -2,88 +2,168 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { authService } from '../services/auth.service';
-import { LoginDto, RegisterDto, AuthResponseDto } from '../dtos/auth.dto';
+import { LoginDto, RegisterDto, AuthResponseDto, UserDto } from '../dtos/auth.dto';
+import { authStorage, userStorage } from '@/lib/utils/local-storage';
+import { toast } from '@/lib/utils/toast';
 
 export function useAuth() {
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<UserDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Initialize auth state from localStorage
+   */
   useEffect(() => {
-    // Check if user is logged in
-    const checkAuth = async () => {
-      try {
-        // TODO: Call API to get current user
-        const mockUser = {
-          user_id: 1,
-          full_name: 'John Doe',
-          username: 'johndoe',
-          email: 'john@example.com',
-          role: 'User',
-          created_at: '2024-01-15'
-        };
-        setUser(mockUser);
-      } catch (err) {
-        console.error('Auth check failed:', err);
+    const initAuth = () => {
+      const token = authStorage.getAccessToken();
+      const storedUser = userStorage.getUser<UserDto>();
+      
+      if (token && storedUser) {
+        setUser(storedUser);
       }
+      
+      setIsInitialized(true);
     };
-    checkAuth();
+
+    initAuth();
   }, []);
 
+  /**
+   * Login user
+   */
   const login = useCallback(async (dto: LoginDto) => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await authService.login(dto);
-      localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      setUser(response.user);
-      return response;
+      
+      if (response.success && response.data) {
+        const { accessToken, user } = response.data;
+        
+        // Store tokens and user
+        authStorage.setAccessToken(accessToken);
+        userStorage.setUser(user);
+        
+        setUser(user);
+        toast.success('Login successful!');
+        
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Login failed');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const message = err instanceof Error ? err.message : 'Login failed';
+      setError(message);
+      toast.error(message);
       throw err;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  /**
+   * Register user
+   */
   const register = useCallback(async (dto: RegisterDto) => {
     setIsLoading(true);
     setError(null);
     try {
       const response = await authService.register(dto);
-      localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      setUser(response.user);
-      return response;
+      
+      if (response.success && response.data) {
+        toast.success('Registration successful! Please login.');
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Registration failed');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      setError(message);
+      toast.error(message);
       throw err;
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  /**
+   * Logout user
+   */
   const logout = useCallback(async () => {
     setIsLoading(true);
     try {
       await authService.logout();
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
+      
+      // Clear storage and state
+      authStorage.clearAuth();
       setUser(null);
+      
+      toast.success('Logged out successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Logout failed');
+      const message = err instanceof Error ? err.message : 'Logout failed';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
+  /**
+   * Get current user identity
+   */
+  const fetchIdentity = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authService.getIdentity();
+      
+      if (response.success && response.data) {
+        setUser(response.data);
+        userStorage.setUser(response.data);
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Failed to fetch user identity');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch identity';
+      setError(message);
+      
+      // If token is invalid, clear auth
+      authStorage.clearAuth();
+      setUser(null);
+      
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Check if user is authenticated
+   */
+  const isAuthenticated = useCallback(() => {
+    return !!user && !!authStorage.getAccessToken();
+  }, [user]);
+
+  /**
+   * Check if user is admin
+   */
+  const isAdmin = useCallback(() => {
+    return user?.role === 'Admin';
+  }, [user]);
+
   return {
     user,
+    isLoading,
+    isInitialized,
+    error,
     login,
     register,
     logout,
-    isLoading,
-    error,
+    fetchIdentity,
+    isAuthenticated,
+    isAdmin,
   };
 }

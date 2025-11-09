@@ -64,3 +64,28 @@ export interface TopicProgressDto {
   learned_count: number;
   progress_percentage?: number;
 }
+
+export interface TopicDto {
+  topic_id: number;
+  topic_name: string;
+  description?: string;
+  created_at: string;
+  vocab_count?: number; // ✅ Added for admin display
+  vocabularies?: VocabularyInTopicDto[];
+}
+
+export interface VocabularyInTopicDto {
+  vocab_id: number;
+  word: string;
+  difficulty_level: string;
+}
+
+export interface CreateTopicDto {
+  topic_name: string;
+  description?: string;
+}
+
+export interface UpdateTopicDto {
+  topic_name?: string;
+  description?: string;
+}

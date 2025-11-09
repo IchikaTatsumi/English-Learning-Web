@@ -23,7 +23,7 @@ export class TopicService {
    * Get all topics
    * GET /topics
    */
-  async getTopics(): Promise<TopicDto[]> {
+    async getTopics(): Promise<TopicDto[]> {
     try {
       const response = await fetch(`${this.baseUrl}/topics`, {
         headers: this.getAuthHeaders()
@@ -31,7 +31,13 @@ export class TopicService {
 
       if (!response.ok) throw new Error('Failed to fetch topics');
 
-      return await response.json();
+      const topics: TopicDto[] = await response.json();
+      
+      // ✅ Ensure vocab_count is calculated if vocabularies exist
+      return topics.map(topic => ({
+        ...topic,
+        vocab_count: topic.vocabularies?.length || topic.vocab_count || 0,
+      }));
     } catch (error) {
       console.error('Error fetching topics:', error);
       throw error;
@@ -126,6 +132,7 @@ export class TopicService {
     }
   }
 
+  
   /**
    * Create new topic (Admin only)
    * POST /topics
