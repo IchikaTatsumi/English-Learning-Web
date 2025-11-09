@@ -2,21 +2,69 @@
 
 import { useState, useCallback } from 'react';
 import { quizService } from '../services/quiz.service';
-import { QuizDto, QuizQuestionDto } from '../dtos/quiz.dto';
+import { 
+  CreateQuizDto, 
+  QuizResponseDto, 
+  SubmitQuizDto, 
+  QuizResultDto,
+  QuizStatisticsDto,
+  QuizQuestionResponseDto 
+} from '../dtos/quiz.dto';
 
-export function useQuiz(quizId?: string) {
-  const [quiz, setQuiz] = useState<QuizDto | null>(null);
-  const [questions, setQuestions] = useState<QuizQuestionDto[]>([]);
+export function useQuiz() {
+  const [quizzes, setQuizzes] = useState<QuizResponseDto[]>([]);
+  const [currentQuiz, setCurrentQuiz] = useState<QuizResponseDto | null>(null);
+  const [questions, setQuestions] = useState<QuizQuestionResponseDto[]>([]);
+  const [statistics, setStatistics] = useState<QuizStatisticsDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchQuiz = useCallback(async (id: string) => {
+  /**
+   * Create new quiz
+   */
+  const createQuiz = useCallback(async (dto: CreateQuizDto) => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await quizService.getQuiz(id);
-      setQuiz(data);
+      const quiz = await quizService.createQuiz(dto);
+      setCurrentQuiz(quiz);
+      return quiz;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create quiz');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Fetch all user quizzes
+   */
+  const fetchUserQuizzes = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await quizService.getUserQuizzes();
+      setQuizzes(data);
       return data;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch quizzes');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Fetch quiz by ID
+   */
+  const fetchQuizById = useCallback(async (quizId: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const quiz = await quizService.getQuizById(quizId);
+      setCurrentQuiz(quiz);
+      return quiz;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch quiz');
       throw err;
@@ -25,11 +73,66 @@ export function useQuiz(quizId?: string) {
     }
   }, []);
 
-  const fetchQuestions = useCallback(async (id: string) => {
+  /**
+   * Submit quiz answers
+   */
+  const submitQuiz = useCallback(async (quizId: number, dto: SubmitQuizDto) => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await quizService.getQuizQuestions(id);
+      const result = await quizService.submitQuiz(quizId, dto);
+      return result;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit quiz');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Fetch quiz statistics
+   */
+  const fetchStatistics = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const stats = await quizService.getQuizStatistics();
+      setStatistics(stats);
+      return stats;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Delete quiz
+   */
+  const deleteQuiz = useCallback(async (quizId: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await quizService.deleteQuiz(quizId);
+      setQuizzes(prev => prev.filter(q => q.quiz_id !== quizId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete quiz');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Fetch random questions for practice
+   */
+  const fetchRandomQuestions = useCallback(async (count: number = 10) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await quizService.getRandomQuestions(count);
       setQuestions(data);
       return data;
     } catch (err) {
@@ -41,11 +144,49 @@ export function useQuiz(quizId?: string) {
   }, []);
 
   return {
-    quiz,
+    quizzes,
+    currentQuiz,
     questions,
-    fetchQuiz,
-    fetchQuestions,
+    statistics,
     isLoading,
-    error
+    error,
+    createQuiz,
+    fetchUserQuizzes,
+    fetchQuizById,
+    submitQuiz,
+    fetchStatistics,
+    deleteQuiz,
+    fetchRandomQuestions,
+  };
+}
+
+/**
+ * Hook for single quiz operations
+ */
+export function useQuizById(quizId?: number) {
+  const [quiz, setQuiz] = useState<QuizResponseDto | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchQuiz = useCallback(async (id: number) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await quizService.getQuizById(id);
+      setQuiz(data);
+      return data;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch quiz');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  return {
+    quiz,
+    isLoading,
+    error,
+    fetchQuiz,
   };
 }

@@ -1,4 +1,12 @@
-import { VocabularyDto, CreateVocabularyDto, UpdateVocabularyDto, VocabularyFilterDto } from '../dtos/vocabulary.dto';
+import {
+  VocabularyDto,
+  CreateVocabularyDto,
+  UpdateVocabularyDto,
+  VocabularyFilterDto,
+  VocabularyListResponseDto,
+  VocabularyWithProgressDto,
+} from '../dtos/vocabulary.dto';
+import { ServerResponseModel } from '@/lib/typedefs/server-response';
 
 export class VocabularyService {
   private baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
@@ -11,15 +19,53 @@ export class VocabularyService {
     };
   }
 
-  async getVocabularies(filters?: VocabularyFilterDto): Promise<VocabularyDto[]> {
+  /**
+   * Get all vocabularies
+   * GET /vocabularies
+   */
+  async getAllVocabularies(): Promise<ServerResponseModel<VocabularyDto[]>> {
+    try {
+      const response = await fetch(`${this.baseUrl}/vocabularies`, {
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch vocabularies');
+
+      const data = await response.json();
+      return {
+        success: true,
+        statusCode: 200,
+        data
+      };
+    } catch (error) {
+      console.error('Error fetching vocabularies:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        message: error instanceof Error ? error.message : 'Failed to fetch vocabularies'
+      };
+    }
+  }
+
+  /**
+   * Get vocabularies with flexible filtering
+   * GET /vocabularies/filter?difficulty=Beginner&topic_id=1&only_learned=true
+   */
+  async getVocabularies(filters?: VocabularyFilterDto): Promise<ServerResponseModel<VocabularyListResponseDto>> {
     try {
       const params = new URLSearchParams();
       
-      // Backend API: GET /vocabularies/filter
+      if (filters?.search) params.append('search', filters.search);
+      if (filters?.difficulty) params.append('difficulty', filters.difficulty);
       if (filters?.topic_id) params.append('topicId', filters.topic_id.toString());
-      if (filters?.difficulty_level) params.append('difficulty', filters.difficulty_level);
-      if (filters?.isLearned !== undefined) params.append('onlyLearned', filters.isLearned.toString());
-      if (filters?.searchTerm) params.append('search', filters.searchTerm);
+      if (filters?.only_learned !== undefined) params.append('onlyLearned', filters.only_learned.toString());
+      if (filters?.recently_learned !== undefined) params.append('recentlyLearned', filters.recently_learned.toString());
+      if (filters?.view_mode) params.append('viewMode', filters.view_mode);
+      if (filters?.paginate !== undefined) params.append('paginate', filters.paginate.toString());
+      if (filters?.page) params.append('page', filters.page.toString());
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+      if (filters?.sort_by) params.append('sortBy', filters.sort_by);
+      if (filters?.sort_order) params.append('sortOrder', filters.sort_order);
 
       const response = await fetch(`${this.baseUrl}/vocabularies/filter?${params.toString()}`, {
         headers: this.getAuthHeaders()
@@ -27,17 +73,27 @@ export class VocabularyService {
 
       if (!response.ok) throw new Error('Failed to fetch vocabularies');
       
-      const result = await response.json();
-      
-      // Backend returns: { data: [], view_mode, total, paginated }
-      return result.data.map((v: any) => this.mapBackendToDto(v));
+      const data = await response.json();
+      return {
+        success: true,
+        statusCode: 200,
+        data
+      };
     } catch (error) {
       console.error('Error fetching vocabularies:', error);
-      throw error;
+      return {
+        success: false,
+        statusCode: 500,
+        message: error instanceof Error ? error.message : 'Failed to fetch vocabularies'
+      };
     }
   }
 
-  async getVocabularyById(id: number): Promise<VocabularyDto> {
+  /**
+   * Get vocabulary by ID
+   * GET /vocabularies/:id
+   */
+  async getVocabularyById(id: number): Promise<ServerResponseModel<VocabularyDto>> {
     try {
       const response = await fetch(`${this.baseUrl}/vocabularies/${id}`, {
         headers: this.getAuthHeaders()
@@ -46,41 +102,136 @@ export class VocabularyService {
       if (!response.ok) throw new Error('Failed to fetch vocabulary');
       
       const data = await response.json();
-      return this.mapBackendToDto(data);
+      return {
+        success: true,
+        statusCode: 200,
+        data
+      };
     } catch (error) {
       console.error('Error fetching vocabulary:', error);
+      return {
+        success: false,
+        statusCode: 500,
+        message: error instanceof Error ? error.message : 'Failed to fetch vocabulary'
+      };
+    }
+  }
+
+  /**
+   * Get vocabularies by topic
+   * GET /vocabularies/topic/:topicId
+   */
+  async getVocabulariesByTopic(topicId: number): Promise<VocabularyDto[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/vocabularies/topic/${topicId}`, {
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch vocabularies');
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching vocabularies by topic:', error);
       throw error;
     }
   }
 
-  async createVocabulary(dto: CreateVocabularyDto): Promise<VocabularyDto> {
+  /**
+   * Search vocabularies
+   * GET /vocabularies/search?q=hello
+   */
+  async searchVocabularies(query: string): Promise<VocabularyDto[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/vocabularies/search?q=${encodeURIComponent(query)}`, {
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) throw new Error('Failed to search vocabularies');
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error searching vocabularies:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get random vocabularies
+   * GET /vocabularies/random?count=10&difficulty=Beginner
+   */
+  async getRandomVocabularies(count: number = 10, difficulty?: string): Promise<VocabularyDto[]> {
+    try {
+      const params = new URLSearchParams();
+      params.append('count', count.toString());
+      if (difficulty) params.append('difficulty', difficulty);
+
+      const response = await fetch(`${this.baseUrl}/vocabularies/random?${params.toString()}`, {
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch random vocabularies');
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching random vocabularies:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get default vocabularies (reset filter)
+   * GET /vocabularies/default
+   */
+  async getDefaultVocabularies(): Promise<VocabularyDto[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/vocabularies/default`, {
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch default vocabularies');
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching default vocabularies:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create vocabulary (Admin only)
+   * POST /vocabularies
+   */
+  async createVocabulary(dto: CreateVocabularyDto): Promise<ServerResponseModel<VocabularyDto>> {
     try {
       const response = await fetch(`${this.baseUrl}/vocabularies`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
-        body: JSON.stringify({
-          topic_id: dto.topic_id,
-          word: dto.word,
-          ipa: dto.ipa,
-          meaning_en: dto.meaning_en,
-          meaning_vi: dto.meaning_vi,
-          example_sentence: dto.example_sentence,
-          audio_path: dto.audio_path,
-          difficulty_level: dto.difficulty_level
-        }),
+        body: JSON.stringify(dto),
       });
       
       if (!response.ok) throw new Error('Failed to create vocabulary');
       
       const data = await response.json();
-      return this.mapBackendToDto(data);
+      return {
+        success: true,
+        statusCode: 200,
+        data
+      };
     } catch (error) {
       console.error('Error creating vocabulary:', error);
-      throw error;
+      return {
+        success: false,
+        statusCode: 500,
+        message: error instanceof Error ? error.message : 'Failed to create vocabulary'
+      };
     }
   }
 
-  async updateVocabulary(id: number, dto: UpdateVocabularyDto): Promise<VocabularyDto> {
+  /**
+   * Update vocabulary (Admin only)
+   * PUT /vocabularies/:id
+   */
+  async updateVocabulary(id: number, dto: UpdateVocabularyDto): Promise<ServerResponseModel<VocabularyDto>> {
     try {
       const response = await fetch(`${this.baseUrl}/vocabularies/${id}`, {
         method: 'PUT',
@@ -91,14 +242,26 @@ export class VocabularyService {
       if (!response.ok) throw new Error('Failed to update vocabulary');
       
       const data = await response.json();
-      return this.mapBackendToDto(data);
+      return {
+        success: true,
+        statusCode: 200,
+        data
+      };
     } catch (error) {
       console.error('Error updating vocabulary:', error);
-      throw error;
+      return {
+        success: false,
+        statusCode: 500,
+        message: error instanceof Error ? error.message : 'Failed to update vocabulary'
+      };
     }
   }
 
-  async deleteVocabulary(id: number): Promise<void> {
+  /**
+   * Delete vocabulary (Admin only)
+   * DELETE /vocabularies/:id
+   */
+  async deleteVocabulary(id: number): Promise<ServerResponseModel<void>> {
     try {
       const response = await fetch(`${this.baseUrl}/vocabularies/${id}`, {
         method: 'DELETE',
@@ -106,103 +269,19 @@ export class VocabularyService {
       });
       
       if (!response.ok) throw new Error('Failed to delete vocabulary');
+      
+      return {
+        success: true,
+        statusCode: 200
+      };
     } catch (error) {
       console.error('Error deleting vocabulary:', error);
-      throw error;
+      return {
+        success: false,
+        statusCode: 500,
+        message: error instanceof Error ? error.message : 'Failed to delete vocabulary'
+      };
     }
-  }
-
-  async toggleBookmark(vocabId: number, isBookmarked: boolean): Promise<void> {
-    try {
-      // Backend API: POST /vocabulary-practice/bookmark
-      const response = await fetch(`${this.baseUrl}/vocabulary-practice/bookmark`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({
-          vocab_id: vocabId,
-          is_bookmarked: isBookmarked
-        }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to toggle bookmark');
-    } catch (error) {
-      console.error('Error toggling bookmark:', error);
-      throw error;
-    }
-  }
-
-  async submitPractice(vocabId: number, answers: any[]): Promise<any> {
-    try {
-      // Backend API: POST /vocabulary-practice/submit
-      const response = await fetch(`${this.baseUrl}/vocabulary-practice/submit`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({
-          vocab_id: vocabId,
-          answers: answers
-        }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to submit practice');
-      
-      return await response.json();
-    } catch (error) {
-      console.error('Error submitting practice:', error);
-      throw error;
-    }
-  }
-
-  async getLearnedVocabularies(): Promise<VocabularyDto[]> {
-    try {
-      // Backend API: GET /vocabulary-practice/learned
-      const response = await fetch(`${this.baseUrl}/vocabulary-practice/learned`, {
-        headers: this.getAuthHeaders()
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch learned vocabularies');
-      
-      const data = await response.json();
-      return data.map((item: any) => this.mapBackendToDto(item.vocabulary));
-    } catch (error) {
-      console.error('Error fetching learned vocabularies:', error);
-      throw error;
-    }
-  }
-
-  async getBookmarkedVocabularies(): Promise<VocabularyDto[]> {
-    try {
-      // Backend API: GET /vocabulary-practice/bookmarked
-      const response = await fetch(`${this.baseUrl}/vocabulary-practice/bookmarked`, {
-        headers: this.getAuthHeaders()
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch bookmarked vocabularies');
-      
-      const data = await response.json();
-      return data.map((item: any) => this.mapBackendToDto(item.vocabulary));
-    } catch (error) {
-      console.error('Error fetching bookmarked vocabularies:', error);
-      throw error;
-    }
-  }
-
-  // Map backend response to DTO
-  private mapBackendToDto(data: any): VocabularyDto {
-    return {
-      vocab_id: data.vocab_id || data.id,
-      word: data.word,
-      ipa: data.ipa || '',
-      meaning_en: data.meaning_en,
-      meaning_vi: data.meaning_vi,
-      example_sentence: data.example_sentence,
-      audio_path: data.audio_path,
-      difficulty_level: data.difficulty_level,
-      topic_id: data.topic_id,
-      topic_name: data.topic?.topic_name || '',
-      lesson_id: 0, // Not used in backend
-      is_learned: data.is_learned || false,
-      created_at: data.created_at
-    };
   }
 }
 

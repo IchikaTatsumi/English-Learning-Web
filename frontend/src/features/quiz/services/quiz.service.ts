@@ -1,4 +1,11 @@
-import { QuizDto, QuizQuestionDto, CreateQuizDto, SubmitQuizAnswerDto } from '../dtos/quiz.dto';
+import { 
+  CreateQuizDto, 
+  QuizResponseDto, 
+  SubmitQuizDto, 
+  QuizResultDto,
+  QuizStatisticsDto,
+  QuizQuestionResponseDto 
+} from '../dtos/quiz.dto';
 
 export class QuizService {
   private baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
@@ -11,17 +18,16 @@ export class QuizService {
     };
   }
 
-  async createQuiz(dto: CreateQuizDto): Promise<any> {
+  /**
+   * Create a new quiz
+   * POST /quiz
+   */
+  async createQuiz(dto: CreateQuizDto): Promise<QuizResponseDto> {
     try {
-      // Backend API: POST /quiz
       const response = await fetch(`${this.baseUrl}/quiz`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
-        body: JSON.stringify({
-          difficulty_level: dto.difficulty || 'Mixed Levels',
-          total_questions: dto.questionCount || 10,
-          topic_id: dto.topicId
-        }),
+        body: JSON.stringify(dto),
       });
 
       if (!response.ok) {
@@ -36,69 +42,54 @@ export class QuizService {
     }
   }
 
-  async getQuiz(id: string): Promise<QuizDto> {
+  /**
+   * Get all user quizzes
+   * GET /quiz
+   */
+  async getUserQuizzes(): Promise<QuizResponseDto[]> {
     try {
-      // Backend API: GET /quiz/:id
-      const response = await fetch(`${this.baseUrl}/quiz/${id}`, {
-        headers: this.getAuthHeaders()
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch quiz');
-
-      const data = await response.json();
-      return this.mapQuizBackendToDto(data);
-    } catch (error) {
-      console.error('Error fetching quiz:', error);
-      throw error;
-    }
-  }
-
-  async getUserQuizzes(): Promise<QuizDto[]> {
-    try {
-      // Backend API: GET /quiz
       const response = await fetch(`${this.baseUrl}/quiz`, {
         headers: this.getAuthHeaders()
       });
 
       if (!response.ok) throw new Error('Failed to fetch quizzes');
 
-      const data = await response.json();
-      return data.map((q: any) => this.mapQuizBackendToDto(q));
+      return await response.json();
     } catch (error) {
       console.error('Error fetching quizzes:', error);
       throw error;
     }
   }
 
-  async getQuizQuestions(limit: number = 10): Promise<QuizQuestionDto[]> {
+  /**
+   * Get quiz by ID
+   * GET /quiz/:id
+   */
+  async getQuizById(quizId: number): Promise<QuizResponseDto> {
     try {
-      // Backend API: GET /quiz-questions/random?count=10
-      const response = await fetch(`${this.baseUrl}/quiz-questions/random?count=${limit}`, {
+      const response = await fetch(`${this.baseUrl}/quiz/${quizId}`, {
         headers: this.getAuthHeaders()
       });
 
-      if (!response.ok) throw new Error('Failed to fetch questions');
+      if (!response.ok) throw new Error('Failed to fetch quiz');
 
-      const data = await response.json();
-      return data.map((q: any) => this.mapQuestionBackendToDto(q));
+      return await response.json();
     } catch (error) {
-      console.error('Error fetching questions:', error);
+      console.error('Error fetching quiz:', error);
       throw error;
     }
   }
 
-  async submitQuiz(quizId: string, answers: SubmitQuizAnswerDto[]): Promise<any> {
+  /**
+   * Submit quiz answers
+   * POST /quiz/:id/submit
+   */
+  async submitQuiz(quizId: number, dto: SubmitQuizDto): Promise<QuizResultDto> {
     try {
-      // Backend API: POST /quiz/:id/submit
       const response = await fetch(`${this.baseUrl}/quiz/${quizId}/submit`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
-        body: JSON.stringify({
-          answers: answers.map(a => ({
-            question_id: parseInt(a.questionId),
-            answer: a.answer
-          }))
-        }),
+        body: JSON.stringify(dto),
       });
 
       if (!response.ok) throw new Error('Failed to submit quiz');
@@ -110,9 +101,12 @@ export class QuizService {
     }
   }
 
-  async getQuizStatistics(): Promise<any> {
+  /**
+   * Get quiz statistics
+   * GET /quiz/statistics
+   */
+  async getQuizStatistics(): Promise<QuizStatisticsDto> {
     try {
-      // Backend API: GET /quiz/statistics
       const response = await fetch(`${this.baseUrl}/quiz/statistics`, {
         headers: this.getAuthHeaders()
       });
@@ -126,9 +120,12 @@ export class QuizService {
     }
   }
 
-  async deleteQuiz(quizId: string): Promise<void> {
+  /**
+   * Delete a quiz
+   * DELETE /quiz/:id
+   */
+  async deleteQuiz(quizId: number): Promise<void> {
     try {
-      // Backend API: DELETE /quiz/:id
       const response = await fetch(`${this.baseUrl}/quiz/${quizId}`, {
         method: 'DELETE',
         headers: this.getAuthHeaders()
@@ -141,56 +138,42 @@ export class QuizService {
     }
   }
 
-  // Mapping functions
-  private mapQuizBackendToDto(data: any): QuizDto {
-    return {
-      id: data.quiz_id?.toString() || data.id?.toString(),
-      title: `Quiz - ${data.difficulty_mode}`,
-      difficulty: this.mapDifficulty(data.difficulty_mode),
-      questionCount: data.total_questions,
-      createdAt: data.created_at
-    };
-  }
+  /**
+   * Get random quiz questions for practice
+   * GET /quiz-questions/random?count=10
+   */
+  async getRandomQuestions(count: number = 10): Promise<QuizQuestionResponseDto[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/quiz-questions/random?count=${count}`, {
+        headers: this.getAuthHeaders()
+      });
 
-  private mapQuestionBackendToDto(data: any): QuizQuestionDto {
-    return {
-      id: data.quiz_question_id?.toString() || data.id?.toString(),
-      quizId: '',
-      type: this.mapQuestionType(data.question_type),
-      question: data.question_text,
-      options: this.generateOptions(data),
-      correctAnswer: data.correct_answer,
-      vocabularyId: data.vocab_id?.toString() || ''
-    };
-  }
+      if (!response.ok) throw new Error('Failed to fetch questions');
 
-  private mapDifficulty(mode: string): 'beginner' | 'intermediate' | 'advanced' {
-    if (mode.includes('Beginner')) return 'beginner';
-    if (mode.includes('Intermediate')) return 'intermediate';
-    if (mode.includes('Advanced')) return 'advanced';
-    return 'beginner';
-  }
-
-  private mapQuestionType(type: string): 'multiple-choice' | 'fill-blank' | 'definition-match' {
-    // All backend questions are multiple choice
-    return 'multiple-choice';
-  }
-
-  private generateOptions(question: any): string[] {
-    // Backend should return options, if not generate mock ones
-    if (question.options && Array.isArray(question.options)) {
-      return question.options;
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      throw error;
     }
+  }
 
-    // Generate 4 options including the correct answer
-    const options = [question.correct_answer];
-    
-    // Add 3 random wrong options (in real scenario, backend should provide these)
-    if (question.vocabulary?.meaning_en) {
-      options.push('Wrong option 1', 'Wrong option 2', 'Wrong option 3');
+  /**
+   * Get quiz question by ID
+   * GET /quiz-questions/:id
+   */
+  async getQuestionById(questionId: number): Promise<QuizQuestionResponseDto> {
+    try {
+      const response = await fetch(`${this.baseUrl}/quiz-questions/${questionId}`, {
+        headers: this.getAuthHeaders()
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch question');
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching question:', error);
+      throw error;
     }
-
-    return options.sort(() => Math.random() - 0.5);
   }
 }
 
