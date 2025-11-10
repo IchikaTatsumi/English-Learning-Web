@@ -14,11 +14,14 @@ import { Edit, Trophy, Calendar, User, Settings, Bell } from 'lucide-react';
 
 export function ProfileUI() {
   const { user } = useAuth();
-  const { progress } = useProgress(user?.user_id || 0);
+  
+  // ✅ FIXED: useProgress() takes no parameters
+  const { progress } = useProgress();
   
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    full_name: user?.full_name || '',
+    // ✅ FIXED: Use camelCase (fullName instead of full_name)
+    fullName: user?.fullName || '',
     email: user?.email || ''
   });
   const [notifications, setNotifications] = useState({
@@ -91,11 +94,13 @@ export function ProfileUI() {
               <div className="flex items-center gap-6">
                 <div className="w-20 h-20 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                   <span className="text-3xl font-bold text-white">
-                    {user.full_name.charAt(0).toUpperCase()}
+                    {/* ✅ FIXED: Use fullName instead of full_name */}
+                    {user.fullName.charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-xl font-semibold">{user.full_name}</h3>
+                  {/* ✅ FIXED: Use fullName instead of full_name */}
+                  <h3 className="text-xl font-semibold">{user.fullName}</h3>
                   <p className="text-gray-600">@{user.username}</p>
                   <p className="text-sm text-gray-500">{user.email}</p>
                   <div className="flex items-center gap-2 mt-2">
@@ -108,11 +113,11 @@ export function ProfileUI() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name</Label>
+                  <Label htmlFor="fullName">Full Name</Label>
                   <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                    id="fullName"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
                     disabled={!isEditing}
                   />
                 </div>
@@ -148,7 +153,8 @@ export function ProfileUI() {
                 <Calendar className="h-5 w-5 text-gray-600" />
                 <div>
                   <p className="font-medium">Member since</p>
-                  <p className="text-sm text-gray-600">{formatDate(user.created_at)}</p>
+                  {/* ✅ FIXED: Use createdAt instead of created_at */}
+                  <p className="text-sm text-gray-600">{formatDate(user.createdAt)}</p>
                 </div>
               </div>
             </CardContent>
@@ -306,5 +312,4 @@ export function ProfileUI() {
         </div>
       </div>
     </div>
-  );
-}
+  )};

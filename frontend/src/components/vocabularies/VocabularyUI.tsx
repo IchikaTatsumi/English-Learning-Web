@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Leaf, Cloud, Utensils, Cpu, Zap, BookOpen, Gamepad2 } from 'lucide-react';
 import { AddButton } from '@/components/buttons/AddButton';
 import { BookmarkButton } from '@/components/buttons/BookmarkButton';
-import { LoudspeakerButton } from '@/components/buttons/LoudspeakerButton';
+import { LoudspeakerButton } from '@/components/buttons/LoudSpeakerButton';
 import { ViewModeButton, ViewMode } from '@/components/buttons/ViewModeButton';
 import { MicroRecordingButton } from '@/components/buttons/MicroRecordingButton';
 import { useVocabularies } from '@/features/vocabularies/hooks/vocabulary.hook';
