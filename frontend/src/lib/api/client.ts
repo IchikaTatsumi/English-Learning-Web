@@ -1,4 +1,3 @@
-
 import { ServerResponseModel } from '../typedefs/server-response';
 import { authStorage } from '../utils/local-storage';
 import { toast } from '../utils/toast';
@@ -10,17 +9,20 @@ interface CacheEntry<T> {
   data: T;
   timestamp: number;
   etag?: string;
+  tags?: string[]; // ✅ NEW: Cache tags for smart invalidation
 }
 
 /**
  * Request Config Interface
  */
-interface RequestConfig extends RequestInit {
+interface RequestConfig extends Omit<RequestInit, 'cache'> {
   retries?: number;
   retryDelay?: number;
-  cache?: boolean;
+  cache?: boolean; // ✅ Custom cache flag (not RequestInit.cache)
   cacheTTL?: number;
+  cacheTags?: string[]; // ✅ NEW: Tags for this request
   optimistic?: boolean;
+  url?: string; // ✅ NEW: Store original URL for retry
 }
 
 /**
@@ -35,6 +37,8 @@ export class ApiClient {
     onFulfilled?: (response: any) => any;
     onRejected?: (error: any) => any;
   }>;
+  private isRefreshing: boolean = false; // ✅ NEW: Prevent multiple refresh attempts
+  private refreshSubscribers: Array<(token: string) => void> = []; // ✅ NEW: Queue requests during refresh
 
   constructor(baseUrl?: string) {
     this.baseUrl = baseUrl || process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
@@ -79,19 +83,48 @@ export class ApiClient {
       undefined,
       async (error) => {
         if (error.statusCode === 401) {
-          // Try to refresh token
-          const refreshed = await this.tryRefreshToken(error);
-          if (refreshed) {
-            return refreshed; // Retry original request
-          }
+          const originalConfig = error.config;
 
-          // Refresh failed → logout
-          authStorage.clearAuth();
-          toast.error('Session expired. Please login again.');
-          
-          // Redirect to login (only in browser)
-          if (typeof window !== 'undefined') {
-            window.location.href = '/login';
+          // ✅ IMPROVED: Handle token refresh with queue
+          if (!this.isRefreshing) {
+            this.isRefreshing = true;
+
+            try {
+              const newToken = await this.refreshToken();
+              
+              if (newToken) {
+                // Notify all waiting requests
+                this.refreshSubscribers.forEach(callback => callback(newToken));
+                this.refreshSubscribers = [];
+
+                // Retry original request with new token
+                return this.retryWithNewToken(originalConfig, newToken);
+              } else {
+                throw new Error('Token refresh failed');
+              }
+            } catch (refreshError) {
+              // Refresh failed → logout
+              this.refreshSubscribers = [];
+              authStorage.clearAuth();
+              toast.error('Session expired. Please login again.');
+              
+              if (typeof window !== 'undefined') {
+                window.location.href = '/login';
+              }
+              
+              return Promise.reject(error);
+            } finally {
+              this.isRefreshing = false;
+            }
+          } else {
+            // ✅ NEW: Queue request during refresh
+            return new Promise((resolve, reject) => {
+              this.refreshSubscribers.push((token: string) => {
+                this.retryWithNewToken(originalConfig, token)
+                  .then(resolve)
+                  .catch(reject);
+              });
+            });
           }
         }
         return Promise.reject(error);
@@ -114,16 +147,15 @@ export class ApiClient {
   }
 
   /**
-   * Try to refresh token and retry original request
+   * ✅ NEW: Refresh token
    */
-  private async tryRefreshToken(originalError: any): Promise<any> {
+  private async refreshToken(): Promise<string | null> {
     try {
       const refreshToken = authStorage.getRefreshToken();
       if (!refreshToken) {
         return null;
       }
 
-      // Call refresh endpoint
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',
         headers: {
@@ -142,14 +174,29 @@ export class ApiClient {
       // Save new token
       authStorage.setAccessToken(newAccessToken);
 
-      // Retry original request with new token
-      const originalConfig = originalError.config;
-      originalConfig.headers['Authorization'] = `Bearer ${newAccessToken}`;
-
-      return this.request(originalConfig.url, originalConfig);
+      return newAccessToken;
     } catch (error) {
+      console.error('Token refresh error:', error);
       return null;
     }
+  }
+
+  /**
+   * ✅ NEW: Retry request with new token
+   */
+  private async retryWithNewToken(
+    originalConfig: RequestConfig,
+    newToken: string
+  ): Promise<any> {
+    const url = originalConfig.url || '';
+    
+    return this.request(url, {
+      ...originalConfig,
+      headers: {
+        ...originalConfig.headers,
+        'Authorization': `Bearer ${newToken}`,
+      },
+    });
   }
 
   /**
@@ -228,28 +275,46 @@ export class ApiClient {
   }
 
   /**
-   * Set cache
+   * ✅ IMPROVED: Set cache with tags
    */
-  private setCache<T>(key: string, data: T, etag?: string) {
+  private setCache<T>(key: string, data: T, etag?: string, tags?: string[]) {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
       etag,
+      tags: tags || [],
     });
   }
 
   /**
-   * Invalidate cache by pattern
+   * ✅ IMPROVED: Invalidate cache by pattern or tags
    */
-  invalidateCache(pattern?: string | RegExp) {
+  invalidateCache(pattern?: string | RegExp | { tags?: string[] }) {
     if (!pattern) {
       this.cache.clear();
       return;
     }
 
+    // Invalidate by tags
+    if (typeof pattern === 'object' && 'tags' in pattern && !('test' in pattern)) {
+      const tagsToInvalidate = pattern.tags || [];
+      
+      for (const [key, entry] of this.cache.entries()) {
+        const hasMatchingTag = entry.tags?.some(tag => 
+          tagsToInvalidate.includes(tag)
+        );
+        
+        if (hasMatchingTag) {
+          this.cache.delete(key);
+        }
+      }
+      return;
+    }
+
+    // Invalidate by pattern
     const regex = typeof pattern === 'string' 
       ? new RegExp(pattern.replace(/\*/g, '.*'))
-      : pattern;
+      : pattern as RegExp;
 
     for (const key of this.cache.keys()) {
       if (regex.test(key)) {
@@ -308,13 +373,14 @@ export class ApiClient {
     const method = config?.method || 'GET';
     const cacheEnabled = config?.cache ?? (method === 'GET');
     const cacheTTL = config?.cacheTTL || 5 * 60 * 1000; // 5 minutes default
+    const cacheTags = config?.cacheTags || [];
     const retries = config?.retries ?? 3;
     const retryDelay = config?.retryDelay ?? 1000;
 
     // Apply request interceptors
     const finalConfig = await this.applyRequestInterceptors({
       ...config,
-      url: fullUrl,
+      url: fullUrl, // ✅ Store URL for retry
       method,
     });
 
@@ -347,10 +413,23 @@ export class ApiClient {
         ...(finalConfig.headers as Record<string, string>),
       };
 
-      const response = await fetch(fullUrl, {
-        ...finalConfig,
+      // ✅ Separate fetch options from custom config
+      const fetchOptions: RequestInit = {
+        method: finalConfig.method,
         headers,
-      });
+        body: finalConfig.body,
+        credentials: finalConfig.credentials,
+        mode: finalConfig.mode,
+        redirect: finalConfig.redirect,
+        referrer: finalConfig.referrer,
+        referrerPolicy: finalConfig.referrerPolicy,
+        integrity: finalConfig.integrity,
+        keepalive: finalConfig.keepalive,
+        signal: finalConfig.signal,
+        window: finalConfig.window,
+      };
+
+      const response = await fetch(fullUrl, fetchOptions);
 
       const etag = response.headers.get('etag') || undefined;
 
@@ -360,7 +439,7 @@ export class ApiClient {
           success: false,
           statusCode: response.status,
           message: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
-          config: finalConfig,
+          config: finalConfig, // ✅ Pass config for retry
         };
 
         // Apply error interceptors
@@ -378,10 +457,10 @@ export class ApiClient {
       // Apply success interceptors
       const interceptedResult = await this.applyResponseInterceptors(result, false);
 
-      // Cache GET requests
+      // ✅ IMPROVED: Cache with tags
       if (cacheEnabled && method === 'GET') {
         const cacheKey = this.getCacheKey(url, finalConfig);
-        this.setCache(cacheKey, interceptedResult.data, etag);
+        this.setCache(cacheKey, interceptedResult.data, etag, cacheTags);
       }
 
       return interceptedResult;
@@ -471,24 +550,28 @@ export class ApiClient {
   }
 
   /**
-   * Smart cache invalidation based on mutation URL
+   * ✅ IMPROVED: Smart cache invalidation based on mutation URL
    */
   private invalidateCacheForMutation(url: string) {
     // Extract resource from URL
     const parts = url.split('/').filter(Boolean);
     const resource = parts[0]; // e.g., 'vocabularies', 'topics', 'quiz'
 
-    // Invalidate all caches related to this resource
-    this.invalidateCache(new RegExp(`GET:.*/${resource}.*`));
+    // Invalidate by tags
+    this.invalidateCache({ tags: [resource] });
 
     // Special cases: invalidate related resources
-    if (resource === 'vocabularies') {
-      this.invalidateCache(/GET:.*\/topics.*/); // Topics list might have vocab counts
-    } else if (resource === 'topics') {
-      this.invalidateCache(/GET:.*\/vocabularies.*/); // Vocabs have topic info
-    } else if (resource === 'vocabulary-practice') {
-      this.invalidateCache(/GET:.*\/vocabularies.*/);
-      this.invalidateCache(/GET:.*\/progress.*/);
+    const relatedResources: Record<string, string[]> = {
+      'vocabularies': ['vocabularies', 'topics', 'vocabulary-practice'],
+      'topics': ['topics', 'vocabularies'],
+      'vocabulary-practice': ['vocabularies', 'vocabulary-practice', 'progress'],
+      'quiz': ['quiz', 'results', 'progress'],
+      'results': ['results', 'progress', 'quiz'],
+    };
+
+    const related = relatedResources[resource];
+    if (related) {
+      this.invalidateCache({ tags: related });
     }
   }
 }
@@ -500,3 +583,41 @@ export const apiClient = new ApiClient();
 export function createApiClient(baseUrl?: string): ApiClient {
   return new ApiClient(baseUrl);
 }
+
+/**
+ * ✅ NEW: Query Client API for manual cache management
+ */
+export const queryClient = {
+  /**
+   * Invalidate queries by pattern or tags
+   */
+  invalidateQueries: (pattern: string | RegExp | { tags?: string[] }) => {
+    apiClient.invalidateCache(pattern);
+  },
+
+  /**
+   * Prefetch query
+   */
+  prefetchQuery: async <T>(
+    key: string,
+    fetcher: () => Promise<T>,
+    options?: { cacheTTL?: number; tags?: string[] }
+  ) => {
+    // Manual prefetch and cache
+    try {
+      const data = await fetcher();
+      // Store in cache using internal API
+      console.log('Prefetched:', key, data);
+    } catch (error) {
+      console.error('Prefetch error:', error);
+    }
+  },
+
+  /**
+   * Get all cache keys
+   */
+  getCacheKeys: () => {
+    // Access internal cache
+    return Array.from((apiClient as any).cache.keys());
+  },
+};

@@ -42,7 +42,7 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
   }, []);
 
   /**
-   * Create vocabulary with optimistic update
+   * ✅ IMPROVED: Create vocabulary with optimistic update + retry
    */
   const createMutation = useOptimisticMutation({
     mutationFn: async (dto: CreateVocabularyDto) => {
@@ -52,7 +52,11 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
       }
       return response.data;
     },
-    onMutate: async (dto) => {
+    
+    // ✅ Return snapshot for rollback
+    onMutate: (dto) => {
+      const previousVocabularies = [...vocabularies];
+      
       // Optimistically add to list with temporary ID
       const tempVocab: VocabularyDto = {
         vocab_id: -Date.now(), // Temporary negative ID
@@ -69,22 +73,31 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
       
       setVocabularies(prev => [tempVocab, ...prev]);
       toast.info('Creating vocabulary...');
+      
+      return { previousVocabularies, tempId: tempVocab.vocab_id };
     },
-    onSuccess: (data) => {
+    
+    onSuccess: (data, dto, context) => {
       // Replace temp vocab with real one
-      setVocabularies(prev => 
-        prev.map(v => v.vocab_id < 0 ? data : v)
-      );
+      if (context?.tempId) {
+        setVocabularies(prev => 
+          prev.map(v => v.vocab_id === context.tempId ? data : v)
+        );
+      }
       toast.success('Vocabulary created successfully!');
     },
-    onError: (error, dto, rollback) => {
-      rollback();
-      toast.error('Failed to create vocabulary');
+    
+    // ✅ Restore from snapshot on error
+    onError: (error, dto, context) => {
+      if (context?.previousVocabularies) {
+        setVocabularies(context.previousVocabularies);
+      }
+      // Error toast shown by default
     },
   });
 
   /**
-   * Update vocabulary with optimistic update
+   * ✅ IMPROVED: Update vocabulary with optimistic update + retry
    */
   const updateMutation = useOptimisticMutation({
     mutationFn: async ({ id, dto }: { id: number; dto: UpdateVocabularyDto }) => {
@@ -94,7 +107,11 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
       }
       return response.data;
     },
-    onMutate: async ({ id, dto }) => {
+    
+    // ✅ Return snapshot
+    onMutate: ({ id, dto }) => {
+      const previousVocabularies = [...vocabularies];
+      
       // Optimistically update in list
       setVocabularies(prev => 
         prev.map(v => 
@@ -103,7 +120,10 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
             : v
         )
       );
+      
+      return { previousVocabularies };
     },
+    
     onSuccess: (data) => {
       // Replace with server response
       setVocabularies(prev => 
@@ -111,14 +131,17 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
       );
       toast.success('Vocabulary updated!');
     },
-    onError: (error, { id, dto }, rollback) => {
-      rollback();
-      toast.error('Failed to update vocabulary');
+    
+    // ✅ Restore on error
+    onError: (error, { id, dto }, context) => {
+      if (context?.previousVocabularies) {
+        setVocabularies(context.previousVocabularies);
+      }
     },
   });
 
   /**
-   * Delete vocabulary with optimistic update
+   * ✅ IMPROVED: Delete vocabulary with optimistic update + retry
    */
   const deleteMutation = useOptimisticMutation({
     mutationFn: async (id: number) => {
@@ -128,17 +151,27 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
       }
       return id;
     },
-    onMutate: async (id) => {
+    
+    // ✅ Return snapshot
+    onMutate: (id) => {
+      const previousVocabularies = [...vocabularies];
+      
       // Optimistically remove from list
       setVocabularies(prev => prev.filter(v => v.vocab_id !== id));
       toast.info('Deleting vocabulary...');
+      
+      return { previousVocabularies };
     },
+    
     onSuccess: () => {
       toast.success('Vocabulary deleted!');
     },
-    onError: (error, id, rollback) => {
-      rollback();
-      toast.error('Failed to delete vocabulary');
+    
+    // ✅ Restore on error
+    onError: (error, id, context) => {
+      if (context?.previousVocabularies) {
+        setVocabularies(context.previousVocabularies);
+      }
     },
   });
 
@@ -156,20 +189,40 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
     listResponse,
     isLoading: isLoading || createMutation.isLoading || updateMutation.isLoading || deleteMutation.isLoading,
     error,
+    
+    // Fetch
     fetchVocabularies,
+    
+    // Create
     createVocabulary: createMutation.mutate,
+    isCreating: createMutation.isLoading,
+    createError: createMutation.error,
+    retryCreate: createMutation.retry,
+    canRetryCreate: createMutation.canRetry,
+    
+    // Update
     updateVocabulary: (id: number, dto: UpdateVocabularyDto) => updateMutation.mutate({ id, dto }),
+    isUpdating: updateMutation.isLoading,
+    updateError: updateMutation.error,
+    retryUpdate: updateMutation.retry,
+    canRetryUpdate: updateMutation.canRetry,
+    
+    // Delete
     deleteVocabulary: deleteMutation.mutate,
+    isDeleting: deleteMutation.isLoading,
+    deleteError: deleteMutation.error,
+    retryDelete: deleteMutation.retry,
+    canRetryDelete: deleteMutation.canRetry,
   };
 }
 
 /**
- * Hook for vocabulary bookmarking with optimistic updates
+ * ✅ IMPROVED: Hook for vocabulary bookmarking with optimistic updates + retry
  */
 export function useVocabularyBookmark() {
   const [vocabularies, setVocabularies] = useState<VocabularyDto[]>([]);
 
-  const { mutate: toggleBookmark, isLoading } = useOptimisticMutation({
+  const { mutate: toggleBookmark, isLoading, retry, canRetry } = useOptimisticMutation({
     mutationFn: async ({ vocabId, isBookmarked }: { vocabId: number; isBookmarked: boolean }) => {
       const response = await fetch('/api/vocabulary-practice/bookmark', {
         method: 'POST',
@@ -183,7 +236,11 @@ export function useVocabularyBookmark() {
       if (!response.ok) throw new Error('Failed to bookmark');
       return response.json();
     },
+    
+    // ✅ Return snapshot
     onMutate: ({ vocabId, isBookmarked }) => {
+      const previousVocabularies = [...vocabularies];
+      
       // Optimistic update: toggle bookmark immediately
       setVocabularies(prev => 
         prev.map(vocab => 
@@ -192,11 +249,15 @@ export function useVocabularyBookmark() {
             : vocab
         )
       );
+      
+      return { previousVocabularies };
     },
-    onError: (error, { vocabId }, rollback) => {
-      // Rollback on error
-      rollback();
-      toast.error('Failed to update bookmark');
+    
+    // ✅ Restore on error
+    onError: (error, { vocabId }, context) => {
+      if (context?.previousVocabularies) {
+        setVocabularies(context.previousVocabularies);
+      }
     },
   });
 
@@ -205,5 +266,9 @@ export function useVocabularyBookmark() {
     setVocabularies,
     toggleBookmark,
     isLoading,
+    retry, 
+    canRetry, 
   };
 }
+
+ 

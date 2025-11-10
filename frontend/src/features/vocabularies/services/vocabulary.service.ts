@@ -10,19 +10,20 @@ import { apiClient } from '@/lib/api/client';
 
 export class VocabularyService {
   /**
-   * Get all vocabularies
+   * ✅ IMPROVED: Get all vocabularies with cache tags
    * GET /vocabularies
-   * Cached for 5 minutes
+   * Cached for 5 minutes with tags: ['vocabularies', 'vocabularies-list']
    */
   async getAllVocabularies(): Promise<ServerResponseModel<VocabularyDto[]>> {
     return apiClient.get<VocabularyDto[]>('/vocabularies', {
       cache: true,
       cacheTTL: 5 * 60 * 1000, // 5 minutes
+      cacheTags: ['vocabularies', 'vocabularies-list'], // ✅ Cache tags
     });
   }
 
   /**
-   * Get vocabularies with flexible filtering
+   * ✅ IMPROVED: Get vocabularies with flexible filtering + cache tags
    * GET /vocabularies/filter
    * Cached for 2 minutes (shorter TTL due to filters)
    */
@@ -44,14 +45,26 @@ export class VocabularyService {
     const queryString = params.toString();
     const url = `/vocabularies/filter${queryString ? `?${queryString}` : ''}`;
 
+    // ✅ Add cache tags based on filters
+    const cacheTags = ['vocabularies', 'vocabularies-filter'];
+    
+    if (filters?.topic_id) {
+      cacheTags.push(`topic-${filters.topic_id}`);
+    }
+    
+    if (filters?.difficulty) {
+      cacheTags.push(`difficulty-${filters.difficulty}`);
+    }
+
     return apiClient.get<VocabularyListResponseDto>(url, {
       cache: true,
-      cacheTTL: 2 * 60 * 1000, // 2 minutes (shorter due to dynamic filters)
+      cacheTTL: 2 * 60 * 1000, // 2 minutes
+      cacheTags, // ✅ Dynamic cache tags
     });
   }
 
   /**
-   * Get vocabulary by ID
+   * ✅ IMPROVED: Get vocabulary by ID with cache tags
    * GET /vocabularies/:id
    * Cached for 10 minutes (vocabulary data rarely changes)
    */
@@ -59,11 +72,12 @@ export class VocabularyService {
     return apiClient.get<VocabularyDto>(`/vocabularies/${id}`, {
       cache: true,
       cacheTTL: 10 * 60 * 1000, // 10 minutes
+      cacheTags: ['vocabularies', `vocabulary-${id}`], // ✅ Specific vocab tag
     });
   }
 
   /**
-   * Get vocabularies by topic
+   * ✅ IMPROVED: Get vocabularies by topic with cache tags
    * GET /vocabularies/topic/:topicId
    * Cached for 5 minutes
    */
@@ -71,12 +85,13 @@ export class VocabularyService {
     const response = await apiClient.get<VocabularyDto[]>(`/vocabularies/topic/${topicId}`, {
       cache: true,
       cacheTTL: 5 * 60 * 1000,
+      cacheTags: ['vocabularies', `topic-${topicId}`], // ✅ Topic-specific tag
     });
     return response.data || [];
   }
 
   /**
-   * Search vocabularies
+   * ✅ IMPROVED: Search vocabularies with cache tags
    * GET /vocabularies/search?q=hello
    * Cached for 1 minute (search results change frequently)
    */
@@ -86,6 +101,7 @@ export class VocabularyService {
       {
         cache: true,
         cacheTTL: 1 * 60 * 1000, // 1 minute
+        cacheTags: ['vocabularies', 'vocabularies-search'], // ✅ Search tag
       }
     );
     return response.data || [];
@@ -111,7 +127,7 @@ export class VocabularyService {
   }
 
   /**
-   * Get default vocabularies (reset filter)
+   * ✅ IMPROVED: Get default vocabularies with cache tags
    * GET /vocabularies/default
    * Cached for 5 minutes
    */
@@ -119,6 +135,7 @@ export class VocabularyService {
     const response = await apiClient.get<VocabularyDto[]>('/vocabularies/default', {
       cache: true,
       cacheTTL: 5 * 60 * 1000,
+      cacheTags: ['vocabularies', 'vocabularies-default'], // ✅ Default tag
     });
     return response.data || [];
   }
@@ -126,45 +143,98 @@ export class VocabularyService {
   /**
    * Create vocabulary (Admin only)
    * POST /vocabularies
-   * Auto-invalidates related caches
+   * Auto-invalidates: ['vocabularies', 'topics'] tags
    */
   async createVocabulary(dto: CreateVocabularyDto): Promise<ServerResponseModel<VocabularyDto>> {
     const response = await apiClient.post<VocabularyDto>('/vocabularies', dto, {
       retries: 2, // Retry twice on network error
     });
 
-    // Caches will be auto-invalidated by apiClient
+    // ✅ Manually invalidate related caches by tags
+    if (response.success) {
+      apiClient.invalidateCache({ tags: ['vocabularies', 'topics'] });
+      
+      // Invalidate topic-specific cache
+      if (dto.topic_id) {
+        apiClient.invalidateCache({ tags: [`topic-${dto.topic_id}`] });
+      }
+    }
+
     return response;
   }
 
   /**
    * Update vocabulary (Admin only)
    * PUT /vocabularies/:id
-   * Auto-invalidates related caches
+   * Auto-invalidates: ['vocabularies', 'topics', 'vocabulary-{id}'] tags
    */
   async updateVocabulary(id: number, dto: UpdateVocabularyDto): Promise<ServerResponseModel<VocabularyDto>> {
-    return apiClient.put<VocabularyDto>(`/vocabularies/${id}`, dto, {
+    const response = await apiClient.put<VocabularyDto>(`/vocabularies/${id}`, dto, {
       retries: 2,
     });
+
+    // ✅ Invalidate specific vocab and related caches
+    if (response.success) {
+      apiClient.invalidateCache({ 
+        tags: ['vocabularies', 'topics', `vocabulary-${id}`] 
+      });
+
+      // Invalidate old and new topic caches
+      if (dto.topic_id) {
+        apiClient.invalidateCache({ tags: [`topic-${dto.topic_id}`] });
+      }
+    }
+
+    return response;
   }
 
   /**
    * Delete vocabulary (Admin only)
    * DELETE /vocabularies/:id
-   * Auto-invalidates related caches
+   * Auto-invalidates: ['vocabularies', 'topics', 'vocabulary-{id}'] tags
    */
   async deleteVocabulary(id: number): Promise<ServerResponseModel<void>> {
-    return apiClient.delete<void>(`/vocabularies/${id}`, {
+    const response = await apiClient.delete<void>(`/vocabularies/${id}`, {
       retries: 1, // Only retry once for deletes
     });
+
+    // ✅ Invalidate all related caches
+    if (response.success) {
+      apiClient.invalidateCache({ 
+        tags: ['vocabularies', 'topics', `vocabulary-${id}`] 
+      });
+    }
+
+    return response;
   }
 
   /**
-   * Manually invalidate vocabulary caches
-   * Useful when you know data changed externally
+   * ✅ NEW: Manually invalidate specific vocabulary cache
+   */
+  invalidateVocabulary(id: number) {
+    apiClient.invalidateCache({ tags: [`vocabulary-${id}`] });
+  }
+
+  /**
+   * ✅ NEW: Manually invalidate topic vocabularies
+   */
+  invalidateTopicVocabularies(topicId: number) {
+    apiClient.invalidateCache({ tags: [`topic-${topicId}`] });
+  }
+
+  /**
+   * ✅ NEW: Manually invalidate all vocabulary caches
+   */
+  invalidateAllVocabularies() {
+    apiClient.invalidateCache({ tags: ['vocabularies'] });
+  }
+
+  /**
+   * ✅ DEPRECATED: Use tag-based invalidation instead
    */
   invalidateCaches() {
-    apiClient.invalidateCache(/GET:.*\/vocabularies.*/);
+    console.warn('invalidateCaches() is deprecated. Use invalidateAllVocabularies() instead.');
+    this.invalidateAllVocabularies();
   }
 }
 
