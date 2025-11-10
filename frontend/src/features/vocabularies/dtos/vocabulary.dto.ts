@@ -11,6 +11,11 @@ export interface VocabularyDto {
   audio_path?: string;
   difficulty_level: DifficultyLevel;
   created_at: string;
+  // ✅ ADDED: Topic name for display
+  topic_name?: string;
+  // ✅ ADDED: Learning status
+  is_learned?: boolean;
+  is_bookmarked?: boolean;
   topic?: {
     topic_id: number;
     topic_name: string;
@@ -46,7 +51,8 @@ export interface UpdateVocabularyDto {
  */
 export interface VocabularyFilterDto {
   search?: string;
-  difficulty?: DifficultyLevel;
+  // ✅ FIXED: Change difficulty to match DifficultyLevel enum
+  difficulty?: DifficultyLevel | 'all';
   topic_id?: number;
   only_learned?: boolean;
   recently_learned?: boolean;
@@ -56,6 +62,12 @@ export interface VocabularyFilterDto {
   limit?: number;
   sort_by?: 'word' | 'created_at' | 'difficulty_level' | 'first_learned_at';
   sort_order?: 'ASC' | 'DESC';
+  // ✅ ADDED: Search term alias
+  searchTerm?: string;
+  // ✅ ADDED: Is learned filter
+  isLearned?: boolean;
+  // ✅ ADDED: Difficulty level filter
+  difficulty_level?: DifficultyLevel | 'all';
 }
 
 /**

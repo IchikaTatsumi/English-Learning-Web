@@ -2,6 +2,8 @@ export interface CreateQuizDto {
   difficulty_level: 'Beginner Only' | 'Intermediate Only' | 'Advanced Only' | 'Mixed Levels';
   total_questions?: number;
   topic_id?: number;
+  // ✅ ADDED: user_id is handled by backend from auth token, but some components expect it
+  user_id?: number;
 }
 
 export interface QuizResponseDto {
@@ -22,6 +24,8 @@ export interface QuizQuestionResponseDto {
   correct_answer: string;
   time_limit: number;
   created_at: string;
+  // ✅ ADDED: Options array for multiple choice
+  options?: string[];
   vocabulary?: {
     vocab_id: number;
     word: string;
@@ -35,6 +39,9 @@ export interface QuizQuestionResponseDto {
     };
   };
 }
+
+// ✅ ADDED: Alias for backward compatibility
+export type QuizQuestionDto = QuizQuestionResponseDto;
 
 export interface AnswerQuestionDto {
   question_id: number;

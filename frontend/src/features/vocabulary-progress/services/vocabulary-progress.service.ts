@@ -1,3 +1,10 @@
+import {
+  SubmitPracticeDto,
+  BookmarkVocabDto,
+  VocabularyProgressStatsDto,
+  LearnedVocabularyDto,
+} from '../dtos/vocabulary-progress.dto';
+
 class VocabularyProgressService {
   private baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
 

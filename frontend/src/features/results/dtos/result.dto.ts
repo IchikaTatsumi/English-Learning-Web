@@ -1,6 +1,8 @@
 export interface CreateResultDto {
   quiz_id: number;
   quiz_question_id: number;
+  // ✅ ADDED: user_id (backend may get from auth, but DTO allows it)
+  user_id?: number;
   user_answer?: string;
   user_speech_text?: string;
   is_correct: boolean;

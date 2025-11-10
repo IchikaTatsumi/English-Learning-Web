@@ -1,4 +1,4 @@
-import { Role } from '../enums/role.enum';
+import { Role } from '@/lib/constants/enums';
 
 export interface CreateUserDTO {
   username: string;
@@ -18,6 +18,6 @@ export interface LoginResponseDTO {
 export interface UserDTO {
   id: string;
   username: string;
-  role: Role;
+  role: Role; // ✅ Using centralized Role enum
   createdAt: string; // ISO date string
 }

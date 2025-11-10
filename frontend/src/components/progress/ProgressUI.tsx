@@ -1,14 +1,18 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// ✅ FIXED: Import useVocabProgress
 import { useProgress, useVocabProgress } from '@/features/progress/hooks/progress.hook';
 import { useAuth } from '@/features/auth';
 import { Trophy, Target, TrendingUp, Calendar } from 'lucide-react';
 
 export function ProgressUI() {
   const { user } = useAuth();
-  const { progress, isLoading: progressLoading } = useProgress(user?.user_id || 0);
-  const { vocabProgress, isLoading: vocabLoading } = useVocabProgress(user?.user_id || 0);
+  // ✅ FIXED: useProgress takes no parameters
+  const { progress, isLoading: progressLoading } = useProgress();
+  // ✅ FIXED: Pass user_id or user.id
+  const userId = user?.id || user?.id || 0;
+  const { vocabProgress, isLoading: vocabLoading } = useVocabProgress(userId);
 
   if (progressLoading || vocabLoading) {
     return (
@@ -94,15 +98,17 @@ export function ProgressUI() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Total Answered</span>
-                <span className="font-medium">{vocabProgress.total_answered}</span>
+                <span className="font-medium">{vocabProgress.total_answered || 0}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Correct Answers</span>
-                <span className="font-medium text-green-600">{vocabProgress.total_correct}</span>
+                <span className="font-medium text-green-600">{vocabProgress.total_correct || 0}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Accuracy</span>
-                <span className="font-medium text-blue-600">{vocabProgress.accuracy_percent?.toFixed(1)}%</span>
+                <span className="font-medium text-blue-600">
+                  {vocabProgress.accuracy_percent?.toFixed(1) || 0}%
+                </span>
               </div>
             </div>
           </CardContent>

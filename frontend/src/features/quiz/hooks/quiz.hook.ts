@@ -13,6 +13,8 @@ import {
 
 export function useQuiz() {
   const [quizzes, setQuizzes] = useState<QuizResponseDto[]>([]);
+  // ✅ ADDED: quiz (singular) for current active quiz
+  const [quiz, setQuiz] = useState<QuizResponseDto | null>(null);
   const [currentQuiz, setCurrentQuiz] = useState<QuizResponseDto | null>(null);
   const [questions, setQuestions] = useState<QuizQuestionResponseDto[]>([]);
   const [statistics, setStatistics] = useState<QuizStatisticsDto | null>(null);
@@ -26,9 +28,11 @@ export function useQuiz() {
     setIsLoading(true);
     setError(null);
     try {
-      const quiz = await quizService.createQuiz(dto);
-      setCurrentQuiz(quiz);
-      return quiz;
+      const newQuiz = await quizService.createQuiz(dto);
+      setCurrentQuiz(newQuiz);
+      // ✅ ADDED: Set quiz (singular)
+      setQuiz(newQuiz);
+      return newQuiz;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create quiz');
       throw err;
@@ -62,11 +66,31 @@ export function useQuiz() {
     setIsLoading(true);
     setError(null);
     try {
-      const quiz = await quizService.getQuizById(quizId);
-      setCurrentQuiz(quiz);
-      return quiz;
+      const fetchedQuiz = await quizService.getQuizById(quizId);
+      setCurrentQuiz(fetchedQuiz);
+      setQuiz(fetchedQuiz);
+      return fetchedQuiz;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch quiz');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * ✅ ADDED: Fetch quiz questions
+   */
+  const fetchQuizQuestions = useCallback(async (params?: { limit?: number }) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const count = params?.limit || 10;
+      const data = await quizService.getRandomQuestions(count);
+      setQuestions(data);
+      return data;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch questions');
       throw err;
     } finally {
       setIsLoading(false);
@@ -145,6 +169,8 @@ export function useQuiz() {
 
   return {
     quizzes,
+    // ✅ ADDED: Export both quiz and currentQuiz
+    quiz,
     currentQuiz,
     questions,
     statistics,
@@ -153,6 +179,8 @@ export function useQuiz() {
     createQuiz,
     fetchUserQuizzes,
     fetchQuizById,
+    // ✅ ADDED: Export fetchQuizQuestions
+    fetchQuizQuestions,
     submitQuiz,
     fetchStatistics,
     deleteQuiz,

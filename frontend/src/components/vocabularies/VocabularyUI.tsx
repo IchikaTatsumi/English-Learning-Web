@@ -15,7 +15,7 @@ import { MicroRecordingButton } from '@/components/buttons/MicroRecordingButton'
 import { useVocabularies } from '@/features/vocabularies/hooks/vocabulary.hook';
 import { useTopics } from '@/features/topics/hooks/topic.hook';
 import { useAuth } from '@/features/auth/hooks/auth.hook';
-import { Role } from '@/lib/constants/enums';
+import { Role, DifficultyLevel } from '@/lib/constants/enums';
 
 export function VocabularyUI() {
   const { user } = useAuth();
@@ -28,9 +28,12 @@ export function VocabularyUI() {
   const [activeTab, setActiveTab] = useState('all');
 
   const { topics, fetchTopics, isLoading: topicsLoading } = useTopics();
+  
+  // ✅ FIXED: Pass correct filter parameters
   const { vocabularies, fetchVocabularies, isLoading: vocabLoading } = useVocabularies({
     topic_id: filterTopicId,
-    difficulty_level: filterDifficulty !== 'all' ? filterDifficulty as any : undefined,
+    // ✅ FIXED: Use difficulty_level instead of difficulty
+    difficulty_level: filterDifficulty !== 'all' ? filterDifficulty as DifficultyLevel : undefined,
     searchTerm: searchTerm || undefined
   });
 
@@ -45,7 +48,9 @@ export function VocabularyUI() {
   // Filter by active tab
   const filteredWords = vocabularies.filter(word => {
     if (activeTab === 'all') return true;
-    return word.topic_name === activeTab;
+    // ✅ FIXED: Use topic_name (optional) or topic.topic_name
+    const topicName = word.topic_name || word.topic?.topic_name || '';
+    return topicName === activeTab;
   });
 
   const getCategoryIcon = (topicName: string) => {
@@ -208,98 +213,107 @@ export function VocabularyUI() {
             "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : 
             "space-y-4"
           }>
-            {filteredWords.map((vocab) => (
-              <Card key={vocab.vocab_id} className="hover:shadow-lg transition-shadow">
-                {viewMode === 'grid' ? (
-                  <>
-                    <CardHeader>
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="flex items-center gap-2 text-xl">
-                            {vocab.word}
-                            <LoudspeakerButton 
-                              audioPath={vocab.audio_path} 
-                              word={vocab.word}
-                              size="sm"
+            {filteredWords.map((vocab) => {
+              // ✅ FIXED: Get topic name from multiple sources
+              const topicName = vocab.topic_name || vocab.topic?.topic_name || 'Unknown';
+              // ✅ FIXED: Use audio_path (null) or audio_path || null
+              const audioPath = vocab.audio_path || null;
+              // ✅ FIXED: Use is_learned with default false
+              const isLearned = vocab.is_learned || false;
+              
+              return (
+                <Card key={vocab.vocab_id} className="hover:shadow-lg transition-shadow">
+                  {viewMode === 'grid' ? (
+                    <>
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <CardTitle className="flex items-center gap-2 text-xl">
+                              {vocab.word}
+                              <LoudspeakerButton 
+                                audioPath={audioPath}
+                                word={vocab.word}
+                                size="sm"
+                              />
+                            </CardTitle>
+                            <p className="text-sm text-gray-500 mt-1">{vocab.ipa || ''}</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <BookmarkButton
+                              vocabId={vocab.vocab_id}
+                              isBookmarked={isLearned}
+                              onToggle={handleBookmarkToggle}
                             />
-                          </CardTitle>
-                          <p className="text-sm text-gray-500 mt-1">{vocab.ipa}</p>
+                            <MicroRecordingButton
+                              vocabId={vocab.vocab_id}
+                              targetWord={vocab.word}
+                              onResult={handlePronunciationResult}
+                            />
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <BookmarkButton
-                            vocabId={vocab.vocab_id}
-                            isBookmarked={vocab.is_learned || false}
-                            onToggle={handleBookmarkToggle}
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Definition:</p>
+                          <p className="text-gray-700">{vocab.meaning_en}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">Nghĩa tiếng Việt:</p>
+                          <p className="text-sm text-blue-600">{vocab.meaning_vi}</p>
+                        </div>
+                        {vocab.example_sentence && (
+                          <div className="p-3 bg-gray-50 rounded-lg">
+                            <p className="text-xs font-medium text-gray-500 mb-1">Example:</p>
+                            <p className="text-sm italic">{vocab.example_sentence}</p>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between pt-2">
+                          <Badge className={getDifficultyColor(vocab.difficulty_level)}>
+                            {vocab.difficulty_level}
+                          </Badge>
+                          <Badge variant="outline">{topicName}</Badge>
+                        </div>
+                      </CardContent>
+                    </>
+                  ) : (
+                    <div className="p-4 flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-semibold text-lg">{vocab.word}</h3>
+                          <LoudspeakerButton 
+                            audioPath={audioPath}
+                            word={vocab.word}
+                            size="sm"
                           />
-                          <MicroRecordingButton
-                            vocabId={vocab.vocab_id}
-                            targetWord={vocab.word}
-                            onResult={handlePronunciationResult}
-                          />
+                          <span className="text-sm text-gray-500">{vocab.ipa || ''}</span>
+                          <Badge className={getDifficultyColor(vocab.difficulty_level)} variant="secondary">
+                            {vocab.difficulty_level}
+                          </Badge>
+                          <Badge variant="outline">{topicName}</Badge>
                         </div>
+                        <p className="text-gray-700 mb-1">{vocab.meaning_en}</p>
+                        <p className="text-sm text-blue-600 mb-1">{vocab.meaning_vi}</p>
+                        {vocab.example_sentence && (
+                          <p className="text-sm text-gray-600 italic mt-2">"{vocab.example_sentence}"</p>
+                        )}
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Definition:</p>
-                        <p className="text-gray-700">{vocab.meaning_en}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-500">Nghĩa tiếng Việt:</p>
-                        <p className="text-sm text-blue-600">{vocab.meaning_vi}</p>
-                      </div>
-                      {vocab.example_sentence && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs font-medium text-gray-500 mb-1">Example:</p>
-                          <p className="text-sm italic">{vocab.example_sentence}</p>
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between pt-2">
-                        <Badge className={getDifficultyColor(vocab.difficulty_level)}>
-                          {vocab.difficulty_level}
-                        </Badge>
-                        <Badge variant="outline">{vocab.topic_name}</Badge>
-                      </div>
-                    </CardContent>
-                  </>
-                ) : (
-                  <div className="p-4 flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-semibold text-lg">{vocab.word}</h3>
-                        <LoudspeakerButton 
-                          audioPath={vocab.audio_path} 
-                          word={vocab.word}
-                          size="sm"
+                      <div className="flex items-center gap-1 ml-4">
+                        <BookmarkButton
+                          vocabId={vocab.vocab_id}
+                          isBookmarked={isLearned}
+                          onToggle={handleBookmarkToggle}
                         />
-                        <span className="text-sm text-gray-500">{vocab.ipa}</span>
-                        <Badge className={getDifficultyColor(vocab.difficulty_level)} variant="secondary">
-                          {vocab.difficulty_level}
-                        </Badge>
-                        <Badge variant="outline">{vocab.topic_name}</Badge>
+                        <MicroRecordingButton
+                          vocabId={vocab.vocab_id}
+                          targetWord={vocab.word}
+                          onResult={handlePronunciationResult}
+                        />
                       </div>
-                      <p className="text-gray-700 mb-1">{vocab.meaning_en}</p>
-                      <p className="text-sm text-blue-600 mb-1">{vocab.meaning_vi}</p>
-                      {vocab.example_sentence && (
-                        <p className="text-sm text-gray-600 italic mt-2">"{vocab.example_sentence}"</p>
-                      )}
                     </div>
-                    <div className="flex items-center gap-1 ml-4">
-                      <BookmarkButton
-                        vocabId={vocab.vocab_id}
-                        isBookmarked={vocab.is_learned || false}
-                        onToggle={handleBookmarkToggle}
-                      />
-                      <MicroRecordingButton
-                        vocabId={vocab.vocab_id}
-                        targetWord={vocab.word}
-                        onResult={handlePronunciationResult}
-                      />
-                    </div>
-                  </div>
-                )}
-              </Card>
-            ))}
+                  )}
+                </Card>
+              );
+            })}
           </div>
 
           {filteredWords.length === 0 && (
