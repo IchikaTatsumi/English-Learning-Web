@@ -89,7 +89,7 @@ export function ProfileUI() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center gap-6">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <div className="w-20 h-20 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
                   <span className="text-3xl font-bold text-white">
                     {user.full_name.charAt(0).toUpperCase()}
                   </span>
@@ -251,7 +251,7 @@ export function ProfileUI() {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div 
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
+                    className="bg-linear-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
                     style={{ width: `${progressToNext}%` }}
                   />
                 </div>

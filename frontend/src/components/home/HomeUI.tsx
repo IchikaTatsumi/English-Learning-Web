@@ -12,7 +12,9 @@ import { BookOpen, Trophy, Target, TrendingUp, Play, Book, Sparkles } from 'luci
 export function HomeUI() {
   const router = useRouter();
   const { user } = useAuth();
-  const { progress } = useProgress(user?.user_id || 0);
+  
+  // ✅ FIXED: useProgress() không cần tham số
+  const { progress } = useProgress();
   const { vocabularies } = useVocabularies();
   const { topics } = useTopics();
 
@@ -29,10 +31,11 @@ export function HomeUI() {
       {/* Welcome Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl mb-2">Welcome back, {user?.full_name}!</h1>
+          {/* ✅ FIXED: Sử dụng fullName thay vì full_name */}
+          <h1 className="text-3xl mb-2">Welcome back, {user?.fullName}!</h1>
           <p className="text-gray-600">Continue your English learning journey</p>
         </div>
-        <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
+        <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-linear-to-r from-blue-50 to-indigo-50 rounded-lg">
           <Sparkles className="h-5 w-5 text-blue-600" />
           <span className="text-sm font-medium text-blue-700">Level: {stats.accuracyRate > 80 ? 'Advanced' : stats.accuracyRate > 50 ? 'Intermediate' : 'Beginner'}</span>
         </div>

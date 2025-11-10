@@ -122,5 +122,13 @@ export class AuthService {
     };
   }
 }
+const mapUserDto = (backendUser: any): UserDto => ({
+  id: backendUser.user_id,
+  username: backendUser.username,
+  email: backendUser.email,
+  fullName: backendUser.full_name,
+  role: backendUser.role,
+  createdAt: backendUser.created_at,
+});
 
 export const authService = new AuthService();

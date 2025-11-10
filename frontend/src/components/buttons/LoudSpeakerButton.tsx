@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 
 interface LoudspeakerButtonProps {
-  audioPath: string | null;
+  audioPath: string | null | undefined;
   word: string;
   size?: 'sm' | 'default' | 'lg';
 }
