@@ -1,4 +1,4 @@
-import { Role } from "@/src/lib/constants/enums";
+import { Role } from '../enums/role.enum';
 
 export interface CreateUserDTO {
   username: string;

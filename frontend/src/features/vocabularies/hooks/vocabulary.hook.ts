@@ -1,5 +1,3 @@
-'use client';
-
 import { useState, useCallback, useEffect } from 'react';
 import { vocabularyService } from '../services/vocabulary.service';
 import { 
@@ -9,6 +7,8 @@ import {
   UpdateVocabularyDto,
   VocabularyListResponseDto
 } from '../dtos/vocabulary.dto';
+import { useOptimisticMutation } from '@/lib/hooks/use-optimistic-mutation';
+import { toast } from '@/lib/utils/toast';
 
 export function useVocabularies(initialFilters?: VocabularyFilterDto) {
   const [vocabularies, setVocabularies] = useState<VocabularyDto[]>([]);
@@ -42,98 +42,109 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
   }, []);
 
   /**
-   * Fetch all vocabularies (no filters)
+   * Create vocabulary with optimistic update
    */
-  const fetchAllVocabularies = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await vocabularyService.getAllVocabularies();
-      if (response.success && response.data) {
-        setVocabularies(response.data);
-        return response.data;
-      } else {
-        throw new Error(response.message || 'Failed to fetch vocabularies');
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch vocabularies';
-      setError(message);
-      setVocabularies([]);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Create vocabulary (Admin only)
-   */
-  const createVocabulary = useCallback(async (dto: CreateVocabularyDto) => {
-    setIsLoading(true);
-    setError(null);
-    try {
+  const createMutation = useOptimisticMutation({
+    mutationFn: async (dto: CreateVocabularyDto) => {
       const response = await vocabularyService.createVocabulary(dto);
-      if (response.success && response.data) {
-        setVocabularies(prev => [...prev, response.data!]);
-        return response.data;
-      } else {
+      if (!response.success || !response.data) {
         throw new Error(response.message || 'Failed to create vocabulary');
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create vocabulary';
-      setError(message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      return response.data;
+    },
+    onMutate: async (dto) => {
+      // Optimistically add to list with temporary ID
+      const tempVocab: VocabularyDto = {
+        vocab_id: -Date.now(), // Temporary negative ID
+        topic_id: dto.topic_id,
+        word: dto.word,
+        ipa: dto.ipa || '',
+        meaning_en: dto.meaning_en,
+        meaning_vi: dto.meaning_vi,
+        example_sentence: dto.example_sentence || '',
+        audio_path: dto.audio_path || '',
+        difficulty_level: dto.difficulty_level,
+        created_at: new Date().toISOString(),
+      };
+      
+      setVocabularies(prev => [tempVocab, ...prev]);
+      toast.info('Creating vocabulary...');
+    },
+    onSuccess: (data) => {
+      // Replace temp vocab with real one
+      setVocabularies(prev => 
+        prev.map(v => v.vocab_id < 0 ? data : v)
+      );
+      toast.success('Vocabulary created successfully!');
+    },
+    onError: (error, dto, rollback) => {
+      rollback();
+      toast.error('Failed to create vocabulary');
+    },
+  });
 
   /**
-   * Update vocabulary (Admin only)
+   * Update vocabulary with optimistic update
    */
-  const updateVocabulary = useCallback(async (id: number, dto: UpdateVocabularyDto) => {
-    setIsLoading(true);
-    setError(null);
-    try {
+  const updateMutation = useOptimisticMutation({
+    mutationFn: async ({ id, dto }: { id: number; dto: UpdateVocabularyDto }) => {
       const response = await vocabularyService.updateVocabulary(id, dto);
-      if (response.success && response.data) {
-        setVocabularies(prev => prev.map(v => v.vocab_id === id ? response.data! : v));
-        return response.data;
-      } else {
+      if (!response.success || !response.data) {
         throw new Error(response.message || 'Failed to update vocabulary');
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update vocabulary';
-      setError(message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      return response.data;
+    },
+    onMutate: async ({ id, dto }) => {
+      // Optimistically update in list
+      setVocabularies(prev => 
+        prev.map(v => 
+          v.vocab_id === id 
+            ? { ...v, ...dto } 
+            : v
+        )
+      );
+    },
+    onSuccess: (data) => {
+      // Replace with server response
+      setVocabularies(prev => 
+        prev.map(v => v.vocab_id === data.vocab_id ? data : v)
+      );
+      toast.success('Vocabulary updated!');
+    },
+    onError: (error, { id, dto }, rollback) => {
+      rollback();
+      toast.error('Failed to update vocabulary');
+    },
+  });
 
   /**
-   * Delete vocabulary (Admin only)
+   * Delete vocabulary with optimistic update
    */
-  const deleteVocabulary = useCallback(async (id: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
+  const deleteMutation = useOptimisticMutation({
+    mutationFn: async (id: number) => {
       const response = await vocabularyService.deleteVocabulary(id);
-      if (response.success) {
-        setVocabularies(prev => prev.filter(v => v.vocab_id !== id));
-      } else {
+      if (!response.success) {
         throw new Error(response.message || 'Failed to delete vocabulary');
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete vocabulary';
-      setError(message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+      return id;
+    },
+    onMutate: async (id) => {
+      // Optimistically remove from list
+      setVocabularies(prev => prev.filter(v => v.vocab_id !== id));
+      toast.info('Deleting vocabulary...');
+    },
+    onSuccess: () => {
+      toast.success('Vocabulary deleted!');
+    },
+    onError: (error, id, rollback) => {
+      rollback();
+      toast.error('Failed to delete vocabulary');
+    },
+  });
 
-  // Auto-fetch on mount if filters provided
+  /**
+   * Auto-fetch on mount if filters provided
+   */
   useEffect(() => {
     if (initialFilters) {
       fetchVocabularies(initialFilters);
@@ -143,156 +154,56 @@ export function useVocabularies(initialFilters?: VocabularyFilterDto) {
   return {
     vocabularies,
     listResponse,
-    isLoading,
+    isLoading: isLoading || createMutation.isLoading || updateMutation.isLoading || deleteMutation.isLoading,
     error,
     fetchVocabularies,
-    fetchAllVocabularies,
-    createVocabulary,
-    updateVocabulary,
-    deleteVocabulary,
+    createVocabulary: createMutation.mutate,
+    updateVocabulary: (id: number, dto: UpdateVocabularyDto) => updateMutation.mutate({ id, dto }),
+    deleteVocabulary: deleteMutation.mutate,
   };
 }
 
 /**
- * Hook for single vocabulary operations
+ * Hook for vocabulary bookmarking with optimistic updates
  */
-export function useVocabulary(id?: number) {
-  const [vocabulary, setVocabulary] = useState<VocabularyDto | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchVocabulary = useCallback(async (vocabId: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const response = await vocabularyService.getVocabularyById(vocabId);
-      if (response.success && response.data) {
-        setVocabulary(response.data);
-        return response.data;
-      } else {
-        throw new Error(response.message || 'Failed to fetch vocabulary');
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch vocabulary';
-      setError(message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (id) {
-      fetchVocabulary(id);
-    }
-  }, [id, fetchVocabulary]);
-
-  return {
-    vocabulary,
-    isLoading,
-    error,
-    fetchVocabulary,
-  };
-}
-
-/**
- * Hook for vocabulary search
- */
-export function useVocabularySearch() {
-  const [searchResults, setSearchResults] = useState<VocabularyDto[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const searchVocabularies = useCallback(async (query: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const results = await vocabularyService.searchVocabularies(query);
-      setSearchResults(results);
-      return results;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to search vocabularies';
-      setError(message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  return {
-    searchResults,
-    isLoading,
-    error,
-    searchVocabularies,
-  };
-}
-
-/**
- * Hook for vocabularies by topic
- */
-export function useVocabulariesByTopic(topicId?: number) {
+export function useVocabularyBookmark() {
   const [vocabularies, setVocabularies] = useState<VocabularyDto[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchVocabularies = useCallback(async (id: number) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await vocabularyService.getVocabulariesByTopic(id);
-      setVocabularies(data);
-      return data;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch vocabularies';
-      setError(message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const { mutate: toggleBookmark, isLoading } = useOptimisticMutation({
+    mutationFn: async ({ vocabId, isBookmarked }: { vocabId: number; isBookmarked: boolean }) => {
+      const response = await fetch('/api/vocabulary-practice/bookmark', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+        body: JSON.stringify({ vocab_id: vocabId, is_bookmarked: isBookmarked }),
+      });
 
-  useEffect(() => {
-    if (topicId) {
-      fetchVocabularies(topicId);
-    }
-  }, [topicId, fetchVocabularies]);
+      if (!response.ok) throw new Error('Failed to bookmark');
+      return response.json();
+    },
+    onMutate: ({ vocabId, isBookmarked }) => {
+      // Optimistic update: toggle bookmark immediately
+      setVocabularies(prev => 
+        prev.map(vocab => 
+          vocab.vocab_id === vocabId
+            ? { ...vocab, is_bookmarked: isBookmarked } as any
+            : vocab
+        )
+      );
+    },
+    onError: (error, { vocabId }, rollback) => {
+      // Rollback on error
+      rollback();
+      toast.error('Failed to update bookmark');
+    },
+  });
 
   return {
     vocabularies,
+    setVocabularies,
+    toggleBookmark,
     isLoading,
-    error,
-    fetchVocabularies,
-  };
-}
-
-/**
- * Hook for random vocabularies
- */
-export function useRandomVocabularies() {
-  const [vocabularies, setVocabularies] = useState<VocabularyDto[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchRandomVocabularies = useCallback(async (count: number = 10, difficulty?: string) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await vocabularyService.getRandomVocabularies(count, difficulty);
-      setVocabularies(data);
-      return data;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch random vocabularies';
-      setError(message);
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  return {
-    vocabularies,
-    isLoading,
-    error,
-    fetchRandomVocabularies,
   };
 }

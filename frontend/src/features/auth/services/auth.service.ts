@@ -4,6 +4,7 @@ import { RegisterDto } from '../dtos/request/register.dto';
 import { ResetPasswordDto } from '../dtos/request/reset-password.dto';
 import { AuthResponseDto, UserDto } from '../dtos/response/auth-response.dto';
 import { ServerResponseModel } from '@/lib/typedefs/server-response';
+import { authStorage, userStorage } from '@/lib/utils/local-storage';
 
 export class AuthService {
   /**
@@ -12,12 +13,15 @@ export class AuthService {
    * Backend: AuthController.login()
    */
   async login(dto: LoginDto): Promise<ServerResponseModel<AuthResponseDto>> {
-    const response = await apiClient.post<AuthResponseDto>('/auth/login', dto);
+    // Don't cache login requests
+    const response = await apiClient.post<AuthResponseDto>('/auth/login', dto, {
+      cache: false,
+    });
     
     if (response.success && response.data) {
-      // Store token in localStorage
-      localStorage.setItem('accessToken', response.data.accessToken);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      // Store token and user
+      authStorage.setAccessToken(response.data.accessToken);
+      userStorage.setUser(response.data.user);
     }
     
     return response;
@@ -29,7 +33,9 @@ export class AuthService {
    * Backend: AuthController.register()
    */
   async register(dto: RegisterDto): Promise<ServerResponseModel<UserDto>> {
-    return apiClient.post('/auth/register', dto);
+    return apiClient.post('/auth/register', dto, {
+      cache: false,
+    });
   }
 
   /**
@@ -38,17 +44,21 @@ export class AuthService {
    * Backend: AuthController.resetPassword()
    */
   async resetPassword(dto: ResetPasswordDto): Promise<ServerResponseModel<{ message: string }>> {
-    return apiClient.post('/auth/reset-password', dto);
+    return apiClient.post('/auth/reset-password', dto, {
+      cache: false,
+    });
   }
 
   /**
    * Logout user
-   * Clear local storage (no backend endpoint needed)
+   * Clear local storage and invalidate all caches
    */
   async logout(): Promise<ServerResponseModel<void>> {
-    // Clear local storage
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('user');
+    // Clear auth data
+    authStorage.clearAuth();
+    
+    // Clear all API caches
+    apiClient.invalidateCache();
     
     return {
       success: true,
@@ -60,9 +70,14 @@ export class AuthService {
    * Get current user identity
    * GET /users/me
    * Backend: UsersController.getMe()
+   * 
+   * Cached for 5 minutes
    */
   async getIdentity(): Promise<ServerResponseModel<UserDto>> {
-    return apiClient.get('/users/me');
+    return apiClient.get('/users/me', {
+      cache: true,
+      cacheTTL: 5 * 60 * 1000, // 5 minutes
+    });
   }
 
   /**
@@ -70,7 +85,7 @@ export class AuthService {
    * Optionally check for specific role
    */
   async check(params?: { role?: string }): Promise<ServerResponseModel<boolean>> {
-    const token = localStorage.getItem('accessToken');
+    const token = authStorage.getAccessToken();
     
     if (!token) {
       return {
