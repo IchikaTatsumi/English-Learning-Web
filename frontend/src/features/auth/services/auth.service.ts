@@ -5,10 +5,6 @@ import { ResetPasswordDto } from '../dtos/request/reset-password.dto';
 import { AuthResponseDto, UserDto } from '../dtos/response/auth-response.dto';
 import { ServerResponseModel } from '@/lib/typedefs/server-response';
 
-/**
- * Authentication Service
- * Maps to backend AuthController endpoints
- */
 export class AuthService {
   /**
    * User login

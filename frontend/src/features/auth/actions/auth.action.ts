@@ -1,5 +1,10 @@
 'use server';
 
+// ============================================
+// FILE: frontend/src/features/auth/actions/auth.action.ts
+// ✅ NEW: Placeholder for server actions
+// ============================================
+
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 

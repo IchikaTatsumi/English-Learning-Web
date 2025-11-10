@@ -22,8 +22,9 @@ export class TopicService {
   /**
    * Get all topics
    * GET /topics
+   * Backend returns: TopicDto[]
    */
-    async getTopics(): Promise<TopicDto[]> {
+  async getTopics(): Promise<TopicDto[]> {
     try {
       const response = await fetch(`${this.baseUrl}/topics`, {
         headers: this.getAuthHeaders()
@@ -47,6 +48,7 @@ export class TopicService {
   /**
    * Get topic by ID
    * GET /topics/:id
+   * Backend returns: TopicDto
    */
   async getTopicById(id: number): Promise<TopicDto> {
     try {
@@ -66,6 +68,7 @@ export class TopicService {
   /**
    * Search topics by name (autocomplete)
    * GET /topics/search?q=Anim&limit=10
+   * Backend returns: TopicSearchResultDto[]
    */
   async searchTopics(dto?: TopicSearchDto): Promise<TopicSearchResultDto[]> {
     try {
@@ -87,8 +90,9 @@ export class TopicService {
   }
 
   /**
-   * Get all topics for filter dropdown
+   * ✅ FIXED: Get all topics for filter dropdown
    * GET /topics/list
+   * Backend returns: { topics: TopicSearchResultDto[], total: number }
    */
   async getTopicsForFilter(): Promise<TopicListResponseDto> {
     try {
@@ -98,7 +102,11 @@ export class TopicService {
 
       if (!response.ok) throw new Error('Failed to fetch topics for filter');
 
-      return await response.json();
+      const data = await response.json();
+      
+      // ✅ Backend already returns correct format: { topics: [], total: number }
+      // No need to transform, just cast to correct type
+      return data as TopicListResponseDto;
     } catch (error) {
       console.error('Error fetching topics for filter:', error);
       throw error;
@@ -108,6 +116,7 @@ export class TopicService {
   /**
    * Get topics with learning progress (authenticated users)
    * GET /topics/progress
+   * Backend returns: TopicProgressDto[]
    */
   async getTopicsWithProgress(): Promise<TopicProgressDto[]> {
     try {
@@ -132,10 +141,10 @@ export class TopicService {
     }
   }
 
-  
   /**
    * Create new topic (Admin only)
    * POST /topics
+   * Backend returns: TopicDto
    */
   async createTopic(dto: CreateTopicDto): Promise<TopicDto> {
     try {
@@ -157,6 +166,7 @@ export class TopicService {
   /**
    * Update topic (Admin only)
    * PUT /topics/:id
+   * Backend returns: TopicDto
    */
   async updateTopic(id: number, dto: UpdateTopicDto): Promise<TopicDto> {
     try {
@@ -179,6 +189,7 @@ export class TopicService {
    * Delete topic (Admin only)
    * DELETE /topics/:id
    * ⚠️ Warning: This will CASCADE delete all vocabularies and related data
+   * Backend returns: void (204 No Content)
    */
   async deleteTopic(id: number): Promise<void> {
     try {

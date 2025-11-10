@@ -14,7 +14,7 @@ import { ViewModeButton, ViewMode } from '@/components/buttons/ViewModeButton';
 import { MicroRecordingButton } from '@/components/buttons/MicroRecordingButton';
 import { useVocabularies } from '@/features/vocabularies/hooks/vocabulary.hook';
 import { useTopics } from '@/features/topics/hooks/topic.hook';
-import { useAuth } from '@/features/auth/hooks/auth.hooks';
+import { useAuth } from '@/features/auth/hooks/auth.hook';
 import { Role } from '@/lib/constants/enums';
 
 export function VocabularyUI() {

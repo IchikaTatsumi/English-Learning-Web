@@ -6,14 +6,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ProfileDropdown } from '@/components/profile-dropdown';
 import { Role } from '@/lib/constants/enums';
-import { useAuth } from '@/features/auth/hooks/auth.hooks';
+import { useAuth } from '@/features/auth/hooks/auth.hook';
 
 interface NavigationItem {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   href: string;
-  roles?: Role[];
+  roles?: Role[]; // ✅ Use Role enum from constants
 }
 
 const navigationItems: NavigationItem[] = [
@@ -53,21 +53,23 @@ const navigationItems: NavigationItem[] = [
     label: 'User Management', 
     icon: Users, 
     href: '/dashboard/usermanagement',
-    roles: [Role.ADMIN]
+    roles: [Role.ADMIN] // ✅ Use Role.ADMIN from enum
   },
   { 
     id: 'topics', 
     label: 'Topic Management', 
     icon: FolderTree, 
     href: '/dashboard/topicmanagement',
-    roles: [Role.ADMIN]
+    roles: [Role.ADMIN] // ✅ Use Role.ADMIN from enum
   },
 ];
 
 export function NavigationSidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
-  const userRole = user?.role || Role.USER;
+  
+  // ✅ FIX: Convert user.role string to Role enum
+  const userRole = user?.role === 'Admin' ? Role.ADMIN : Role.USER;
 
   const filteredItems = navigationItems.filter(item => 
     !item.roles || item.roles.includes(userRole)

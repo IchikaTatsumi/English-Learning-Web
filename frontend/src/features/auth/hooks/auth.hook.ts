@@ -2,7 +2,9 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { authService } from '../services/auth.service';
-import { LoginDto, RegisterDto, AuthResponseDto, UserDto } from '../dtos/auth.dto';
+import { LoginDto } from '../dtos/request/login.dto';
+import { RegisterDto } from '../dtos/request/register.dto';
+import { AuthResponseDto, UserDto } from '../dtos/response/auth-response.dto';
 import { authStorage, userStorage } from '@/lib/utils/local-storage';
 import { toast } from '@/lib/utils/toast';
 

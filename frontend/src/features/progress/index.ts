@@ -1,9 +1,3 @@
-
-// Export DTOs
-export * from './dtos/progress.dto';
-
-// Export Services
+export type { ProgressResponseDto, ProgressStatsDto } from './dtos/progress.dto';
 export * from './services/progress.service';
-
-// Export Hooks
 export * from './hooks/progress.hook';
