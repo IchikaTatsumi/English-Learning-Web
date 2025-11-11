@@ -4,6 +4,8 @@ import * as React from "react"
 import { useForm, ControllerRenderProps } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/features/auth"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -24,9 +26,9 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 
-// ✅ Schema kiểm tra dữ liệu
+// ✅ Schema kiểm tra dữ liệu - hỗ trợ cả username và email
 const loginSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
+  usernameOrEmail: z.string().min(3, "Username or email must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 })
 
@@ -36,17 +38,40 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const router = useRouter()
+  const { login, isLoading } = useAuth()
+  
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      username: "",
+      usernameOrEmail: "",
       password: "",
     },
   })
 
-  const onSubmit = (data: LoginFormValues) => {
-    console.log("Login data:", data)
-    // 🔹 TODO: gọi API đăng nhập ở đây
+  const onSubmit = async (data: LoginFormValues) => {
+    console.log('🔵 [LOGIN] Starting login process...');
+    console.log('🔵 [LOGIN] Data:', data);
+    
+    try {
+      // ✅ Call login API với usernameOrEmail
+      console.log('🔵 [LOGIN] Calling login API...');
+      const result = await login({
+        usernameOrEmail: data.usernameOrEmail,
+        password: data.password,
+      });
+      
+      console.log('✅ [LOGIN] Login successful!', result);
+      console.log('✅ [LOGIN] Redirecting to /dashboard/home...');
+      
+      // ✅ Redirect to dashboard after successful login
+      router.push('/dashboard/home');
+      
+      console.log('✅ [LOGIN] Router.push called');
+    } catch (error) {
+      console.error('❌ [LOGIN] Login error:', error);
+      // Error toast is already shown by auth hook
+    }
   }
 
   return (
@@ -64,12 +89,12 @@ export function LoginForm({
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="username"
-                render={({ field }: { field: ControllerRenderProps<LoginFormValues, "username"> }) => (
+                name="usernameOrEmail"
+                render={({ field }: { field: ControllerRenderProps<LoginFormValues, "usernameOrEmail"> }) => (
                   <FormItem>
-                    <FormLabel>Username</FormLabel>
+                    <FormLabel>Username or Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter username" {...field} />
+                      <Input placeholder="Enter username or email" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -98,13 +123,13 @@ export function LoginForm({
                 )}
               />
 
-              <Button type="submit" className="w-full">
-                Login
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Logging in...' : 'Login'}
               </Button>
 
               <p className="text-sm text-center text-muted-foreground">
                 Don&apos;t have an account?{" "}
-                <a href="#" className="underline">
+                <a href="/signup" className="underline">
                   Sign up
                 </a>
               </p>

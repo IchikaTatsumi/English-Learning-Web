@@ -4,6 +4,8 @@ import * as React from "react"
 import { z } from "zod"
 import { useForm } from 'react-hook-form'
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/features/auth"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -27,10 +29,10 @@ import { Input } from "@/components/ui/input"
 //  Schema xác thực bằng Zod
 const signupSchema = z
   .object({
-    name: z.string().min(1, { message: "Full name is required" }),
+    fullName: z.string().min(1, { message: "Full name is required" }),
     email: z.string().email({ message: "Invalid email address" }),
     username: z.string().min(3, { message: "Username must be at least 3 characters" }),
-    password: z.string().min(8, { message: "Password must be at least 8 characters" }),
+    password: z.string().min(6, { message: "Password must be at least 6 characters" }),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -41,10 +43,13 @@ const signupSchema = z
 type SignupFormValues = z.infer<typeof signupSchema>
 
 export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
+  const router = useRouter()
+  const { register, isLoading } = useAuth()
+  
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      name: "",
+      fullName: "",
       email: "",
       username: "",
       password: "",
@@ -52,8 +57,31 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
     },
   })
 
-  const onSubmit = (data: SignupFormValues) => {
-    console.log("✅ Signup Data:", data)
+  const onSubmit = async (data: SignupFormValues) => {
+    console.log('🔵 [SIGNUP] Starting registration process...');
+    console.log('🔵 [SIGNUP] Data:', data);
+    
+    try {
+      // ✅ Call register API
+      console.log('🔵 [SIGNUP] Calling register API...');
+      await register({
+        fullName: data.fullName,
+        email: data.email,
+        username: data.username,
+        password: data.password,
+      });
+      
+      console.log('✅ [SIGNUP] Registration successful!');
+      console.log('✅ [SIGNUP] Redirecting to /login...');
+      
+      // ✅ Redirect to login page after successful registration
+      router.push('/login');
+      
+      console.log('✅ [SIGNUP] Router.push called');
+    } catch (error) {
+      console.error('❌ [SIGNUP] Registration error:', error);
+      // Error toast is already shown by auth hook
+    }
   }
 
   return (
@@ -70,7 +98,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
             {/* Full Name */}
             <FormField
               control={form.control}
-              name="name"
+              name="fullName"
               render={({ field }: any) => (
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
@@ -93,7 +121,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
                   <FormControl>
                     <Input type="email" placeholder="m@example.com" {...field} />
                   </FormControl>
-                  <FormDescription>We’ll use this to contact you.</FormDescription>
+                  <FormDescription>We'll use this to contact you.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -107,7 +135,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
                 <FormItem>
                   <FormLabel>Username</FormLabel>
                   <FormControl>
-                    <Input placeholder="nguyenvanb" {...field} />
+                    <Input placeholder="johndoe" {...field} />
                   </FormControl>
                   <FormDescription>Must be unique.</FormDescription>
                   <FormMessage />
@@ -125,7 +153,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} />
                   </FormControl>
-                  <FormDescription>Must be at least 8 characters.</FormDescription>
+                  <FormDescription>Must be at least 6 characters.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -149,12 +177,12 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
 
             {/* Submit */}
             <div className="pt-2">
-              <Button type="submit" className="w-full">
-                Create Account
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Creating Account...' : 'Create Account'}
               </Button>
               <p className="text-center text-sm text-muted-foreground mt-2">
                 Already have an account?{" "}
-                <a href="#" className="text-primary hover:underline">
+                <a href="/login" className="text-primary hover:underline">
                   Sign in
                 </a>
               </p>

@@ -31,7 +31,7 @@ export class UsersService implements OnModuleInit {
       });
 
       if (!admin) {
-        const password = await BcryptUtil.hash('admin');
+        const password = await BcryptUtil.hash('admin123');
         const newAdmin = this.userRepository.create({
           username: 'admin',
           password: password,

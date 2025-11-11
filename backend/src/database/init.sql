@@ -351,7 +351,7 @@ COMMENT ON FUNCTION validate_quiz_generation IS
 INSERT INTO "user" (username, email, full_name, password, role, avatar_url) VALUES
 ('alex', 'alex@example.com', 'Alex Chen', '$2b$10$VQwG.4FzEIXZ0bVQhZL8EOwY/3D1YQG4rQbM81wKPb4bE4sWbcEzi', 'User', '/avatars/alex.png'),
 ('emma', 'emma@example.com', 'Emma Tran', '$2b$10$VQwG.4FzEIXZ0bVQhZL8EOwY/3D1YQG4rQbM81wKPb4bE4sWbcEzi', 'User', '/avatars/emma.png'),
-('admin', 'admin@example.com', 'Admin', '$2b$10$CQwU9uD4qHk0bQy9xv6DeuZK8xW0czs5bT3tT7Q4v3NHSmF6hmcUu', 'Admin', '/avatars/admin.png'),
+('admin', 'admin@example.com', 'Admin', '$2b$10$rRv0YLoxleZF.kKwvQu4Huy7fO9hI5z5MjLq8jKFCXY2OYvnYYYoK', 'Admin', '/avatars/admin.png'),
 ('john', 'john@example.com', 'John Doe', '$2b$10$VQwG.4FzEIXZ0bVQhZL8EOwY/3D1YQG4rQbM81wKPb4bE4sWbcEzi', 'User', '/avatars/john.png');
 
 -- 2️⃣ Topics

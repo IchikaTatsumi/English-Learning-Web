@@ -44,7 +44,7 @@ export class AuthService implements OnModuleInit {
         username: 'admin',
         fullName: 'Administrator',
         email: 'admin@gmail.com',
-        password: await BcryptUtil.hash('admin'),
+        password: await BcryptUtil.hash('admin123'),
         role: Role.ADMIN,
       });
       await this.userRepository.save(user);
