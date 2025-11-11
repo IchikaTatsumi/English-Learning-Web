@@ -6,6 +6,7 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/features/auth"
+import Link from "next/link"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 
-// ✅ Schema kiểm tra dữ liệu - hỗ trợ cả username và email
+// ✅ Schema kiểm tra dữ liệu
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(3, "Username or email must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -51,10 +52,8 @@ export function LoginForm({
 
   const onSubmit = async (data: LoginFormValues) => {
     console.log('🔵 [LOGIN] Starting login process...');
-    console.log('🔵 [LOGIN] Data:', data);
     
     try {
-      // ✅ Call login API với usernameOrEmail
       console.log('🔵 [LOGIN] Calling login API...');
       const result = await login({
         usernameOrEmail: data.usernameOrEmail,
@@ -64,13 +63,9 @@ export function LoginForm({
       console.log('✅ [LOGIN] Login successful!', result);
       console.log('✅ [LOGIN] Redirecting to /dashboard/home...');
       
-      // ✅ Redirect to dashboard after successful login
       router.push('/dashboard/home');
-      
-      console.log('✅ [LOGIN] Router.push called');
     } catch (error) {
       console.error('❌ [LOGIN] Login error:', error);
-      // Error toast is already shown by auth hook
     }
   }
 
@@ -108,12 +103,13 @@ export function LoginForm({
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>Password</FormLabel>
-                      <a
-                        href="#"
+                      {/* ✅ FIXED: Link to Reset Password page */}
+                      <Link
+                        href="/reset-password"
                         className="text-sm text-primary underline-offset-4 hover:underline"
                       >
                         Forgot password?
-                      </a>
+                      </Link>
                     </div>
                     <FormControl>
                       <Input type="password" placeholder="Enter password" {...field} />
@@ -129,9 +125,9 @@ export function LoginForm({
 
               <p className="text-sm text-center text-muted-foreground">
                 Don&apos;t have an account?{" "}
-                <a href="/signup" className="underline">
+                <Link href="/signup" className="underline">
                   Sign up
-                </a>
+                </Link>
               </p>
             </form>
           </Form>

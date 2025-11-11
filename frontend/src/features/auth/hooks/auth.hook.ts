@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { authService } from '../services/auth.service';
 import { LoginDto } from '../dtos/request/login.dto';
 import { RegisterDto } from '../dtos/request/register.dto';
+import { ResetPasswordDto } from '../dtos/request/reset-password.dto';
 import { AuthResponseDto, UserDto } from '../dtos/response/auth-response.dto';
 import { authStorage, userStorage } from '@/lib/utils/local-storage';
 import { toast } from '@/lib/utils/toast';
@@ -44,7 +45,6 @@ export function useAuth() {
       if (response.success && response.data) {
         const { accessToken, user } = response.data;
         
-        // Store tokens and user
         authStorage.setAccessToken(accessToken);
         userStorage.setUser(user);
         
@@ -91,6 +91,56 @@ export function useAuth() {
   }, []);
 
   /**
+   * ✅ NEW: Request password reset email
+   */
+  const forgotPassword = useCallback(async (email: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authService.forgotPassword(email);
+      
+      if (response.success) {
+        toast.success('Reset email sent! Please check your inbox.');
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Failed to send reset email');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to send reset email';
+      setError(message);
+      toast.error(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * ✅ NEW: Reset password with token
+   */
+  const resetPassword = useCallback(async (dto: ResetPasswordDto) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await authService.resetPassword(dto);
+      
+      if (response.success) {
+        toast.success('Password reset successfully!');
+        return response.data;
+      } else {
+        throw new Error(response.message || 'Password reset failed');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Password reset failed';
+      setError(message);
+      toast.error(message);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  /**
    * Logout user
    */
   const logout = useCallback(async () => {
@@ -98,7 +148,6 @@ export function useAuth() {
     try {
       await authService.logout();
       
-      // Clear storage and state
       authStorage.clearAuth();
       setUser(null);
       
@@ -132,7 +181,6 @@ export function useAuth() {
       const message = err instanceof Error ? err.message : 'Failed to fetch identity';
       setError(message);
       
-      // If token is invalid, clear auth
       authStorage.clearAuth();
       setUser(null);
       
@@ -163,6 +211,8 @@ export function useAuth() {
     error,
     login,
     register,
+    forgotPassword, // ✅ NEW
+    resetPassword,  // ✅ NEW
     logout,
     fetchIdentity,
     isAuthenticated,
