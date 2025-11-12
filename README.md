@@ -9,17 +9,11 @@ Thực hiện các bước sau theo thứ tự từ thư mục gốc của dự 
 
 Chúng ta sẽ sử dụng Docker Compose để khởi động database PostgreSQL.
 
-1.  Từ thư mục gốc (root) của dự án, chạy lệnh:
+  Từ thư mục gốc (root) của dự án, chạy lệnh:
     ```bash
-    docker-compose up -d postgres
+    docker-compose up -d --build
     ```
     Lệnh này sẽ build và chạy service `postgres` trong chế độ nền (detached) dựa trên tệp `docker-compose.yml`.
-
-2.  Bạn cũng có thể sử dụng script có sẵn trong `backend` bằng cách `cd backend` và chạy:
-    ```bash
-    npm run docker:db:start
-    ```
-   
 
 ---
 
@@ -76,10 +70,10 @@ Backend cần service này để xử lý tác vụ liên quan đến giọng n�
     ```dotenv
     # Database - Phải khớp với docker-compose.yml
     POSTGRES_HOST=localhost
-    POSTGRES_PORT=5432
-    POSTGRES_USER=dbuser
-    POSTGRES_PASSWORD=dbpassword
-    POSTGRES_DB=mydatabase
+    POSTGRES_PORT=9999
+    POSTGRES_USER=postgres
+    POSTGRES_PASSWORD=postgres123
+    POSTGRES_DB=postgres
     
     # JWT
     JWT_SECRET=your-super-secret-jwt-key-change-in-production

@@ -6,7 +6,7 @@ export class UserDto {
   @ApiProperty({ example: 1, description: 'User ID' })
   id: number;
 
-  @ApiProperty({ example: 'john_doe', description: 'Username' })
+  @ApiProperty({ example: 'johndoe', description: 'Username' })
   username: string;
 
   @ApiProperty({ example: 'John Doe', description: 'Full name' })

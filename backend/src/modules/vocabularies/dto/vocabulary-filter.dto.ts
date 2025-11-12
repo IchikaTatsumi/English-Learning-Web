@@ -12,8 +12,8 @@ import { Type } from 'class-transformer';
 import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 import { ViewModeEnum } from 'src/core/enums/view-mode.enum';
 
-// ✅ Import shared DTOs từ topics
-import { TopicSearchResultDto } from '../../topics/dto/topic-filter.dto';
+// ✅ REMOVED: Không duplicate TopicSearchResultDto nữa
+// Import từ topics module thay thế: import { TopicSearchResultDto } from '../../topics/dto/topic-filter.dto';
 
 /**
  * ✅ VOCABULARY FILTER DTO
@@ -180,7 +180,8 @@ export class VocabularyListResponseDto {
 }
 
 /**
- * ✅ Topic Autocomplete DTO
+ * ✅ Topic Autocomplete DTO (local to vocabulary module)
+ * Note: TopicSearchResultDto is imported from topics module
  */
 export class TopicSearchDto {
   @ApiProperty({

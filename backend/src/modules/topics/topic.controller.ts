@@ -40,17 +40,28 @@ export class TopicController {
   constructor(private readonly topicService: TopicService) {}
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ ENDPOINT 1: Search topics (autocomplete)
-  // GET /topics/search?q=Anim&limit=10
+  // ✅ PRIMARY ENDPOINT: Topic Search cho Vocabulary Filter
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @Public()
   @Get('search')
   @ApiOperation({
-    summary: 'Search topics by name (autocomplete)',
-    description: 'Returns topics matching search term for dropdown/filter',
+    summary: '🔍 Search topics for vocabulary filter dropdown',
+    description: `
+      Primary endpoint for topic selection in vocabulary filters.
+      
+      Examples:
+      - GET /topics/search → All topics
+      - GET /topics/search?q=a → Topics containing 'a' (Animal, Nature, etc.)
+      - GET /topics/search?q=ani&limit=5 → Top 5 matching topics
+      
+      Response includes vocabulary count for each topic.
+    `,
   })
-  @ApiOkResponse({ type: [TopicSearchResultDto] })
+  @ApiOkResponse({
+    type: [TopicSearchResultDto],
+    description: 'Returns topics with vocabulary counts',
+  })
   async searchTopics(
     @Query() dto: TopicSearchDto,
   ): Promise<TopicSearchResultDto[]> {
@@ -58,15 +69,14 @@ export class TopicController {
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ ENDPOINT 2: Get all topics for filter dropdown
-  // GET /topics/list (with optional user context)
+  // ✅ ENDPOINT 2: Get all topics with metadata
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @Get('list')
   @ApiOperation({
-    summary: 'Get all topics for filter dropdown',
+    summary: 'Get all topics with vocabulary counts',
     description:
-      'Returns all topics with vocabulary counts and optional learned counts',
+      'Returns complete topic list with learned counts if authenticated',
   })
   @ApiOkResponse({ type: TopicListResponseDto })
   async getTopicsForFilter(
@@ -83,7 +93,6 @@ export class TopicController {
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // ✅ ENDPOINT 3: Get topics with progress
-  // GET /topics/progress (authenticated users)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @Get('progress')

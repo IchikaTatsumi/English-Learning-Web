@@ -26,8 +26,6 @@ import {
 import {
   VocabularyFilterDto,
   VocabularyListResponseDto,
-  TopicSearchDto,
-  TopicSearchResultDto,
 } from './dto/vocabulary-filter.dto';
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
@@ -69,15 +67,13 @@ export class VocabularyController {
     @Request() req: RequestWithUser,
     @Query() filters: VocabularyFilterDto,
   ): Promise<VocabularyListResponseDto> {
-    const userId = req.user?.id; // Optional user ID for learned filter
+    const userId = req.user?.id;
     const viewMode = filters.viewMode || ViewModeEnum.GRID;
     const paginate = filters.paginate === true;
 
-    // Get filtered data
     const { data, total } =
       await this.vocabularyService.getVocabulariesWithFilters(filters, userId);
 
-    // Build response
     const response: VocabularyListResponseDto = {
       data: VocabularyResponseDto.fromEntities(data),
       viewMode,
@@ -85,7 +81,6 @@ export class VocabularyController {
       paginated: paginate,
     };
 
-    // Add pagination metadata if enabled
     if (paginate) {
       const page = filters.page || 1;
       const limit = filters.limit || 20;
@@ -94,7 +89,6 @@ export class VocabularyController {
       response.totalPages = Math.ceil(total / limit);
     }
 
-    // Add applied filters
     response.filters = {};
     if (filters.search) response.filters.search = filters.search;
     if (filters.difficulty) response.filters.difficulty = filters.difficulty;
@@ -107,29 +101,7 @@ export class VocabularyController {
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ ENDPOINT 2: Topic autocomplete search
-  // GET /vocabularies/topics/search?q=Anim
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  @Public()
-  @Get('topics/search')
-  @ApiOperation({
-    summary: 'Search topics for category dropdown',
-    description:
-      'Returns list of topics matching search term. Used for autocomplete.',
-  })
-  @ApiOkResponse({ type: [TopicSearchResultDto] })
-  async searchTopics(
-    @Query() dto: TopicSearchDto,
-  ): Promise<TopicSearchResultDto[]> {
-    return await this.vocabularyService.searchTopics(
-      dto.search,
-      dto.limit || 10,
-    );
-  }
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ ENDPOINT 3: Reset filter (get default list)
+  // ✅ ENDPOINT 2: Reset filter (get default list)
   // GET /vocabularies/default
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

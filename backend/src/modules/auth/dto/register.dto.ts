@@ -5,7 +5,7 @@ export class RegisterDto {
   @ApiProperty({
     description: 'Username for the account (unique)',
     type: String,
-    example: 'john_doe',
+    example: 'johndoe',
   })
   @IsString()
   @IsNotEmpty()
@@ -23,7 +23,7 @@ export class RegisterDto {
   @ApiProperty({
     description: 'Full name of the user',
     type: String,
-    example: 'Nguyen Van A',
+    example: 'John Doe',
   })
   @IsString()
   @IsNotEmpty()
