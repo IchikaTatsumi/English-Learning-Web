@@ -26,12 +26,10 @@ import {
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
-
-interface RequestWithUser {
-  user: {
-    id: number;
-  };
-}
+import {
+  RequestWithUser,
+  RequestWithOptionalUser,
+} from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Topics')
@@ -80,7 +78,7 @@ export class TopicController {
   })
   @ApiOkResponse({ type: TopicListResponseDto })
   async getTopicsForFilter(
-    @Request() req: RequestWithUser,
+    @Request() req: RequestWithOptionalUser,
   ): Promise<TopicListResponseDto> {
     const userId = req.user?.id;
     const topics = await this.topicService.getTopicsForFilter(userId);

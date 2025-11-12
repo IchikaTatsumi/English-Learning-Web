@@ -31,12 +31,7 @@ import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
 import { ViewModeEnum } from 'src/core/enums/view-mode.enum';
-
-interface RequestWithUser {
-  user: {
-    id: number;
-  };
-}
+import { RequestWithOptionalUser } from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Vocabulary')
@@ -64,7 +59,7 @@ export class VocabularyController {
   })
   @ApiOkResponse({ type: VocabularyListResponseDto })
   async getVocabulariesWithFilter(
-    @Request() req: RequestWithUser,
+    @Request() req: RequestWithOptionalUser,
     @Query() filters: VocabularyFilterDto,
   ): Promise<VocabularyListResponseDto> {
     const userId = req.user?.id;

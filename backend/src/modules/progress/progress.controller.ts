@@ -7,12 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { ProgressService } from './progress.service';
 import { ProgressResponseDto, ProgressStatsDTO } from './dto/progress.dto';
-
-interface RequestWithUser {
-  user: {
-    id: number;
-  };
-}
+import { RequestWithUser } from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Progress')
@@ -26,7 +21,7 @@ export class ProgressController {
   async getUserProgress(
     @Request() req: RequestWithUser,
   ): Promise<ProgressResponseDto> {
-    const userId = Number(req.user.id); // ✅ FIX: Dùng Number() thay vì parseInt
+    const userId = req.user.id;
     const progress = await this.progressService.getOrCreateProgress(userId);
     return ProgressResponseDto.fromEntity(progress);
   }
@@ -37,7 +32,7 @@ export class ProgressController {
   async getProgressStats(
     @Request() req: RequestWithUser,
   ): Promise<ProgressStatsDTO> {
-    const userId = Number(req.user.id);
+    const userId = req.user.id;
     const stats = await this.progressService.getProgressStats(userId);
     return ProgressStatsDTO.fromEntity(stats);
   }

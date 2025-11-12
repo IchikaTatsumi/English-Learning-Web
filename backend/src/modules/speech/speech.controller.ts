@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Request, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Request, Get } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiTags,
@@ -12,6 +12,7 @@ import {
   SpeechRecognitionResultDTO,
   TextToSpeechResultDTO,
 } from './dto/speech.dto';
+import { RequestWithUser } from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Speech')
@@ -25,7 +26,7 @@ export class SpeechController {
   })
   @ApiOkResponse({ type: SpeechRecognitionResultDTO })
   async recognizeSpeech(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Body() dto: RecognizeSpeechDTO,
   ): Promise<SpeechRecognitionResultDTO> {
     const userId = req.user.id.toString();

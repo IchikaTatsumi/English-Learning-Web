@@ -4,7 +4,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Role } from 'src/core/enums/role.enum';
 import { IS_PUBLIC_KEY } from 'src/core/decorators/public.decorator';
 import { ROLES_KEY } from 'src/core/decorators/role.decorator';
-import { RequestUser } from './jwt.strategy';
+import { RequestWithUser } from 'src/core/types/request.types';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -41,9 +41,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     // Get user from request
-    const request = context
-      .switchToHttp()
-      .getRequest<Request & { user: RequestUser }>();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const user = request.user;
 
     // Check if user has required role
