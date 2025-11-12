@@ -1,6 +1,5 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
-import { UserPayload } from '../interfaces/user-payload.interface';
-import { RequestWithUser } from '../interfaces/express.interface';
+import { UserPayload, RequestWithUser } from '../interfaces/request.types';
 
 export const CurrentUser = createParamDecorator(
   <K extends keyof UserPayload>(

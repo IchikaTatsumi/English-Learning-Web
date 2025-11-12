@@ -1,8 +1,6 @@
 import {
   BadRequestException,
   Injectable,
-  Logger,
-  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
@@ -24,33 +22,12 @@ interface JwtPayload {
 }
 
 @Injectable()
-export class AuthService implements OnModuleInit {
-  private readonly logger = new Logger(AuthService.name);
-
+export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
   ) {}
-
-  async onModuleInit(): Promise<void> {
-    const adminUser = await this.userRepository.findOne({
-      where: { role: Role.ADMIN },
-    });
-
-    if (!adminUser) {
-      this.logger.log('Creating default admin user');
-      const user = this.userRepository.create({
-        username: 'admin',
-        fullName: 'Administrator',
-        email: 'admin@gmail.com',
-        password: await BcryptUtil.hash('admin123'),
-        role: Role.ADMIN,
-      });
-      await this.userRepository.save(user);
-      this.logger.log('Default admin user created successfully');
-    }
-  }
 
   async register(registerDto: RegisterDto): Promise<UserDto> {
     const { username, email, password, fullName } = registerDto;

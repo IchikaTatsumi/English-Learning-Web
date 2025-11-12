@@ -34,10 +34,21 @@ import { SpeechModule } from './modules/speech/speech.module';
       username: process.env.POSTGRES_USER || 'dbuser',
       password: process.env.POSTGRES_PASSWORD || 'dbpassword',
       database: process.env.POSTGRES_DB || 'mydatabase',
-      synchronize: true,
-      logging: true,
+
+      // ✅ CRITICAL: Tắt synchronize vì dùng init.sql
+      synchronize: false,
+
+      logging: process.env.NODE_ENV === 'development',
+
       entities: [path.join(__dirname, 'modules/**/entities/*.entity.{ts,js}')],
       autoLoadEntities: true,
+
+      // ✅ Connection pool settings
+      extra: {
+        max: 10,
+        min: 2,
+        idleTimeoutMillis: 30000,
+      },
     } as DataSourceOptions),
 
     // ✅ Feature Modules
