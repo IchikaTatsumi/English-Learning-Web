@@ -1,33 +1,20 @@
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FROM node:18-alpine AS production
+# --- Stage 1: Build code ---
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
 
+# --- Stage 2: Run production ---
+FROM node:18-alpine
 WORKDIR /app
 
-# Copy package files
+# Copy build output từ stage builder
+COPY --from=builder /app/dist ./dist
 COPY package*.json ./
 
-# Install production dependencies only
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev
 
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
-
-# Change ownership
-RUN chown -R nestjs:nodejs /app
-
-# Switch to non-root user
-USER nestjs
-
-# Expose port
 EXPOSE 4000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:4000/api', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-# Start application
 CMD ["node", "dist/main.js"]

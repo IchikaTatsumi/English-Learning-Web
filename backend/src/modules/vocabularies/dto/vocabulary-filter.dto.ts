@@ -12,20 +12,13 @@ import { Type } from 'class-transformer';
 import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
 import { ViewModeEnum } from 'src/core/enums/view-mode.enum';
 
+// ✅ Import shared DTOs từ topics
+import { TopicSearchResultDto } from '../../topics/dto/topic-filter.dto';
+
 /**
  * ✅ VOCABULARY FILTER DTO
- * Hỗ trợ:
- * - Search vocab by word/meaning
- * - Filter by difficulty (All = Mixed Levels, Beginner, Intermediate, Advanced)
- * - Filter by topic (All = null, hoặc chọn specific topic)
- * - Filter learned vocab (isLearned + sortBy recently)
- * - Reset filter
  */
 export class VocabularyFilterDto {
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // VOCABULARY SEARCH
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
   @ApiProperty({
     description: 'Search vocabulary by word, English/Vietnamese meaning',
     required: false,
@@ -34,11 +27,6 @@ export class VocabularyFilterDto {
   @IsString()
   @IsOptional()
   search?: string;
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // DIFFICULTY FILTER
-  // All difficulties = "Mixed Levels" (hoặc undefined)
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @ApiProperty({
     description: 'Filter by difficulty level. "Mixed Levels" = All',
@@ -50,12 +38,6 @@ export class VocabularyFilterDto {
   @IsOptional()
   difficulty?: DifficultyLevel;
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // TOPIC FILTER
-  // All topics = null/undefined
-  // Specific topic = topicId
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
   @ApiProperty({
     description: 'Filter by topic ID. Omit for "All topics"',
     required: false,
@@ -66,10 +48,6 @@ export class VocabularyFilterDto {
   @IsOptional()
   topicId?: number;
 
-  /**
-   * ✅ NEW: Topic search (for autocomplete dropdown)
-   * Khi user gõ vào input "Category", trả về list topics matching
-   */
   @ApiProperty({
     description: 'Search topics by name (for topic dropdown)',
     required: false,
@@ -78,10 +56,6 @@ export class VocabularyFilterDto {
   @IsString()
   @IsOptional()
   topicSearch?: string;
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // LEARNED VOCAB FILTER (Tab "Learned")
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @ApiProperty({
     description: 'Filter only learned vocabularies',
@@ -103,10 +77,6 @@ export class VocabularyFilterDto {
   @IsOptional()
   recentlyLearned?: boolean;
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // VIEW MODE
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
   @ApiProperty({
     description: 'Display mode (Grid or List)',
     enum: ViewModeEnum,
@@ -116,10 +86,6 @@ export class VocabularyFilterDto {
   @IsEnum(ViewModeEnum)
   @IsOptional()
   viewMode?: ViewModeEnum;
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // PAGINATION
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @ApiProperty({
     description: 'Enable pagination',
@@ -156,10 +122,6 @@ export class VocabularyFilterDto {
   @Max(100)
   @IsOptional()
   limit?: number;
-
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // SORTING
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @ApiProperty({
     description: 'Sort field',
@@ -219,7 +181,6 @@ export class VocabularyListResponseDto {
 
 /**
  * ✅ Topic Autocomplete DTO
- * Dùng cho endpoint /vocabularies/topics/search
  */
 export class TopicSearchDto {
   @ApiProperty({
@@ -242,36 +203,4 @@ export class TopicSearchDto {
   @Max(50)
   @IsOptional()
   limit?: number;
-}
-
-/**
- * ✅ Topic in search results
- */
-export class TopicSearchResultDto {
-  @ApiProperty({ description: 'Topic ID', example: 1 })
-  id: number;
-
-  @ApiProperty({ description: 'Topic name', example: 'Animals' })
-  topicName: string;
-
-  @ApiProperty({ description: 'Topic description', nullable: true })
-  description: string;
-
-  @ApiProperty({ description: 'Number of vocabularies', example: 25 })
-  vocabularyCount: number;
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ✅ TYPE-SAFE INTERFACES FOR RAW QUERY RESULTS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-/**
- * ✅ Raw result from searchTopics query (vocabulary.service.ts)
- * Used in: VocabularyService.searchTopics()
- */
-export interface TopicSearchRawResult {
-  id: number;
-  topicname: string; // PostgreSQL returns lowercase
-  description: string | null;
-  vocabularycount: string; // COUNT() returns string
 }

@@ -1,6 +1,8 @@
+version: '3.9'
+
 services:
   postgres:
-    image: postgres:16  # ✅ Bản full, không phải alpine
+    image: postgres:16
     container_name: english_learning_db
     restart: unless-stopped
     
@@ -12,7 +14,7 @@ services:
       POSTGRES_INITDB_ARGS: "-E UTF8"
     
     ports:
-      - '5432:5432'
+      - '9999:5432'
     
     volumes:
       - ./backend/src/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
@@ -25,6 +27,28 @@ services:
       retries: 5
       start_period: 10s
 
+    networks:
+      - app_network
+
+  #backend:
+    # build:
+    #   context: ./backend
+    #container_name: english_learning_backend
+    #restart: unless-stopped
+    #depends_on:
+      #postgres:
+        #condition: service_healthy
+    #env_file:
+      #- ./backend/.env
+    #ports:
+      #- "4000:4000"
+    #networks:
+     # - app_network
+
 volumes:
   postgres_data:
     driver: local
+
+networks:
+  app_network:
+    driver: bridge

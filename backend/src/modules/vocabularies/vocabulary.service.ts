@@ -4,13 +4,14 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Vocabulary } from './entities/vocabulary.entity';
 import { VocabularyProgress } from '../vocabularyprogress/entities/vocabulary-progress.entity';
 import { CreateVocabularyDTO, UpdateVocabularyDTO } from './dto/vocabulary.dto';
-import {
-  VocabularyFilterDto,
-  TopicSearchRawResult,
-} from './dto/vocabulary-filter.dto';
+import { VocabularyFilterDto } from './dto/vocabulary-filter.dto';
 import { Result } from '../results/entities/result.entity';
 import { Topic } from '../topics/entities/topic.entity';
 import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
+import {
+  TopicSearchResultDto,
+  TopicSearchResultDto,
+} from '../topics/dto/topic-filter.dto';
 
 @Injectable()
 export class VocabularyService {
