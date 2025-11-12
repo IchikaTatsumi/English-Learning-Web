@@ -1,106 +1,30 @@
 services:
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # PostgreSQL Database with init.sql
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16  # ✅ Bản full, không phải alpine
     container_name: english_learning_db
     restart: unless-stopped
     
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      # ✅ Enable logging để debug
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: english_learning
+      POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_INITDB_ARGS: "-E UTF8"
     
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '5432:5432'
     
     volumes:
-      # ✅ CRITICAL: Mount init.sql vào /docker-entrypoint-initdb.d/
-      # PostgreSQL sẽ TỰ ĐỘNG chạy mọi file .sql trong thư mục này
-      # theo thứ tự alphabet (do đó đặt tên 01-init.sql)
       - ./backend/src/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-      
-      # ✅ Persist data (QUAN TRỌNG: Phải xóa volume này để init.sql chạy lại)
       - postgres_data:/var/lib/postgresql/data
-      
-      # ✅ (Optional) Mount thêm file SQL khác nếu cần
-      # - ./backend/src/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
     
-    # ✅ Health check để đảm bảo PostgreSQL ready trước khi backend start
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d english_learning']
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-    
-    networks:
-      - app_network
 
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # NestJS Backend API
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: development  # Use development stage for hot reload
-    
-    container_name: english_learning_api
-    restart: unless-stopped
-    
-    environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${PORT:-4000}
-      
-      # ✅ Database connection (sử dụng container name 'postgres')
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      
-      # ✅ JWT
-      JWT_SECRET: ${JWT_SECRET}
-      
-      # ✅ CORS
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-    
-    ports:
-      - '${PORT:-4000}:4000'
-    
-    # ✅ Đợi PostgreSQL ready và init.sql hoàn tất
-    depends_on:
-      postgres:
-        condition: service_healthy
-    
-    volumes:
-      # ✅ Hot reload cho development
-      - ./backend/src:/app/src:delegated
-      - ./backend/package.json:/app/package.json
-      - ./backend/tsconfig.json:/app/tsconfig.json
-      - /app/node_modules  # Prevent node_modules từ host override container
-    
-    command: npm run start:dev  # Hot reload mode
-    
-    networks:
-      - app_network
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Volumes
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 volumes:
   postgres_data:
     driver: local
-    name: english_learning_postgres_data
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Networks
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-networks:
-  app_network:
-    driver: bridge
-    name: english_learning_network

@@ -14,7 +14,6 @@ export const typeormConfig: DataSourceOptions = {
   synchronize: true,
   logging: true,
   entities: [path.join(__dirname, '../modules/**/entities/*.entity.{ts,js}')],
-  migrations: [path.join(__dirname, 'migrations/*.{ts,js}')],
 };
 
 export const AppDataSource = new DataSource(typeormConfig);
