@@ -6,192 +6,84 @@ Python 3.8+
 ffmpeg (cho audio processing)
 Vosk model (download riêng)
 
-🚀 Setup
-1. Tạo Virtual Environment
+# 🚀 Installation Guide
+
+# Step 1: Clean Install (Recommended)
+  # Create Virtual Environment
 ``
-cd speech
+cd speech-service
 python -m venv venv
+``
+  # Remove old virtual environment (if exists)
+rm -rf venv
 
-``
-# Activate
-# Linux/Mac:
-source venv/bin/activate
-# Windows:
-venv\Scripts\activate
-2. Install Dependencies
-``
+  # Activate
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate   # Windows
+
+  # Upgrade pip
+pip install --upgrade pip setuptools wheel
+
+  # Install dependencies
 pip install -r requirements.txt
-``
-
-3. Install ffmpeg
-Ubuntu/Debian:
-``
+# Step 2: Install System Dependencies
+bash# Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install ffmpeg
-``
-MacOS:
-``
-MacOS:
-``
-Windows:
-Download từ https://ffmpeg.org/download.html và thêm vào PATH
-4. Download Vosk Model
-``
-# Download model (370MB)
+sudo apt-get install -y ffmpeg portaudio19-dev python3-dev
+
+  # MacOS
+brew install ffmpeg portaudio
+
+  # Windows
+Download ffmpeg from https://ffmpeg.org/download.html
+Add to PATH
+# Step 3: Verify Installation
+bash# Run verification script
+python verify_dependencies.py
+
+# Expected output:
+# ✅ All dependencies are installed!
+# You're ready to run the Speech Service! 🚀
+# Step 4: Download Vosk Model
+bash# Download model (370MB)
 wget https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
 
 # Extract
 unzip vosk-model-small-en-us-0.15.zip -d speech-recognition/models/
 
-# Hoặc download manually và extract vào thư mục:
-# speech-recognition/models/vosk-model-small-en-us-0.15/
-``
-5. Configure Environment
-``
-cp .env.example .env
-# Edit .env nếu cần thay đổi cấu hình
-``
-6. Create Required Directories
-``
-mkdir -p speech-synthesis/voices
-mkdir -p speech-recognition/models
-``
-🏃 Run Server
-# Development
-``
-python main.py
-``
-# Hoặc với uvicorn:
-``
-uvicorn main:app --host 0.0.0.0 --port 5000 --reload
-``
-# Production
-``
-uvicorn main:app --host 0.0.0.0 --port 5000 --workers 4
-``
-📡 API Endpoints
-# Health Check
-``
-GET /health
-``
-# Speech to Text (STT)
-``
-POST /api/speech/recognize
-Content-Type: multipart/form-data
-
-file: audio.wav
-``
-Response:
-{
-  "recognized_text": "hello world",
-  "confidence": 0.95,
-  "success": true
-}
-# Text to Speech (TTS)
-POST /api/speech/synthesize
-Content-Type: application/json
-
-{
-  "text": "Hello world",
-  "lang": "en",
-  "slow": false
-}
-Response:
-json{
-  "audio_url": "/api/speech/audio/tts_abc123.mp3",
-  "duration": 2.5,
-  "success": true
-}
-Simple TTS (Quick Test)
-bashGET /api/speech/tts-simple?text=Hello
-
-🐳 Docker Deployment
-# Build Image
-``
-docker build -t speech-service .
-``
-# Docker compose
-yaml
-``
-services:
-  speech-service:
-    build: ./speech
-    ports:
-      - "5000:5000"
-    environment:
-      - PORT=5000
-      - VOSK_MODEL_PATH=/app/models/vosk-model-small-en-us-0.15
-    volumes:
-      - ./speech/speech-synthesis/voices:/app/speech-synthesis/voices
-
-``
-📁 Project Structure
-speech/
-├── main.py                          # FastAPI app
-├── requirements.txt
-├── .env.example
-├── README.md
-├── speech-recognition/
-│   ├── __init__.py
-│   ├── vosk_service.py             # Vosk STT service
-│   └── models/
-│       └── vosk-model-small-en-us-0.15/
-└── speech-synthesis/
-    ├── __init__.py
-    ├── tts_service.py              # gTTS service
-    └── voices/                      # Generated audio files
-⚙️ Configuration
-Environment variables trong .env:
-
-PORT: Server port (default: 5000)
-VOSK_MODEL_PATH: Path to Vosk model
-AUDIO_OUTPUT_DIR: Directory for generated audio
-TTS_CACHE_ENABLED: Enable/disable audio caching
-LOG_LEVEL: Logging level (INFO, DEBUG, ERROR)
+# Verify structure
+ls -la speech-recognition/models/vosk-model-small-en-us-0.15/
+# Should see: am/  conf/  graph/  ivector/
 
 🔧 Troubleshooting
-"Model not found" error
+Issue 1: pip install fails for vosk
+bash# Solution: Install system dependencies first
+sudo apt-get install -y python3-dev build-essential
 
-Đảm bảo đã download và extract Vosk model đúng vị trí
-Check VOSK_MODEL_PATH trong .env
+# Then retry
+pip install vosk
+Issue 2: pydub can't find ffmpeg
+bash# Verify ffmpeg is installed
+ffmpeg -version
 
-"ffmpeg not found" error
+# If not found, install:
+sudo apt-get install ffmpeg  # Ubuntu
+brew install ffmpeg          # MacOS
+Issue 3: MinIO connection errors
+bash# Check if MinIO is running
+docker ps | grep minio
 
-Install ffmpeg theo hướng dẫn ở trên
-Verify: ffmpeg -version
+# Start MinIO if needed
+docker start minio
 
-"Audio format not supported"
-
-Đảm bảo audio file là WAV, MP3, hoặc WebM
-Server sẽ tự động convert sang định dạng phù hợp
-
-Port already in use
-
-Thay đổi PORT trong .env
-Hoặc kill process đang dùng port: lsof -ti:5000 | xargs kill
-
-📝 Notes
-
-Vosk model "small-en-us" (370MB) phù hợp cho development
-Với production, xem xét dùng model lớn hơn để accuracy tốt hơn
-TTS caching giúp giảm thời gian response cho text đã generate
-Audio files sẽ được cleanup tự động sau 24h (có thể config)
-
-
-🔗 Integration với NestJS Backend
-Trong NestJS backend, gọi Python service qua HTTP:
-
-``
-// speech.adapter.ts
-async recognizeSpeech(audioData: string) {
-  const formData = new FormData();
-  formData.append('file', audioData);
-  
-  const response = await axios.post(
-    'http://localhost:5000/api/speech/recognize',
-    formData
-  );
-  
-  return response.data;
-}
-``
+# Or run new container
+docker run -d -p 9000:9000 -p 9001:9001 \
+  --name minio \
+  -e "MINIO_ROOT_USER=minioadmin" \
+  -e "MINIO_ROOT_PASSWORD=minioadmin" \
+  minio/minio server /data --console-address ":9001"
+Issue 4: Import errors
+bash# Clear pip cache and reinstall
+pip cache purge
+pip uninstall -y $(pip freeze)
+pip install -r requirements.txt

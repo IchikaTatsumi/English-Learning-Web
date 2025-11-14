@@ -26,14 +26,13 @@ export class VocabularyService {
   ) {}
 
   /**
-   * ✅ SOLUTION 2: Asynchronous TTS with retry mechanism
+   * ✅ CREATE VOCABULARY WITH AUTOMATIC TTS GENERATION
    * - Create vocabulary immediately
-   * - Generate TTS in background with retries
+   * - Generate TTS in background with retry mechanism
    * - Update audio URL when ready
-   * - Frontend can check audioPath and show loading state
    */
   async createVocabulary(dto: CreateVocabularyDTO): Promise<Vocabulary> {
-    this.logger.log(`Creating vocabulary: ${dto.word}`);
+    this.logger.log(`📝 Creating vocabulary: ${dto.word}`);
 
     // 1. Create vocabulary immediately (without audio)
     const vocabulary = this.vocabularyRepository.create(dto);
@@ -47,7 +46,7 @@ export class VocabularyService {
   }
 
   /**
-   * ✅ Generate TTS with automatic retry mechanism
+   * ✅ GENERATE TTS WITH AUTOMATIC RETRY MECHANISM
    * Private method called asynchronously
    */
   private async generateTTSWithRetry(
@@ -56,7 +55,7 @@ export class VocabularyService {
   ): Promise<void> {
     try {
       this.logger.log(
-        `Generating TTS for vocab ${vocabulary.id} (attempt ${attempt}/${this.MAX_TTS_RETRIES})`,
+        `🔊 Generating TTS for vocab ${vocabulary.id} (attempt ${attempt}/${this.MAX_TTS_RETRIES})`,
       );
 
       const ttsResponse = await this.speechClient.generateTTS({
@@ -94,19 +93,17 @@ export class VocabularyService {
         this.logger.error(
           `❌ Max retries exceeded for vocab ${vocabulary.id}. TTS generation failed permanently.`,
         );
-        // Optionally: Send notification to admin or queue for manual retry
       }
     }
   }
 
   /**
-   * ✅ NEW: Retry TTS generation for vocabularies without audio
+   * ✅ RETRY TTS FOR VOCABULARIES WITHOUT AUDIO
    * Can be called manually or via cron job
    */
   async retryFailedTTS(): Promise<{ success: number; failed: number }> {
-    this.logger.log('Starting TTS retry for vocabularies without audio...');
+    this.logger.log('🔄 Starting TTS retry for vocabularies without audio...');
 
-    // Find vocabularies without audio
     const vocabulariesWithoutAudio = await this.vocabularyRepository.find({
       where: { audioPath: null },
     });
@@ -128,14 +125,14 @@ export class VocabularyService {
     }
 
     this.logger.log(
-      `TTS retry completed: ${successCount} success, ${failedCount} failed`,
+      `✅ TTS retry completed: ${successCount} success, ${failedCount} failed`,
     );
 
     return { success: successCount, failed: failedCount };
   }
 
   /**
-   * ✅ Check if TTS is ready for vocabulary
+   * ✅ CHECK IF TTS IS READY FOR VOCABULARY
    * Frontend can poll this endpoint
    */
   async checkTTSStatus(vocabId: number): Promise<{
@@ -150,7 +147,7 @@ export class VocabularyService {
   }
 
   /**
-   * ✅ Update vocabulary (regenerate TTS if word changed)
+   * ✅ UPDATE VOCABULARY (regenerate TTS if word changed)
    */
   async updateVocabulary(
     id: number,
@@ -164,7 +161,7 @@ export class VocabularyService {
 
     // Regenerate TTS if word changed (async)
     if (wordChanged) {
-      this.logger.log(`Word changed, regenerating TTS for vocab ${id}`);
+      this.logger.log(`🔄 Word changed, regenerating TTS for vocab ${id}`);
       this.generateTTSWithRetry(updatedVocab);
     }
 
@@ -172,7 +169,7 @@ export class VocabularyService {
   }
 
   /**
-   * ✅ Delete vocabulary (cleanup audio file)
+   * ✅ DELETE VOCABULARY (cleanup audio file)
    */
   async deleteVocabulary(id: number): Promise<void> {
     const vocabulary = await this.getVocabularyById(id);
@@ -188,9 +185,10 @@ export class VocabularyService {
     this.logger.log(`✅ Vocabulary ${id} deleted`);
   }
 
-  /**
-   * ✅ Get vocabularies with filters
-   */
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 📚 EXISTING METHODS (unchanged)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
   async getVocabulariesWithFilters(
     filters: VocabularyFilterDto,
     userId?: number,

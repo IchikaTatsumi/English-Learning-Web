@@ -10,7 +10,8 @@ import { QuizQuestionModule } from './modules/quizquestions/quizquestion.module'
 import { ResultModule } from './modules/results/result.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { VocabularyProgressModule } from './modules/vocabularyprogress/vocabulary-progress.module';
-import { SpeechModule } from './modules/speech/speech.module'; // ✅ Add Speech Module
+import { SpeechModule } from './modules/speech/speech.module';
+import { PronunciationModule } from './modules/pronunciation/pronunciation.module';
 
 @Module({
   imports: [
@@ -47,7 +48,8 @@ import { SpeechModule } from './modules/speech/speech.module'; // ✅ Add Speech
     ResultModule,
     ProgressModule,
     VocabularyProgressModule,
-    SpeechModule, // ✅ Speech Module
+    SpeechModule,
+    PronunciationModule,
   ],
 })
 export class AppModule {}

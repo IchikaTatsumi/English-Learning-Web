@@ -1,4 +1,7 @@
 import React from 'react';
+import { LoudSpeakerButton } from './buttons/LoudSpeakerButton';
+import { MicroRecordingButton } from './buttons/MicroRecordingButton';
+import { RecognitionResult } from './buttons/MicroRecordingButton';
 
 interface VocabularyCardProps {
   vocabulary: {

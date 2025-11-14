@@ -2,7 +2,7 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import { ConfigService } from '@nestjs/config';
 
-// DTOs for Speech Service communication
+// ✅ DTOs for Speech Service communication
 export interface TTSGenerateRequest {
   text: string;
   language: 'en' | 'vi';
@@ -13,8 +13,9 @@ export interface TTSGenerateRequest {
 export interface TTSGenerateResponse {
   audio_url: string;
   duration: number;
-  file_size: number;
-  voice_used: string;
+  file_size?: number;
+  voice_used?: string;
+  cached?: boolean;
 }
 
 export interface STTRecognizeRequest {
@@ -37,7 +38,7 @@ export interface STTRecognizeResponse {
   is_correct: boolean;
   confidence: number;
   accuracy: number;
-  pronunciation_score: PronunciationScore;
+  pronunciation_score?: PronunciationScore;
   audio_url?: string;
 }
 
@@ -54,33 +55,39 @@ export class SpeechClientService {
 
     this.httpClient = axios.create({
       baseURL: this.speechServiceUrl,
-      timeout: 30000, // 30 seconds timeout
+      timeout: 30000, // 30 seconds
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
     this.logger.log(
-      `Speech Service Client initialized: ${this.speechServiceUrl}`,
+      `✅ Speech Service Client initialized: ${this.speechServiceUrl}`,
     );
   }
 
   /**
-   * Generate TTS audio for vocabulary
+   * ✅ Generate TTS audio for vocabulary
+   * Calls Python Speech Service to generate audio and upload to MinIO
    */
   async generateTTS(request: TTSGenerateRequest): Promise<TTSGenerateResponse> {
     try {
       this.logger.log(
-        `Generating TTS for vocab ${request.vocab_id}: "${request.text}"`,
+        `🔊 Generating TTS for vocab ${request.vocab_id}: "${request.text}"`,
       );
 
       const response = await this.httpClient.post<TTSGenerateResponse>(
         '/tts/generate',
-        request,
+        {
+          text: request.text,
+          lang: request.language,
+          vocab_id: request.vocab_id,
+          slow: false,
+        },
       );
 
       this.logger.log(
-        `✅ TTS generated successfully: ${response.data.audio_url}`,
+        `✅ TTS generated successfully: ${response.data.audio_url} (cached: ${response.data.cached})`,
       );
 
       return response.data;
@@ -96,14 +103,15 @@ export class SpeechClientService {
   }
 
   /**
-   * Recognize speech and compare with target word
+   * ✅ Recognize speech and compare with target word
+   * Accepts base64 audio and returns recognition result
    */
   async recognizeSpeech(
     request: STTRecognizeRequest,
   ): Promise<STTRecognizeResponse> {
     try {
       this.logger.log(
-        `Recognizing speech for vocab ${request.vocab_id}, target: "${request.target_word}"`,
+        `🎤 Recognizing speech for vocab ${request.vocab_id}, target: "${request.target_word}"`,
       );
 
       const response = await this.httpClient.post<STTRecognizeResponse>(
@@ -130,7 +138,7 @@ export class SpeechClientService {
   }
 
   /**
-   * Get available TTS voices
+   * ✅ Get available TTS voices
    */
   async getAvailableVoices(language?: 'en' | 'vi'): Promise<any[]> {
     try {
@@ -138,20 +146,17 @@ export class SpeechClientService {
         params: language ? { language } : undefined,
       });
 
-      return response.data.voices;
+      return response.data.voices || [];
     } catch (error) {
       this.logger.error(
         `❌ Failed to get voices: ${error.response?.data?.detail || error.message}`,
       );
-      throw new HttpException(
-        `Failed to get voices: ${error.response?.data?.detail || error.message}`,
-        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
-      );
+      return [];
     }
   }
 
   /**
-   * Delete audio file (cleanup)
+   * ✅ Delete audio file (cleanup)
    */
   async deleteAudio(vocabId: number, language: 'en' | 'vi'): Promise<void> {
     try {
@@ -159,7 +164,7 @@ export class SpeechClientService {
         params: { language },
       });
 
-      this.logger.log(`✅ Audio deleted for vocab ${vocabId}`);
+      this.logger.log(`🗑️ Audio deleted for vocab ${vocabId}`);
     } catch (error) {
       this.logger.warn(
         `⚠️ Failed to delete audio: ${error.response?.data?.detail || error.message}`,
@@ -169,7 +174,7 @@ export class SpeechClientService {
   }
 
   /**
-   * Health check for Speech Service
+   * ✅ Health check for Speech Service
    */
   async healthCheck(): Promise<boolean> {
     try {
