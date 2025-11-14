@@ -26,7 +26,7 @@ import {
 import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
-import {
+import type {
   RequestWithUser,
   RequestWithOptionalUser,
 } from 'src/core/types/request.types';

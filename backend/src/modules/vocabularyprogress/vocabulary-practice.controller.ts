@@ -19,7 +19,7 @@ import {
   BookmarkVocabDto,
   VocabularyProgressResponseDto,
 } from './dto/vocabulary-practice.dto';
-import { RequestWithUser } from 'src/core/types/request.types';
+import type { RequestWithUser } from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Vocabulary Practice')

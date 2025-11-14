@@ -31,7 +31,7 @@ import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { Public } from 'src/core/decorators/public.decorator';
 import { ViewModeEnum } from 'src/core/enums/view-mode.enum';
-import { RequestWithOptionalUser } from 'src/core/types/request.types';
+import type { RequestWithOptionalUser } from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Vocabulary')
@@ -172,6 +172,21 @@ export class VocabularyController {
     return VocabularyResponseDto.fromEntity(vocabulary);
   }
 
+  @Public()
+  @Get(':id/tts-status')
+  @ApiOperation({ summary: 'Check if TTS audio is ready for vocabulary' })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        ready: { type: 'boolean' },
+        audioPath: { type: 'string', nullable: true },
+      },
+    },
+  })
+  async checkTTSStatus(@Param('id', ParseIntPipe) id: number) {
+    return await this.vocabularyService.checkTTSStatus(id);
+  }
+
   @Roles(Role.ADMIN)
   @Post()
   @ApiOkResponse({ type: VocabularyResponseDto })
@@ -197,5 +212,27 @@ export class VocabularyController {
   @Delete(':id')
   async deleteVocabulary(@Param('id', ParseIntPipe) id: number): Promise<void> {
     await this.vocabularyService.deleteVocabulary(id);
+  }
+
+  @Roles(Role.ADMIN)
+  @Post('retry-failed-tts')
+  @ApiOperation({
+    summary: 'Retry TTS generation for vocabularies without audio (Admin only)',
+  })
+  @ApiOkResponse({
+    schema: {
+      properties: {
+        success: { type: 'number' },
+        failed: { type: 'number' },
+        message: { type: 'string' },
+      },
+    },
+  })
+  async retryFailedTTS() {
+    const result = await this.vocabularyService.retryFailedTTS();
+    return {
+      ...result,
+      message: `TTS retry completed: ${result.success} success, ${result.failed} failed`,
+    };
   }
 }

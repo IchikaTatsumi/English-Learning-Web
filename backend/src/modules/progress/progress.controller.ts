@@ -7,7 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { ProgressService } from './progress.service';
 import { ProgressResponseDto, ProgressStatsDTO } from './dto/progress.dto';
-import { RequestWithUser } from 'src/core/types/request.types';
+import type { RequestWithUser } from 'src/core/types/request.types';
 
 @ApiBearerAuth()
 @ApiTags('Progress')

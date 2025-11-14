@@ -12,7 +12,7 @@ import { Role } from 'src/core/enums/role.enum';
 import { Roles } from 'src/core/decorators/role.decorator';
 import { UsersService } from './user.service';
 import { UserDto } from './dto/user-response.dto';
-import { RequestWithUser } from 'src/core/types/request.types';
+import type { RequestWithUser } from 'src/core/types/request.types';
 
 export class CreateUserDTO {
   username: string;
