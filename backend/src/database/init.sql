@@ -1,5 +1,5 @@
 -- ======================================
---  ENGLISH LEARNING DATABASE INIT SCRIPT (Enhanced with CASCADE)
+--  ENGLISH LEARNING DATABASE INIT SCRIPT (Enhanced with CASCADE + Pronunciation)
 -- ======================================
 BEGIN;
 
@@ -72,7 +72,7 @@ CREATE TABLE topic (
 -- ✅ CRITICAL: vocabulary với ON DELETE CASCADE
 CREATE TABLE vocabulary (
   vocab_id SERIAL PRIMARY KEY,
-  topic_id INTEGER REFERENCES topic(topic_id) ON DELETE CASCADE, -- ✅ Changed from SET NULL to CASCADE
+  topic_id INTEGER REFERENCES topic(topic_id) ON DELETE CASCADE,
   word VARCHAR(100) NOT NULL,
   ipa VARCHAR(100),
   meaning_en TEXT NOT NULL,
@@ -83,9 +83,11 @@ CREATE TABLE vocabulary (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ✅ COMMENT: Explain CASCADE behavior
 COMMENT ON COLUMN vocabulary.topic_id IS 
   'ON DELETE CASCADE: When topic is deleted, all vocabularies in that topic will be deleted automatically';
+
+COMMENT ON COLUMN vocabulary.audio_path IS 
+  'MinIO URL for TTS audio. Auto-generated when vocabulary is created. Format: http://minio:9000/vocabulary-audio/tts/vocab_{id}_{hash}.mp3';
 
 -- ✅ quiz_question với ON DELETE CASCADE
 CREATE TABLE quiz_question (
@@ -124,6 +126,9 @@ CREATE TABLE result (
 
 COMMENT ON COLUMN result.quiz_question_id IS 
   'ON DELETE CASCADE: When quiz_question is deleted, all results for that question will be deleted automatically';
+
+COMMENT ON COLUMN result.user_speech_text IS 
+  'For pronunciation questions: stores the recognized text from STT. For other questions: NULL';
 
 CREATE TABLE progress (
   progress_id SERIAL PRIMARY KEY,
@@ -175,6 +180,13 @@ CREATE INDEX idx_vocabulary_difficulty ON vocabulary(difficulty_level);
 CREATE INDEX idx_quiz_question_vocab ON quiz_question(vocab_id);
 CREATE INDEX idx_result_quiz ON result(quiz_id);
 CREATE INDEX idx_result_user ON result(user_id);
+
+-- ✅ NEW: Index for pronunciation questions
+CREATE INDEX IF NOT EXISTS idx_quiz_question_type 
+  ON quiz_question(question_type);
+
+COMMENT ON INDEX idx_quiz_question_type IS 
+  'Index for filtering questions by type (e.g., Pronunciation queries)';
 
 -- ============================
 -- TRIGGER: Update progress
@@ -344,6 +356,81 @@ COMMENT ON FUNCTION validate_quiz_generation IS
   'Check if there are enough vocabularies to generate a quiz. Usage: SELECT * FROM validate_quiz_generation(topic_id := 1);';
 
 -- ============================
+-- ✅ NEW: PRONUNCIATION HELPER FUNCTIONS
+-- ============================
+
+-- Function 1: Get pronunciation practice statistics
+CREATE OR REPLACE FUNCTION get_pronunciation_stats(user_id_param INT)
+RETURNS TABLE (
+  total_attempts BIGINT,
+  correct_attempts BIGINT,
+  accuracy_rate NUMERIC,
+  most_practiced_word TEXT,
+  avg_confidence NUMERIC
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    COUNT(*) AS total_attempts,
+    COUNT(*) FILTER (WHERE r.is_correct) AS correct_attempts,
+    ROUND(
+      (COUNT(*) FILTER (WHERE r.is_correct)::NUMERIC / 
+       NULLIF(COUNT(*), 0) * 100),
+      2
+    ) AS accuracy_rate,
+    (
+      SELECT v.word
+      FROM result r2
+      INNER JOIN quiz_question qq2 ON r2.quiz_question_id = qq2.quiz_question_id
+      INNER JOIN vocabulary v ON qq2.vocab_id = v.vocab_id
+      WHERE r2.user_id = user_id_param
+        AND qq2.question_type = 'Pronunciation'
+      GROUP BY v.word
+      ORDER BY COUNT(*) DESC
+      LIMIT 1
+    ) AS most_practiced_word,
+    0.0 AS avg_confidence
+  FROM result r
+  INNER JOIN quiz_question qq ON r.quiz_question_id = qq.quiz_question_id
+  WHERE r.user_id = user_id_param
+    AND qq.question_type = 'Pronunciation';
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION get_pronunciation_stats IS 
+  'Get pronunciation practice statistics from result table. Usage: SELECT * FROM get_pronunciation_stats(1);';
+
+-- Function 2: Get vocabulary pronunciation history
+CREATE OR REPLACE FUNCTION get_vocab_pronunciation_history(
+  vocab_id_param INT, 
+  user_id_param INT
+)
+RETURNS TABLE (
+  attempt_id INT,
+  user_answer TEXT,
+  is_correct BOOLEAN,
+  created_at TIMESTAMP WITH TIME ZONE
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    r.result_id AS attempt_id,
+    r.user_answer,
+    r.is_correct,
+    r.created_at
+  FROM result r
+  INNER JOIN quiz_question qq ON r.quiz_question_id = qq.quiz_question_id
+  WHERE qq.vocab_id = vocab_id_param
+    AND r.user_id = user_id_param
+    AND qq.question_type = 'Pronunciation'
+  ORDER BY r.created_at DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION get_vocab_pronunciation_history IS 
+  'Get pronunciation practice history for a specific vocabulary. Usage: SELECT * FROM get_vocab_pronunciation_history(1, 1);';
+
+-- ============================
 -- INITIAL DATA
 -- ============================
 
@@ -366,32 +453,32 @@ INSERT INTO topic (topic_name, description) VALUES
 ('Food', 'Food and meals'),
 ('Daily Activities', 'Common daily routines');
 
--- 3️⃣ Vocabulary (với ít nhất 4 vocab mỗi topic để đủ sinh quiz)
+-- 3️⃣ Vocabulary (audio_path will be auto-generated by backend)
 INSERT INTO vocabulary (topic_id, word, ipa, meaning_en, meaning_vi, example_sentence, audio_path, difficulty_level)
 VALUES
 -- Greetings (Topic 1)
-(1, 'Hello', 'həˈloʊ', 'Used as a greeting', 'Xin chào', 'Hello, how are you?', '/audio/hello.mp3', 'Beginner'),
-(1, 'Goodbye', 'ɡʊdˈbaɪ', 'Used when parting', 'Tạm biệt', 'Goodbye, see you soon!', '/audio/goodbye.mp3', 'Beginner'),
-(1, 'Thank you', 'θæŋk juː', 'Expression of gratitude', 'Cảm ơn', 'Thank you for your help!', '/audio/thankyou.mp3', 'Beginner'),
-(1, 'Welcome', 'ˈwɛlkəm', 'Greeting to receive someone', 'Chào mừng', 'Welcome to our home!', '/audio/welcome.mp3', 'Beginner'),
+(1, 'Hello', 'həˈloʊ', 'Used as a greeting', 'Xin chào', 'Hello, how are you?', NULL, 'Beginner'),
+(1, 'Goodbye', 'ɡʊdˈbaɪ', 'Used when parting', 'Tạm biệt', 'Goodbye, see you soon!', NULL, 'Beginner'),
+(1, 'Thank you', 'θæŋk juː', 'Expression of gratitude', 'Cảm ơn', 'Thank you for your help!', NULL, 'Beginner'),
+(1, 'Welcome', 'ˈwɛlkəm', 'Greeting to receive someone', 'Chào mừng', 'Welcome to our home!', NULL, 'Beginner'),
 
 -- Numbers (Topic 2)
-(2, 'One', 'wʌn', 'The number 1', 'Một', 'I have one apple.', '/audio/one.mp3', 'Beginner'),
-(2, 'Two', 'tuː', 'The number 2', 'Hai', 'Two plus two equals four.', '/audio/two.mp3', 'Beginner'),
-(2, 'Three', 'θriː', 'The number 3', 'Ba', 'I have three books.', '/audio/three.mp3', 'Beginner'),
-(2, 'Four', 'fɔːr', 'The number 4', 'Bốn', 'There are four seasons.', '/audio/four.mp3', 'Beginner'),
+(2, 'One', 'wʌn', 'The number 1', 'Một', 'I have one apple.', NULL, 'Beginner'),
+(2, 'Two', 'tuː', 'The number 2', 'Hai', 'Two plus two equals four.', NULL, 'Beginner'),
+(2, 'Three', 'θriː', 'The number 3', 'Ba', 'I have three books.', NULL, 'Beginner'),
+(2, 'Four', 'fɔːr', 'The number 4', 'Bốn', 'There are four seasons.', NULL, 'Beginner'),
 
 -- Colors (Topic 3)
-(3, 'Red', 'rɛd', 'The color of blood', 'Đỏ', 'The apple is red.', '/audio/red.mp3', 'Beginner'),
-(3, 'Blue', 'bluː', 'The color of the sky', 'Xanh dương', 'The sky is blue.', '/audio/blue.mp3', 'Beginner'),
-(3, 'Green', 'ɡriːn', 'The color of grass', 'Xanh lá', 'The grass is green.', '/audio/green.mp3', 'Beginner'),
-(3, 'Yellow', 'ˈjɛloʊ', 'The color of the sun', 'Vàng', 'The sun is yellow.', '/audio/yellow.mp3', 'Beginner'),
+(3, 'Red', 'rɛd', 'The color of blood', 'Đỏ', 'The apple is red.', NULL, 'Beginner'),
+(3, 'Blue', 'bluː', 'The color of the sky', 'Xanh dương', 'The sky is blue.', NULL, 'Beginner'),
+(3, 'Green', 'ɡriːn', 'The color of grass', 'Xanh lá', 'The grass is green.', NULL, 'Beginner'),
+(3, 'Yellow', 'ˈjɛloʊ', 'The color of the sun', 'Vàng', 'The sun is yellow.', NULL, 'Beginner'),
 
 -- Animals (Topic 4)
-(4, 'Cat', 'kæt', 'A small domesticated animal', 'Mèo', 'The cat is sleeping.', '/audio/cat.mp3', 'Beginner'),
-(4, 'Dog', 'dɔɡ', 'A common pet animal', 'Chó', 'The dog is barking.', '/audio/dog.mp3', 'Beginner'),
-(4, 'Bird', 'bɜːrd', 'An animal with feathers', 'Chim', 'The bird can fly.', '/audio/bird.mp3', 'Beginner'),
-(4, 'Fish', 'fɪʃ', 'An animal that lives in water', 'Cá', 'Fish swim in the ocean.', '/audio/fish.mp3', 'Beginner');
+(4, 'Cat', 'kæt', 'A small domesticated animal', 'Mèo', 'The cat is sleeping.', NULL, 'Beginner'),
+(4, 'Dog', 'dɔɡ', 'A common pet animal', 'Chó', 'The dog is barking.', NULL, 'Beginner'),
+(4, 'Bird', 'bɜːrd', 'An animal with feathers', 'Chim', 'The bird can fly.', NULL, 'Beginner'),
+(4, 'Fish', 'fɪʃ', 'An animal that lives in water', 'Cá', 'Fish swim in the ocean.', NULL, 'Beginner');
 
 -- ============================
 -- ✅ DEMO QUERIES
@@ -403,8 +490,11 @@ VALUES
 -- Validate if we can generate quiz for a topic
 -- SELECT * FROM validate_quiz_generation(topic_id := 1);
 
--- Validate if we can generate quiz for a difficulty level
--- SELECT * FROM validate_quiz_generation(difficulty_param := 'Beginner');
+-- Get pronunciation stats for a user
+-- SELECT * FROM get_pronunciation_stats(1);
+
+-- Get pronunciation history for a vocabulary
+-- SELECT * FROM get_vocab_pronunciation_history(1, 1);
 
 COMMIT;
 
@@ -430,8 +520,15 @@ BEGIN
   RAISE NOTICE '  • Delete Topic → Delete Vocabularies → Delete Quiz Questions → Delete Results';
   RAISE NOTICE '  • Delete Vocabulary → Delete Quiz Questions → Delete Results';
   RAISE NOTICE '';
+  RAISE NOTICE '🎤 Pronunciation Practice:';
+  RAISE NOTICE '  • Using existing quiz_question + result tables';
+  RAISE NOTICE '  • Question type: "Pronunciation"';
+  RAISE NOTICE '  • Audio path: Auto-generated via TTS (stored in MinIO)';
+  RAISE NOTICE '';
   RAISE NOTICE '✅ Helper Functions:';
-  RAISE NOTICE '  • check_topic_deletion(topic_id) - Check deletion impact';
-  RAISE NOTICE '  • validate_quiz_generation(topic_id, difficulty) - Validate quiz requirements';
+  RAISE NOTICE '  • check_topic_deletion(topic_id)';
+  RAISE NOTICE '  • validate_quiz_generation(topic_id, difficulty)';
+  RAISE NOTICE '  • get_pronunciation_stats(user_id)';
+  RAISE NOTICE '  • get_vocab_pronunciation_history(vocab_id, user_id)';
   RAISE NOTICE '========================================';
 END $$;

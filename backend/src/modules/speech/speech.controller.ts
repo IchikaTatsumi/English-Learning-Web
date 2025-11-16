@@ -4,8 +4,8 @@ import {
   Body,
   Get,
   Request,
-  Param,
-  ParseIntPipe,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -29,21 +29,21 @@ export class RecognizeSpeechDto {
     example: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
   })
   @IsString()
-  audioBase64: string;
+  audioBase64!: string;
 
   @ApiProperty({
     description: 'Target word to compare pronunciation',
     example: 'hello',
   })
   @IsString()
-  targetWord: string;
+  targetWord!: string;
 
   @ApiProperty({
     description: 'Vocabulary ID',
     example: 1,
   })
   @IsNumber()
-  vocabId: number;
+  vocabId!: number;
 
   @ApiProperty({
     description: 'Save recording to MinIO',
@@ -58,7 +58,7 @@ export class RecognizeSpeechDto {
 export class GenerateTTSDto {
   @ApiProperty({ description: 'Text to synthesize', example: 'Hello world' })
   @IsString()
-  text: string;
+  text!: string;
 
   @ApiProperty({
     description: 'Language code',
@@ -66,60 +66,57 @@ export class GenerateTTSDto {
     default: 'en',
   })
   @IsString()
-  language: 'en' | 'vi';
+  language!: 'en' | 'vi';
 
   @ApiProperty({ description: 'Vocabulary ID', example: 1 })
   @IsNumber()
-  vocabId: number;
+  vocabId!: number;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // ✅ RESPONSE DTOs
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-export class PronunciationScoreDto {
-  @ApiProperty()
-  accuracy: number;
-
-  @ApiProperty()
-  fluency: number;
-
-  @ApiProperty()
-  completeness: number;
-}
-
 export class RecognizeSpeechResponseDto {
   @ApiProperty()
-  recognizedText: string;
+  recognizedText!: string;
 
   @ApiProperty()
-  targetWord: string;
+  targetWord!: string;
 
   @ApiProperty()
-  isCorrect: boolean;
+  isCorrect!: boolean;
 
   @ApiProperty()
-  confidence: number;
-
-  @ApiProperty()
-  accuracy: number;
-
-  @ApiProperty({ required: false })
-  pronunciationScore?: PronunciationScoreDto;
-
-  @ApiProperty({ required: false })
-  audioUrl?: string;
+  confidence!: number;
 }
 
 export class GenerateTTSResponseDto {
   @ApiProperty()
-  audioUrl: string;
+  audioUrl!: string;
 
-  @ApiProperty()
-  duration: number;
+  @ApiProperty({ required: false })
+  duration?: number;
 
   @ApiProperty({ required: false })
   cached?: boolean;
+}
+
+export class HealthCheckResponseDto {
+  @ApiProperty()
+  status!: string;
+
+  @ApiProperty()
+  service!: string;
+}
+
+export class VoicesResponseDto {
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  voices!: Array<{
+    code: string;
+    name: string;
+    language: string;
+  }>;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -134,105 +131,88 @@ export class SpeechController {
 
   /**
    * ✅ RECOGNIZE SPEECH (STT)
-   * Accepts base64 audio and returns recognition result
    */
   @Post('recognize')
   @ApiOperation({
     summary: 'Recognize speech and compare with target word',
-    description: `
-      Send base64 encoded audio to recognize pronunciation.
-      Returns:
-      - Recognized text
-      - Correctness comparison
-      - Confidence score
-      - Pronunciation scores (accuracy, fluency, completeness)
-    `,
+    description: 'Send base64 encoded audio to recognize pronunciation',
   })
   @ApiOkResponse({ type: RecognizeSpeechResponseDto })
   async recognizeSpeech(
     @Request() req: RequestWithUser,
     @Body() dto: RecognizeSpeechDto,
   ): Promise<RecognizeSpeechResponseDto> {
-    const userId = req.user.id;
+    try {
+      const userId = req.user.id;
 
-    const result = await this.speechClient.recognizeSpeech({
-      audio_base64: dto.audioBase64,
-      target_word: dto.targetWord,
-      user_id: userId,
-      vocab_id: dto.vocabId,
-      save_recording: dto.saveRecording || false,
-    });
+      const result = await this.speechClient.recognizeSpeech({
+        audio_base64: dto.audioBase64,
+        target_word: dto.targetWord,
+        user_id: userId,
+        vocab_id: dto.vocabId,
+        save_recording: dto.saveRecording || false,
+      });
 
-    return {
-      recognizedText: result.recognized_text,
-      targetWord: result.target_word,
-      isCorrect: result.is_correct,
-      confidence: result.confidence,
-      accuracy: result.accuracy,
-      pronunciationScore: result.pronunciation_score,
-      audioUrl: result.audio_url,
-    };
+      return {
+        recognizedText: result.recognized_text,
+        targetWord: result.target_word,
+        isCorrect: result.is_correct,
+        confidence: result.confidence,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'Speech recognition failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   /**
    * ✅ GENERATE TTS
-   * Generate audio for vocabulary (manual trigger if needed)
    */
   @Post('generate-tts')
   @ApiOperation({
     summary: 'Generate TTS audio for vocabulary',
-    description:
-      'Manually trigger TTS generation (usually done automatically on vocab creation)',
+    description: 'Manually trigger TTS generation',
   })
   @ApiOkResponse({ type: GenerateTTSResponseDto })
   async generateTTS(
     @Body() dto: GenerateTTSDto,
   ): Promise<GenerateTTSResponseDto> {
-    const result = await this.speechClient.generateTTS({
-      text: dto.text,
-      language: dto.language,
-      vocab_id: dto.vocabId,
-    });
+    try {
+      const result = await this.speechClient.generateTTS({
+        text: dto.text,
+        language: dto.language,
+        vocab_id: dto.vocabId,
+      });
 
-    return {
-      audioUrl: result.audio_url,
-      duration: result.duration,
-      cached: result.cached,
-    };
-  }
-
-  /**
-   * ✅ CHECK TTS STATUS
-   * Check if TTS audio is ready for vocabulary
-   */
-  @Public()
-  @Get('tts-status/:vocabId')
-  @ApiOperation({
-    summary: 'Check if TTS audio is ready',
-    description:
-      'Frontend can poll this to check if audio generation is complete',
-  })
-  @ApiOkResponse({
-    schema: {
-      properties: {
-        ready: { type: 'boolean' },
-        audioPath: { type: 'string', nullable: true },
-      },
-    },
-  })
-  async checkTTSStatus(@Param('vocabId', ParseIntPipe) vocabId: number) {
-    // This will be implemented in vocabulary.service.ts
-    return { ready: true, audioPath: null };
+      return {
+        audioUrl: result.audio_url,
+        duration: result.duration,
+        cached: result.cached,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        'TTS generation failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
 
   /**
    * ✅ HEALTH CHECK
-   * Check if Speech Service is available
    */
   @Public()
   @Get('health')
   @ApiOperation({ summary: 'Health check for Speech Service' })
-  async healthCheck() {
+  @ApiOkResponse({ type: HealthCheckResponseDto })
+  async healthCheck(): Promise<HealthCheckResponseDto> {
     const isHealthy = await this.speechClient.healthCheck();
     return {
       status: isHealthy ? 'healthy' : 'unhealthy',
@@ -242,12 +222,12 @@ export class SpeechController {
 
   /**
    * ✅ GET AVAILABLE VOICES
-   * List available TTS voices
    */
   @Public()
   @Get('voices')
   @ApiOperation({ summary: 'Get available TTS voices' })
-  async getVoices() {
+  @ApiOkResponse({ type: VoicesResponseDto })
+  async getVoices(): Promise<VoicesResponseDto> {
     const voices = await this.speechClient.getAvailableVoices();
     return { voices };
   }

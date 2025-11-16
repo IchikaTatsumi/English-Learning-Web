@@ -1,8 +1,8 @@
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosError } from 'axios';
 import { ConfigService } from '@nestjs/config';
 
-// ✅ DTOs for Speech Service communication
+// ✅ DTOs with proper typing
 export interface TTSGenerateRequest {
   text: string;
   language: 'en' | 'vi';
@@ -12,7 +12,7 @@ export interface TTSGenerateRequest {
 
 export interface TTSGenerateResponse {
   audio_url: string;
-  duration: number;
+  duration?: number;
   file_size?: number;
   voice_used?: string;
   cached?: boolean;
@@ -26,20 +26,22 @@ export interface STTRecognizeRequest {
   save_recording?: boolean;
 }
 
-export interface PronunciationScore {
-  accuracy: number;
-  fluency: number;
-  completeness: number;
-}
-
 export interface STTRecognizeResponse {
   recognized_text: string;
   target_word: string;
   is_correct: boolean;
   confidence: number;
-  accuracy: number;
-  pronunciation_score?: PronunciationScore;
-  audio_url?: string;
+}
+
+// ✅ Voice response type
+interface VoiceInfo {
+  code: string;
+  name: string;
+  language: string;
+}
+
+interface VoicesResponse {
+  voices: VoiceInfo[];
 }
 
 @Injectable()
@@ -55,7 +57,7 @@ export class SpeechClientService {
 
     this.httpClient = axios.create({
       baseURL: this.speechServiceUrl,
-      timeout: 30000, // 30 seconds
+      timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -68,7 +70,6 @@ export class SpeechClientService {
 
   /**
    * ✅ Generate TTS audio for vocabulary
-   * Calls Python Speech Service to generate audio and upload to MinIO
    */
   async generateTTS(request: TTSGenerateRequest): Promise<TTSGenerateResponse> {
     try {
@@ -87,24 +88,30 @@ export class SpeechClientService {
       );
 
       this.logger.log(
-        `✅ TTS generated successfully: ${response.data.audio_url} (cached: ${response.data.cached})`,
+        `✅ TTS generated: ${response.data.audio_url} (cached: ${response.data.cached || false})`,
       );
 
       return response.data;
     } catch (error) {
-      this.logger.error(
-        `❌ TTS generation failed: ${error.response?.data?.detail || error.message}`,
-      );
+      const axiosError = error as AxiosError<{ detail?: string }>;
+      const errorMessage =
+        axiosError.response?.data?.detail ||
+        axiosError.message ||
+        'Unknown error';
+      const statusCode =
+        axiosError.response?.status || HttpStatus.INTERNAL_SERVER_ERROR;
+
+      this.logger.error(`❌ TTS failed: ${errorMessage}`);
+
       throw new HttpException(
-        `TTS generation failed: ${error.response?.data?.detail || error.message}`,
-        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        `TTS generation failed: ${errorMessage}`,
+        statusCode,
       );
     }
   }
 
   /**
-   * ✅ Recognize speech and compare with target word
-   * Accepts base64 audio and returns recognition result
+   * ✅ SIMPLE: Recognize speech and compare text
    */
   async recognizeSpeech(
     request: STTRecognizeRequest,
@@ -120,19 +127,26 @@ export class SpeechClientService {
       );
 
       this.logger.log(
-        `✅ Speech recognized: "${response.data.recognized_text}" ` +
+        `✅ STT result: "${response.data.recognized_text}" ` +
           `(correct: ${response.data.is_correct}, ` +
           `confidence: ${response.data.confidence.toFixed(2)})`,
       );
 
       return response.data;
     } catch (error) {
-      this.logger.error(
-        `❌ Speech recognition failed: ${error.response?.data?.detail || error.message}`,
-      );
+      const axiosError = error as AxiosError<{ detail?: string }>;
+      const errorMessage =
+        axiosError.response?.data?.detail ||
+        axiosError.message ||
+        'Unknown error';
+      const statusCode =
+        axiosError.response?.status || HttpStatus.INTERNAL_SERVER_ERROR;
+
+      this.logger.error(`❌ STT failed: ${errorMessage}`);
+
       throw new HttpException(
-        `Speech recognition failed: ${error.response?.data?.detail || error.message}`,
-        error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR,
+        `Speech recognition failed: ${errorMessage}`,
+        statusCode,
       );
     }
   }
@@ -140,23 +154,30 @@ export class SpeechClientService {
   /**
    * ✅ Get available TTS voices
    */
-  async getAvailableVoices(language?: 'en' | 'vi'): Promise<any[]> {
+  async getAvailableVoices(language?: 'en' | 'vi'): Promise<VoiceInfo[]> {
     try {
-      const response = await this.httpClient.get('/tts/voices', {
-        params: language ? { language } : undefined,
-      });
+      const response = await this.httpClient.get<VoicesResponse>(
+        '/tts/voices',
+        {
+          params: language ? { language } : undefined,
+        },
+      );
 
       return response.data.voices || [];
     } catch (error) {
-      this.logger.error(
-        `❌ Failed to get voices: ${error.response?.data?.detail || error.message}`,
-      );
+      const axiosError = error as AxiosError<{ detail?: string }>;
+      const errorMessage =
+        axiosError.response?.data?.detail ||
+        axiosError.message ||
+        'Unknown error';
+
+      this.logger.error(`❌ Failed to get voices: ${errorMessage}`);
       return [];
     }
   }
 
   /**
-   * ✅ Delete audio file (cleanup)
+   * ✅ Delete audio file
    */
   async deleteAudio(vocabId: number, language: 'en' | 'vi'): Promise<void> {
     try {
@@ -166,23 +187,27 @@ export class SpeechClientService {
 
       this.logger.log(`🗑️ Audio deleted for vocab ${vocabId}`);
     } catch (error) {
-      this.logger.warn(
-        `⚠️ Failed to delete audio: ${error.response?.data?.detail || error.message}`,
-      );
-      // Don't throw error, just log warning
+      const axiosError = error as AxiosError<{ detail?: string }>;
+      const errorMessage =
+        axiosError.response?.data?.detail ||
+        axiosError.message ||
+        'Unknown error';
+
+      this.logger.warn(`⚠️ Failed to delete audio: ${errorMessage}`);
     }
   }
 
   /**
-   * ✅ Health check for Speech Service
+   * ✅ Health check
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await this.httpClient.get('/health');
+      const response = await this.httpClient.get<{ status: string }>('/health');
       return response.status === 200 && response.data.status === 'healthy';
     } catch (error) {
+      const axiosError = error as AxiosError;
       this.logger.error(
-        `❌ Speech Service health check failed: ${error.message}`,
+        `❌ Speech Service health check failed: ${axiosError.message}`,
       );
       return false;
     }

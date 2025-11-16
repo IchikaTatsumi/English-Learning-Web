@@ -6,7 +6,15 @@ export class PracticeQuestionDto {
   @IsNumber()
   questionId: number;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'Question type',
+    enum: [
+      'WordToMeaning',
+      'MeaningToWord',
+      'VietnameseToWord',
+      'Pronunciation',
+    ],
+  })
   @IsString()
   questionType: string;
 
@@ -18,7 +26,9 @@ export class PracticeQuestionDto {
   @IsString()
   correctAnswer: string;
 
-  @ApiProperty()
+  @ApiProperty({
+    description: 'User answer (text for MCQ, base64 audio for pronunciation)',
+  })
   @IsString()
   userAnswer: string;
 
@@ -46,9 +56,6 @@ export class BookmarkVocabDto {
   isBookmarked: boolean;
 }
 
-/**
- * ✅ Updated Response DTO with firstLearnedAt
- */
 export class VocabularyProgressResponseDto {
   @ApiProperty()
   vocabId: number;
@@ -59,17 +66,9 @@ export class VocabularyProgressResponseDto {
   @ApiProperty()
   isBookmarked: boolean;
 
-  /**
-   * ✅ Ngày học xong đầu tiên (chỉ set một lần)
-   * Hiển thị trong tab "Learned"
-   */
   @ApiProperty({ nullable: true })
   firstLearnedAt: Date | null;
 
-  /**
-   * ✅ Ngày ôn tập gần nhất
-   * Update khi bookmark hoặc practice
-   */
   @ApiProperty({ nullable: true })
   lastReviewedAt: Date | null;
 
