@@ -88,7 +88,8 @@ export class VocabularyProgressService {
           if (sttResult.is_correct) {
             correctCount++;
           }
-        } catch (error) {
+        } catch {
+          // ✅ Removed unused 'error' variable
           // If STT fails, mark as wrong
           answer.isCorrect = false;
           answer.userAnswer = 'Speech recognition failed';
@@ -218,99 +219,4 @@ export class VocabularyProgressService {
       accuracy,
     };
   }
-}
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// 📁 backend/src/modules/vocabularyprogress/dto/vocabulary-practice.dto.ts
-// ✅ NO CHANGES NEEDED - Already supports all question types
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-import { IsNumber, IsString, IsBoolean } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
-
-export class PracticeQuestionDto {
-  @ApiProperty()
-  @IsNumber()
-  questionId: number;
-
-  @ApiProperty({
-    description: 'Question type',
-    enum: [
-      'WordToMeaning',
-      'MeaningToWord',
-      'VietnameseToWord',
-      'Pronunciation',
-    ],
-  })
-  @IsString()
-  questionType: string;
-
-  @ApiProperty()
-  @IsString()
-  questionText: string;
-
-  @ApiProperty()
-  @IsString()
-  correctAnswer: string;
-
-  @ApiProperty({
-    description:
-      'User answer: text for MCQ/fill-in, base64 audio for pronunciation',
-  })
-  @IsString()
-  userAnswer: string;
-
-  @ApiProperty({
-    description: 'Is answer correct (set by backend for pronunciation)',
-  })
-  @IsBoolean()
-  isCorrect: boolean;
-}
-
-export class SubmitPracticeDto {
-  @ApiProperty({ description: 'Vocabulary ID' })
-  @IsNumber()
-  vocabId: number;
-
-  @ApiProperty({
-    description: 'Array of answers (4 questions per practice)',
-    type: [PracticeQuestionDto],
-  })
-  answers: PracticeQuestionDto[];
-}
-
-export class BookmarkVocabDto {
-  @ApiProperty()
-  @IsNumber()
-  vocabId: number;
-
-  @ApiProperty()
-  @IsBoolean()
-  isBookmarked: boolean;
-}
-
-export class VocabularyProgressResponseDto {
-  @ApiProperty()
-  vocabId: number;
-
-  @ApiProperty()
-  isLearned: boolean;
-
-  @ApiProperty()
-  isBookmarked: boolean;
-
-  @ApiProperty({ nullable: true })
-  firstLearnedAt: Date | null;
-
-  @ApiProperty({ nullable: true })
-  lastReviewedAt: Date | null;
-
-  @ApiProperty()
-  practiceAttempts: number;
-
-  @ApiProperty()
-  practiceCorrectCount: number;
-
-  @ApiProperty()
-  accuracy: number;
 }

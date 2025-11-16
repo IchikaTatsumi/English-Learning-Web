@@ -10,7 +10,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DB: english_learning
-      POSTGRES_HOST_AUTH_METHOD: trust
       POSTGRES_INITDB_ARGS: "-E UTF8"
     
     ports:

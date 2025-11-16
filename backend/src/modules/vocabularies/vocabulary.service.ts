@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository, SelectQueryBuilder, IsNull } from 'typeorm';
 import { Vocabulary } from './entities/vocabulary.entity';
 import { VocabularyProgress } from '../vocabularyprogress/entities/vocabulary-progress.entity';
 import { CreateVocabularyDTO, UpdateVocabularyDTO } from './dto/vocabulary.dto';
@@ -38,8 +38,8 @@ export class VocabularyService {
     const vocabulary = this.vocabularyRepository.create(dto);
     const savedVocab = await this.vocabularyRepository.save(vocabulary);
 
-    // 2. ✅ Generate TTS asynchronously with retry
-    this.generateTTSWithRetry(savedVocab);
+    // 2. ✅ Generate TTS asynchronously with retry (void operator for fire-and-forget)
+    void this.generateTTSWithRetry(savedVocab);
 
     // 3. Return immediately (frontend will handle loading state)
     return savedVocab;
@@ -72,8 +72,11 @@ export class VocabularyService {
         `✅ TTS generated successfully for vocab ${vocabulary.id}: ${ttsResponse.audio_url}`,
       );
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+
       this.logger.error(
-        `❌ TTS generation failed for vocab ${vocabulary.id} (attempt ${attempt}): ${error.message}`,
+        `❌ TTS generation failed for vocab ${vocabulary.id} (attempt ${attempt}): ${errorMessage}`,
       );
 
       // Retry if not exceeded max attempts
@@ -104,8 +107,9 @@ export class VocabularyService {
   async retryFailedTTS(): Promise<{ success: number; failed: number }> {
     this.logger.log('🔄 Starting TTS retry for vocabularies without audio...');
 
+    // ✅ Use IsNull() operator instead of null
     const vocabulariesWithoutAudio = await this.vocabularyRepository.find({
-      where: { audioPath: null },
+      where: { audioPath: IsNull() },
     });
 
     this.logger.log(
@@ -119,7 +123,8 @@ export class VocabularyService {
       try {
         await this.generateTTSWithRetry(vocab);
         successCount++;
-      } catch (error) {
+      } catch {
+        // ✅ Removed unused 'error' variable
         failedCount++;
       }
     }
@@ -159,10 +164,10 @@ export class VocabularyService {
     Object.assign(vocabulary, dto);
     const updatedVocab = await this.vocabularyRepository.save(vocabulary);
 
-    // Regenerate TTS if word changed (async)
+    // Regenerate TTS if word changed (async, fire-and-forget)
     if (wordChanged) {
       this.logger.log(`🔄 Word changed, regenerating TTS for vocab ${id}`);
-      this.generateTTSWithRetry(updatedVocab);
+      void this.generateTTSWithRetry(updatedVocab);
     }
 
     return updatedVocab;
@@ -177,7 +182,9 @@ export class VocabularyService {
     // Delete audio file from MinIO (async, don't wait)
     if (vocabulary.audioPath) {
       this.speechClient.deleteAudio(vocabulary.id, 'en').catch((error) => {
-        this.logger.warn(`Failed to delete audio: ${error.message}`);
+        const errorMessage =
+          error instanceof Error ? error.message : 'Unknown error';
+        this.logger.warn(`Failed to delete audio: ${errorMessage}`);
       });
     }
 

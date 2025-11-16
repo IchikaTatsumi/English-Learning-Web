@@ -11,7 +11,6 @@ import { ResultModule } from './modules/results/result.module';
 import { ProgressModule } from './modules/progress/progress.module';
 import { VocabularyProgressModule } from './modules/vocabularyprogress/vocabulary-progress.module';
 import { SpeechModule } from './modules/speech/speech.module';
-import { PronunciationModule } from './modules/pronunciation/pronunciation.module';
 
 @Module({
   imports: [
@@ -49,7 +48,6 @@ import { PronunciationModule } from './modules/pronunciation/pronunciation.modul
     ProgressModule,
     VocabularyProgressModule,
     SpeechModule,
-    PronunciationModule,
   ],
 })
 export class AppModule {}
