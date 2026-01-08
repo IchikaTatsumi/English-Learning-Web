@@ -27,6 +27,9 @@ frontend/.env
 frontend/*.log
 frontend/coverage/
 
+# 🚫 IGNORE AI MODELS
+# Bỏ qua thư mục chứa model Vosk trong speech-service
+speech-service/speech-recognition/models/
 # ========================
 # 🧩 Shared
 # ========================

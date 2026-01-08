@@ -3,7 +3,12 @@ version: '3.9'
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🐳 ENGLISH LEARNING WEB APP - DOCKER COMPOSE
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Configuration for: Frontend (local npm) + Backend (Docker) + Database (Docker)
+# Services:
+# 1. Postgres DB (Port 5432 -> 9999)
+# 2. Backend API (Port 4000)
+# 3. MinIO Storage (Port 9000, 9001)
+# 4. Speech Service (Port 8000)
+# 5. PgAdmin (Optional, Port 5050)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 services:
@@ -14,38 +19,67 @@ services:
     image: postgres:16-alpine
     container_name: english_learning_db
     restart: unless-stopped
-    
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DB: english_learning
       POSTGRES_INITDB_ARGS: "-E UTF8"
       TZ: Asia/Ho_Chi_Minh
-    
     ports:
-      # ⚠️ CRITICAL: Port mapping for local access
-      # Host:Container
-      # - Backend in Docker connects via: postgres:5432 (internal)
-      # - Backend local (npm) connects via: localhost:9999 (if needed)
       - "9999:5432"
-    
     volumes:
-      # Init database script - runs once on first startup
       - ./backend/src/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
-      
-      # Persistent data storage
       - postgres_data:/var/lib/postgresql/data
-      
-      # Postgres logs (optional but useful for debugging)
-      - postgres_logs:/var/log/postgresql
-    
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d english_learning']
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-    
+    networks:
+      - app_network
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 📦 MinIO (S3 Compatible Storage for TTS)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  minio:
+    image: minio/minio:latest
+    container_name: english_learning_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # API Port
+      - "9001:9001" # Console Port
+    volumes:
+      - minio_data:/data
+    networks:
+      - app_network
+
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # 🎤 Speech Service (Python FastAPI + Vosk)
+  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  speech-service:
+    build: 
+      context: ./speech-service
+      dockerfile: Dockerfile
+    container_name: speech_service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # 👇 QUAN TRỌNG: Map folder model từ máy host vào Docker
+      # Đảm bảo bạn đã giải nén model vào folder này trên máy tính
+      - ./speech-service/speech-recognition/models:/app/speech-recognition/models
+      
+      # (Tuỳ chọn) Map code để dev hot-reload, loại trừ folder models để tránh conflict
+      # - ./speech-service:/app
+    env_file:
+      - ./speech-service/.env
+    depends_on:
+      - minio
     networks:
       - app_network
 
@@ -59,99 +93,75 @@ services:
       target: production
     container_name: english_learning_backend
     restart: unless-stopped
-    
     depends_on:
       postgres:
         condition: service_healthy
-    
-    # ✅ Option 1: Load environment from file
+      speech-service:
+        condition: service_started
     env_file:
       - ./backend/.env.production
-    
-    # ✅ Option 2: Override specific values (takes precedence)
     environment:
-      # Node Environment
       NODE_ENV: production
       PORT: 4000
       
-      # Database Configuration
-      # ⚠️ CRITICAL: Use service name for Docker internal network
+      # Database
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: postgres
       DB_PASSWORD: postgres123
       DB_DATABASE: english_learning
       
-      # TypeORM Data Source (same as above)
+      # TypeORM
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DB: english_learning
       
-      # JWT Configuration
-      # ⚠️ Override from root .env if exists: JWT_SECRET=xxx docker-compose up
+      # JWT
       JWT_SECRET: ${JWT_SECRET:-mysecret}
       JWT_EXPIRES_IN: 24h
       
-      # Frontend URL (for CORS)
-      # ⚠️ IMPORTANT: Frontend runs on host machine at localhost:3000
+      # Frontend URL
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
       
-      # Speech Service URL
-      # If Speech Service runs in Docker: http://speech-service:8000
-      # If Speech Service runs local: http://host.docker.internal:8000
-      SPEECH_SERVICE_URL: ${SPEECH_SERVICE_URL:-http://speech-service:8000}
+      # Speech Service URL (Docker Internal Network)
+      SPEECH_SERVICE_URL: http://speech-service:8000
       
-      # Timezone
       TZ: Asia/Ho_Chi_Minh
-    
     ports:
-      # ⚠️ CRITICAL: Expose backend API to host
-      # Frontend (running on host) connects via: http://localhost:4000/api
       - "4000:4000"
-    
     volumes:
-      # Application logs (optional but useful)
       - backend_logs:/app/logs
-    
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-    
     networks:
       - app_network
 
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # 🗂️ pgAdmin (Database Management - Optional)
+  # 🗂️ pgAdmin (Optional)
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: english_learning_pgadmin
     restart: unless-stopped
-    
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@english-learning.com
       PGADMIN_DEFAULT_PASSWORD: admin123
       PGADMIN_CONFIG_SERVER_MODE: 'False'
-    
     ports:
       - "5050:80"
-    
     volumes:
       - pgadmin_data:/var/lib/pgadmin
-    
     depends_on:
       - postgres
-    
     networks:
       - app_network
-    
     profiles:
-      # Only start pgAdmin with: docker-compose --profile debug up
       - debug
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -173,6 +183,10 @@ volumes:
   pgadmin_data:
     driver: local
     name: english_learning_pgadmin_data
+
+  minio_data:   # 👈 Volume mới cho MinIO
+    driver: local
+    name: english_learning_minio_data
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🌐 Networks

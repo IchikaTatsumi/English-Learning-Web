@@ -2,7 +2,7 @@ import os
 import wave
 import json
 import tempfile
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 from vosk import Model, KaldiRecognizer
 from pydub import AudioSegment
 from loguru import logger
@@ -10,258 +10,127 @@ from loguru import logger
 
 class VoskService:
     """
-    ✅ Vosk Speech Recognition Service
-    
-    Supports:
-    - Multiple audio formats (WAV, MP3, OGG, M4A, WebM)
-    - Automatic audio conversion to 16kHz mono WAV
-    - Word-level timestamps and confidence scores
-    - Error handling and logging
+    ✅ Vosk Speech Recognition Service (Cleaned & Optimized)
     """
-    
+
     def __init__(self):
+        # Configuration
         self.model_path = os.getenv(
             'VOSK_MODEL_PATH',
-            'speech-recognition/models/vosk-model-small-en-us-0.15'
+            'speech-recognition/models/vosk-model-en-us-0.42-gigaspeech'
         )
+        # ✅ FIX: Sửa lỗi thiếu key env var ở phiên bản cũ
         self.sample_rate = int(os.getenv("VOSK_SAMPLE_RATE", 16000))
+        
         self.model: Optional[Model] = None
         self._load_model()
 
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 🔧 INITIALIZATION
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
     def _load_model(self) -> None:
-        """Load Vosk model into memory."""
+        """Load and verify Vosk model."""
         try:
             if not os.path.exists(self.model_path):
-                logger.error(f"❌ Vosk model not found at {self.model_path}")
-                logger.info("📥 Download model from: https://alphacephei.com/vosk/models")
-                logger.info("Recommended: vosk-model-small-en-us-0.15 (370MB)")
-                raise FileNotFoundError(f"Model not found at {self.model_path}")
+                logger.error(f"❌ Model not found: {self.model_path}")
+                raise FileNotFoundError(f"Vosk model missing at {self.model_path}")
 
-            # ✅ Verify model structure
-            required_dirs = ['am', 'conf', 'graph']
-            for dir_name in required_dirs:
-                dir_path = os.path.join(self.model_path, dir_name)
-                if not os.path.exists(dir_path):
-                    raise FileNotFoundError(
-                        f"Invalid model structure: missing '{dir_name}' directory"
-                    )
+            # Verify structure
+            for required in ['am', 'conf', 'graph']:
+                if not os.path.exists(os.path.join(self.model_path, required)):
+                    raise FileNotFoundError(f"Invalid model: missing '{required}'")
 
-            logger.info(f"🔄 Loading Vosk model from {self.model_path}...")
+            logger.info(f"🔄 Loading Vosk Model ({self.model_path})...")
             self.model = Model(self.model_path)
-            logger.success("✅ Vosk model loaded successfully")
+            logger.success("✅ Vosk Model loaded successfully")
 
         except Exception as e:
-            logger.error(f"❌ Failed to load Vosk model: {str(e)}")
+            logger.critical(f"❌ Failed to init Vosk: {e}")
             raise
 
     def is_ready(self) -> bool:
-        """Check if model is loaded and ready."""
         return self.model is not None
 
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 🎵 AUDIO CONVERSION
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    def _convert_to_wav(self, file_path: str) -> str:
-        """
-        Convert audio file to mono WAV at target sample rate.
-        
-        Supports: MP3, WAV, OGG, M4A, WebM, FLAC
-        Returns: Path to converted WAV file
-        """
+    def _convert_to_wav(self, source_path: str) -> str:
+        """Convert any audio to clean 16kHz Mono WAV."""
         try:
-            logger.info(f"🔄 Converting audio: {file_path}")
+            audio = AudioSegment.from_file(source_path)
             
-            # Load audio file (pydub auto-detects format)
-            audio = AudioSegment.from_file(file_path)
-            
-            # Convert to mono 16kHz 16-bit PCM WAV
-            audio = audio.set_channels(1)  # Mono
-            audio = audio.set_frame_rate(self.sample_rate)  # 16kHz
-            audio = audio.set_sample_width(2)  # 16-bit
-            
-            # Create temporary WAV file
-            wav_path = tempfile.NamedTemporaryFile(
-                delete=False, 
-                suffix='.wav',
-                prefix='vosk_'
+            # Standardize format for Vosk (Mono, 16kHz, 16bit)
+            audio = audio.set_channels(1) \
+                         .set_frame_rate(self.sample_rate) \
+                         .set_sample_width(2)
+
+            # Write to temp file
+            wav_tmp = tempfile.NamedTemporaryFile(
+                delete=False, suffix='.wav', prefix='vosk_'
             ).name
             
-            # Export as WAV
-            audio.export(wav_path, format='wav')
-            
-            duration = len(audio) / 1000.0  # seconds
-            logger.success(
-                f"✅ Converted to WAV: {wav_path} "
-                f"(duration: {duration:.2f}s, rate: {self.sample_rate}Hz)"
-            )
-            
-            return wav_path
+            audio.export(wav_tmp, format='wav')
+            return wav_tmp
             
         except Exception as e:
-            logger.error(f"❌ Audio conversion failed: {str(e)}")
+            logger.error(f"❌ Audio conversion error: {e}")
             raise
-
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 🎤 SPEECH RECOGNITION
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     def recognize(self, file_path: str) -> Dict:
         """
-        Recognize speech from an audio file.
-        
-        Args:
-            file_path: Path to audio file (any format)
-            
-        Returns:
-            Dict containing:
-            - text: str - Recognized text
-            - confidence: float - Average confidence score (0-1)
-            - words: List[Dict] - Word-level results with timestamps
-            - error: str - Error message if failed (optional)
+        Process audio file and return recognition result.
+        Handles conversion and cleanup automatically.
         """
-        converted_file = None
+        if not self.model:
+            raise RuntimeError("Vosk model is not loaded!")
+
+        converted_path = None
         wav_file = None
-        
+
         try:
-            if not self.model:
-                raise RuntimeError("Vosk model not loaded")
-
-            # ✅ Convert audio to proper format
-            wav_path = self._convert_to_wav(file_path)
-            converted_file = wav_path if wav_path != file_path else None
-
-            # ✅ Open WAV file
-            wav_file = wave.open(wav_path, "rb")
-
-            # ✅ Validate audio format
-            if wav_file.getnchannels() != 1:
-                raise ValueError(
-                    f"Audio must be mono, got {wav_file.getnchannels()} channels"
-                )
-            if wav_file.getsampwidth() != 2:
-                raise ValueError(
-                    f"Audio must be 16-bit PCM, got {wav_file.getsampwidth() * 8}-bit"
-                )
-
-            # ✅ Create recognizer
-            rec = KaldiRecognizer(self.model, wav_file.getframerate())
-            rec.SetWords(True)  # Enable word-level timestamps
-
-            # ✅ Process audio in chunks
-            results = []
-            chunk_size = 4000  # bytes
+            # 1. Convert audio
+            converted_path = self._convert_to_wav(file_path)
             
+            # 2. Read WAV
+            wav_file = wave.open(converted_path, "rb")
+            
+            if wav_file.getnchannels() != 1 or wav_file.getsampwidth() != 2:
+                raise ValueError("Audio must be Mono 16-bit PCM")
+
+            # 3. Recognition Loop
+            rec = KaldiRecognizer(self.model, wav_file.getframerate())
+            rec.SetWords(True)
+
+            results = []
             while True:
-                data = wav_file.readframes(chunk_size)
+                data = wav_file.readframes(4000)
                 if len(data) == 0:
                     break
-                    
                 if rec.AcceptWaveform(data):
-                    result = json.loads(rec.Result())
-                    if result.get('text'):
-                        results.append(result)
+                    part = json.loads(rec.Result())
+                    if part.get('text'): results.append(part)
 
-            # ✅ Get final result
-            final_result = json.loads(rec.FinalResult())
-            if final_result.get('text'):
-                results.append(final_result)
+            final_part = json.loads(rec.FinalResult())
+            if final_part.get('text'): results.append(final_part)
 
-            # ✅ Close WAV file
-            wav_file.close()
-            wav_file = None
-
-            # ✅ Aggregate results
-            recognized_text = ' '.join([r.get('text', '') for r in results]).strip()
+            # 4. Process Results
+            full_text = ' '.join([r.get('text', '') for r in results]).strip()
+            all_words = [w for r in results if 'result' in r for w in r['result']]
             
-            all_words = []
-            confidences = []
-            
-            for r in results:
-                if 'result' in r:  # Word-level results
-                    for w in r['result']:
-                        all_words.append(w)
-                        confidences.append(w.get('conf', 0))
+            # Calculate Confidence
+            avg_conf = 0.0
+            if all_words:
+                avg_conf = sum(w.get('conf', 0) for w in all_words) / len(all_words)
 
-            # Calculate average confidence
-            avg_confidence = (
-                round(sum(confidences) / len(confidences), 3) 
-                if confidences else 0.0
-            )
-
-            logger.info(
-                f"🗣️ Recognized: \"{recognized_text}\" "
-                f"(confidence: {avg_confidence:.3f}, words: {len(all_words)})"
-            )
+            logger.info(f"🗣️ Result: '{full_text}' (Conf: {avg_conf:.2f})")
 
             return {
-                'text': recognized_text,
-                'confidence': avg_confidence,
+                'text': full_text,
+                'confidence': round(avg_conf, 3),
                 'words': all_words,
                 'word_count': len(all_words)
             }
 
         except Exception as e:
-            logger.error(f"❌ Recognition error: {str(e)}")
-            return {
-                'error': str(e),
-                'text': '',
-                'confidence': 0.0,
-                'words': [],
-                'word_count': 0
-            }
+            logger.error(f"❌ Recognition failed: {e}")
+            return {'error': str(e), 'text': '', 'confidence': 0.0}
 
         finally:
-            # ✅ Cleanup resources
-            if wav_file:
-                try:
-                    wav_file.close()
-                except Exception:
-                    pass
-                    
-            if converted_file and os.path.exists(converted_file):
-                try:
-                    os.unlink(converted_file)
-                    logger.debug(f"🗑️ Cleaned up temp file: {converted_file}")
-                except Exception as e:
-                    logger.warning(f"⚠️ Failed to cleanup temp file: {e}")
-
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    # 📊 UTILITY METHODS
-    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-    def get_model_info(self) -> Dict:
-        """Get information about the loaded model."""
-        return {
-            'model_path': self.model_path,
-            'sample_rate': self.sample_rate,
-            'loaded': self.is_ready(),
-            'exists': os.path.exists(self.model_path) if self.model_path else False
-        }
-
-    def validate_audio_file(self, file_path: str) -> Dict:
-        """
-        Validate audio file without processing.
-        
-        Returns:
-            Dict with validation results
-        """
-        try:
-            audio = AudioSegment.from_file(file_path)
-            return {
-                'valid': True,
-                'duration': len(audio) / 1000.0,  # seconds
-                'channels': audio.channels,
-                'sample_rate': audio.frame_rate,
-                'sample_width': audio.sample_width,
-                'format': 'valid'
-            }
-        except Exception as e:
-            return {
-                'valid': False,
-                'error': str(e)
-            }
+            # Cleanup
+            if wav_file: wav_file.close()
+            if converted_path and os.path.exists(converted_path):
+                os.remove(converted_path)
