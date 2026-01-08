@@ -5,7 +5,8 @@
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 📦 STAGE 1: DEPENDENCIES
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FROM node:18-alpine AS dependencies
+# 👇 SỬA DÒNG NÀY: 18 -> 20
+FROM node:20-alpine AS dependencies
 
 WORKDIR /app
 
@@ -18,7 +19,8 @@ RUN npm ci
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🏗️ STAGE 2: BUILD
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FROM node:18-alpine AS builder
+# 👇 SỬA DÒNG NÀY: 18 -> 20
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -37,7 +39,8 @@ RUN npm prune --production
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🚀 STAGE 3: PRODUCTION
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FROM node:18-alpine AS production
+# 👇 SỬA DÒNG NÀY: 18 -> 20
+FROM node:20-alpine AS production
 
 WORKDIR /app
 
@@ -56,7 +59,8 @@ USER nestjs
 # Expose port
 EXPOSE 4000
 
-# Health check
+# Health check (Lưu ý: Node 20 alpine có thể yêu cầu cài thêm curl nếu node health check này gặp vấn đề, 
+# nhưng đoạn script nodejs dưới đây là chuẩn rồi nên không cần sửa)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
   CMD node -e "require('http').get('http://localhost:4000/api', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 

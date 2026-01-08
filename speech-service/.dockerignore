@@ -1,0 +1,11 @@
+# Bỏ qua thư mục model (để không copy vào image)
+speech-recognition/models/
+
+# Bỏ qua các file rác, cache
+__pycache__
+*.pyc
+.env
+.venv
+venv/
+.git
+.gitignore

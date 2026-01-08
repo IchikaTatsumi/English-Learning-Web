@@ -2,93 +2,38 @@
 # 🔧 CORE FRAMEWORK
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 fastapi==0.115.0
-uvicorn[standard]==0.30.6      # [standard] includes uvloop, websockets, httptools
+uvicorn[standard]==0.30.6
 python-dotenv==1.0.1
 loguru==0.7.2
-pydantic==2.5.3                # Request/response validation
-python-multipart==0.0.9        # ⚠️ REQUIRED for file uploads
+pydantic==2.5.3
+python-multipart==0.0.9
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🎤 SPEECH RECOGNITION (VOSK)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-vosk==0.3.45                   # Offline speech recognition
-pydub==0.25.1                  # Audio format conversion
-soundfile==0.12.1              # Read/write audio files
-numpy==1.26.4                  # Array processing (required by vosk)
-wave                           # ✅ Built-in Python module (no install needed)
+vosk==0.3.45
+pydub==0.25.1
+soundfile==0.12.1
+numpy==1.26.4
+# ĐÃ XÓA 'wave' VÌ LÀ BUILT-IN LIB
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🔊 TEXT-TO-SPEECH (TTS)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-gtts==2.5.1                    # Google Text-to-Speech
-gTTS-token==1.1.4              # ✅ Required by gtts (auto-installed but explicit is better)
+gtts==2.5.1
+gTTS-token==1.1.4
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 📦 STORAGE & FILE HANDLING
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-minio==7.2.9                   # MinIO client for audio storage
-aiofiles==23.2.1               # Async file operations
-certifi==2024.2.2              # ✅ SSL certificates (required by minio)
-urllib3==2.2.1                 # ✅ HTTP library (required by minio)
+minio==7.2.9
+aiofiles==23.2.1
+certifi==2024.2.2
+urllib3==2.2.1
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🌐 HTTP & NETWORKING
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-requests==2.32.3               # HTTP client
-httpx==0.27.0                  # Async HTTP client
-click==8.1.7                   # ✅ CLI helper (used by gtts)
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 🎵 AUDIO PROCESSING DEPENDENCIES
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# ⚠️ SYSTEM REQUIREMENTS (install separately):
-# - ffmpeg (required by pydub)
-#   Ubuntu/Debian: sudo apt-get install ffmpeg
-#   MacOS: brew install ffmpeg
-#   Windows: Download from https://ffmpeg.org/download.html
-#
-# - portaudio (optional, for better audio handling)
-#   Ubuntu/Debian: sudo apt-get install portaudio19-dev
-#   MacOS: brew install portaudio
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 🔒 OPTIONAL: DATABASE (uncomment if needed)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# psycopg2-binary==2.9.9       # PostgreSQL adapter
-# sqlalchemy==2.0.25           # ORM
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 🎵 AUDIO PROCESSING
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Note: ffmpeg-python is a Python wrapper, but you still need ffmpeg installed on system
-# Ubuntu: sudo apt-get install ffmpeg
-# MacOS: brew install ffmpeg
-# Windows: Download from https://ffmpeg.org/download.html
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 🔒 OPTIONAL: DATABASE (if Python needs direct DB access)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# psycopg2-binary==2.9.9       # PostgreSQL adapter
-# sqlalchemy==2.0.25           # ORM
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 🧪 TESTING (optional, for development)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# pytest==7.4.4
-# pytest-asyncio==0.23.3
-# httpx==0.27.0                # Already included above
-# 3. Download Vosk Model
-# cd speech-service
-
-# Download small English model (370MB)
-# wget https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
-
-# Extract
-# unzip vosk-model-small-en-us-0.15.zip -d speech-recognition/models/
-
-# Verify structure:
-# speech-recognition/models/vosk-model-small-en-us-0.15/
-#   ├── am/
-#   ├── conf/
-#   ├── graph/
-#   └── ivector/
+requests==2.32.3
+httpx==0.27.0
+click==8.1.7
