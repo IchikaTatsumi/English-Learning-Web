@@ -3,6 +3,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { SnakeCaseInterceptor } from './core/interceptors/snake_case.interceptor';
+import { webcrypto } from 'crypto'; // ✅ ADD: Import crypto
+
+// ✅ ADD: Polyfill crypto for Docker Alpine Linux
+// This fixes: ReferenceError: crypto is not defined
+if (!globalThis.crypto) {
+  (globalThis as any).crypto = webcrypto;
+}
 
 async function bootstrap() {
   // ✅ DEBUG: In ra environment variables
