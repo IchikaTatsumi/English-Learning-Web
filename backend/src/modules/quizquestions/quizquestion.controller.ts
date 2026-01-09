@@ -46,6 +46,21 @@ export class QuizQuestionController {
     return QuizQuestionResponseDto.fromEntities(questions);
   }
 
+  // ✅ [NEW] API cho nút "Practice" trong tab Learned
+  @Public()
+  @Get('practice/:vocabId')
+  @ApiOperation({
+    summary: 'Get 4 generated questions for a specific vocabulary',
+  })
+  @ApiOkResponse({ type: [QuizQuestionResponseDto] })
+  async getPracticeQuestions(
+    @Param('vocabId', ParseIntPipe) vocabId: number,
+  ): Promise<QuizQuestionResponseDto[]> {
+    const questions =
+      await this.quizQuestionService.findQuestionsByVocabId(vocabId);
+    return QuizQuestionResponseDto.fromEntities(questions);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get question by ID' })
   @ApiOkResponse({ type: QuizQuestionResponseDto })

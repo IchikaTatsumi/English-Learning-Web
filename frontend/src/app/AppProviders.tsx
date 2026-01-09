@@ -1,20 +1,12 @@
+// src/app/AppProviders.tsx
 'use client';
 
 import { ReactNode } from 'react';
+// Nếu bạn có AuthProvider hay QueryClientProvider thì bọc ở đây
 
-interface AppProvidersProps {
-  children: ReactNode;
-}
-
-/**
- * App Providers
- * Wrap entire app with necessary providers
- */
-export function AppProviders({ children }: AppProvidersProps) {
+export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <>
-      {/* Add other providers here if needed */}
-      {/* Example: ThemeProvider, QueryClientProvider, etc. */}
       {children}
     </>
   );

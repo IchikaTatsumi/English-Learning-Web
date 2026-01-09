@@ -3,13 +3,6 @@ version: '3.9'
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # 🐳 ENGLISH LEARNING WEB APP - DOCKER COMPOSE
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Services:
-# 1. Postgres DB (Port 5432 -> 9999)
-# 2. Backend API (Port 4000)
-# 3. MinIO Storage (Port 9000, 9001)
-# 4. Speech Service (Port 8000)
-# 5. PgAdmin (Optional, Port 5050)
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 services:
   # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -70,11 +63,11 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # 👇 QUAN TRỌNG: Map folder model từ máy host vào Docker
-      # Đảm bảo bạn đã giải nén model vào folder này trên máy tính
-      - ./speech-service/speech-recognition/models:/app/speech-recognition/models
+      # 👇 ĐÃ SỬA LẠI ĐƯỜNG DẪN DÙNG GẠCH DƯỚI (_)
+      # ⚠️ Bạn nhớ đổi tên thư mục thật trên máy thành 'speech_recognition' nhé!
+      - ./speech-service/speech_recognition/models:/app/speech_recognition/models
       
-      # (Tuỳ chọn) Map code để dev hot-reload, loại trừ folder models để tránh conflict
+      # (Tuỳ chọn: Map code để dev, cũng phải dùng gạch dưới)
       # - ./speech-service:/app
     env_file:
       - ./speech-service/.env
@@ -184,7 +177,7 @@ volumes:
     driver: local
     name: english_learning_pgadmin_data
 
-  minio_data:   # 👈 Volume mới cho MinIO
+  minio_data:
     driver: local
     name: english_learning_minio_data
 

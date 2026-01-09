@@ -46,14 +46,15 @@ export class CreateVocabularyDTO {
   @IsNotEmpty()
   meaningVi: string;
 
+  // ✅ [CHANGED] Bắt buộc nhập câu ví dụ để sinh câu hỏi SentenceToWord
   @ApiProperty({
     description: 'Example sentence',
     example: 'Hello, how are you?',
-    required: false,
+    required: true,
   })
   @IsString()
-  @IsOptional()
-  exampleSentence?: string;
+  @IsNotEmpty()
+  exampleSentence: string;
 
   @ApiProperty({
     description: 'Audio file path',
@@ -66,11 +67,11 @@ export class CreateVocabularyDTO {
 
   @ApiProperty({
     description: 'Difficulty level',
-    enum: DifficultyLevel, // ✅ FIX: Dùng enum thay vì string
+    enum: DifficultyLevel,
     default: DifficultyLevel.BEGINNER,
   })
-  @IsEnum(DifficultyLevel) // ✅ FIX: Validate enum
-  difficultyLevel: DifficultyLevel; // ✅ FIX: Type là DifficultyLevel
+  @IsEnum(DifficultyLevel)
+  difficultyLevel: DifficultyLevel;
 }
 
 export class UpdateVocabularyDTO {
@@ -116,7 +117,7 @@ export class UpdateVocabularyDTO {
   })
   @IsEnum(DifficultyLevel)
   @IsOptional()
-  difficultyLevel?: DifficultyLevel; // ✅ FIX: Type là DifficultyLevel
+  difficultyLevel?: DifficultyLevel;
 }
 
 @AutoExpose()

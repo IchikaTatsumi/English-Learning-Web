@@ -33,14 +33,14 @@ export interface STTRecognizeResponse {
   confidence: number;
 }
 
-// ✅ Voice response type
-interface VoiceInfo {
+// ✅ [FIXED] Thêm export để tránh lỗi TS4053 khi build
+export interface VoiceInfo {
   code: string;
   name: string;
   language: string;
 }
 
-interface VoicesResponse {
+export interface VoicesResponse {
   voices: VoiceInfo[];
 }
 
@@ -111,7 +111,7 @@ export class SpeechClientService {
   }
 
   /**
-   * ✅ SIMPLE: Recognize speech and compare text
+   * ✅ Recognize speech and compare text
    */
   async recognizeSpeech(
     request: STTRecognizeRequest,

@@ -26,53 +26,65 @@ export class VocabularyProgressService {
     let progress = await this.progressRepository.findOne({
       where: { userId, vocabId },
     });
-
     if (!progress) {
-      progress = this.progressRepository.create({
-        userId,
-        vocabId,
-      });
+      progress = this.progressRepository.create({ userId, vocabId });
       progress = await this.progressRepository.save(progress);
     }
-
     return progress;
   }
 
   /**
-   * ✅ UPDATED: Handle all 4 question types including pronunciation
-   *
-   * Question Types:
-   * 1. WordToMeaning - MCQ (text input)
-   * 2. MeaningToWord - MCQ (text input)
-   * 3. VietnameseToWord - Fill-in (text input)
-   * 4. Pronunciation - Speech (audio → STT → text comparison)
+   * ✅ NEW: Hàm này được gọi từ ResultService mỗi khi User trả lời 1 câu hỏi
    */
+  async updateProgressAfterPractice(
+    userId: number,
+    vocabId: number,
+    isCorrect: boolean,
+  ): Promise<void> {
+    const progress = await this.getOrCreateProgress(userId, vocabId);
+
+    // 1. Cập nhật thống kê
+    progress.practiceAttempts += 1;
+    if (isCorrect) {
+      progress.practiceCorrectCount += 1;
+    }
+    progress.lastReviewedAt = new Date();
+
+    // 2. Logic tự động đánh dấu "Đã học" (Learned)
+    // Điều kiện: Làm đúng ít nhất 3 lần VÀ tỷ lệ đúng > 80%
+    if (!progress.isLearned && progress.practiceAttempts >= 3) {
+      const accuracy =
+        progress.practiceCorrectCount / progress.practiceAttempts;
+      if (accuracy > 0.8) {
+        progress.isLearned = true;
+        progress.firstLearnedAt = new Date(); // Chỉ set lần đầu tiên
+      }
+    }
+
+    await this.progressRepository.save(progress);
+  }
+
+  // --- Các hàm cũ giữ nguyên ---
+
   async submitPractice(
     userId: number,
     dto: SubmitPracticeDto,
   ): Promise<VocabularyProgress> {
-    // Verify vocabulary exists
     const vocab = await this.vocabularyRepository.findOne({
       where: { id: dto.vocabId },
     });
+    if (!vocab)
+      throw new NotFoundException(`Vocabulary ${dto.vocabId} not found`);
 
-    if (!vocab) {
-      throw new NotFoundException(
-        `Vocabulary with ID ${dto.vocabId} not found`,
-      );
-    }
-
-    // Get or create progress
     const progress = await this.getOrCreateProgress(userId, dto.vocabId);
-
-    // ✅ Process answers (handle pronunciation specially)
     let correctCount = 0;
 
     for (const answer of dto.answers) {
-      // ✅ Handle pronunciation questions
-      if (answer.questionType === 'Pronunciation') {
+      if (
+        answer.questionType === 'Pronunciation' ||
+        answer.questionType === 'SpeechToWord'
+      ) {
         try {
-          // userAnswer contains base64 audio
           const sttResult = await this.speechClient.recognizeSpeech({
             audio_base64: answer.userAnswer,
             target_word: vocab.word,
@@ -80,45 +92,25 @@ export class VocabularyProgressService {
             vocab_id: dto.vocabId,
             save_recording: false,
           });
-
-          // Update answer with STT result
-          answer.userAnswer = sttResult.recognized_text; // Show what user said
-          answer.isCorrect = sttResult.is_correct; // true/false
-
-          if (sttResult.is_correct) {
-            correctCount++;
-          }
+          answer.userAnswer = sttResult.recognized_text;
+          answer.isCorrect = sttResult.is_correct;
+          if (sttResult.is_correct) correctCount++;
         } catch {
-          // ✅ Removed unused 'error' variable
-          // If STT fails, mark as wrong
           answer.isCorrect = false;
           answer.userAnswer = 'Speech recognition failed';
         }
       } else {
-        // ✅ Handle text-based questions (already marked as correct/wrong)
-        if (answer.isCorrect) {
-          correctCount++;
-        }
+        if (answer.isCorrect) correctCount++;
       }
     }
 
-    const totalQuestions = dto.answers.length;
-
-    // Update practice stats
     progress.practiceAttempts += 1;
     progress.practiceCorrectCount += correctCount;
-
-    // ✅ Always update last_reviewed_at when practicing
     progress.lastReviewedAt = new Date();
 
-    // ✅ Set first_learned_at ONCE when passing (3/4 correct)
-    if (correctCount >= 3 && totalQuestions === 4) {
+    if (correctCount >= 3 && dto.answers.length >= 4) {
       progress.isLearned = true;
-
-      // Only set first_learned_at if null
-      if (!progress.firstLearnedAt) {
-        progress.firstLearnedAt = new Date();
-      }
+      if (!progress.firstLearnedAt) progress.firstLearnedAt = new Date();
     }
 
     return await this.progressRepository.save(progress);
@@ -131,20 +123,11 @@ export class VocabularyProgressService {
     const vocab = await this.vocabularyRepository.findOne({
       where: { id: dto.vocabId },
     });
-
-    if (!vocab) {
-      throw new NotFoundException(
-        `Vocabulary with ID ${dto.vocabId} not found`,
-      );
-    }
+    if (!vocab)
+      throw new NotFoundException(`Vocabulary ${dto.vocabId} not found`);
 
     const progress = await this.getOrCreateProgress(userId, dto.vocabId);
-
-    // Update last_reviewed_at only when bookmarking (true)
-    if (dto.isBookmarked) {
-      progress.lastReviewedAt = new Date();
-    }
-
+    if (dto.isBookmarked) progress.lastReviewedAt = new Date();
     progress.isBookmarked = dto.isBookmarked;
 
     return await this.progressRepository.save(progress);
@@ -152,12 +135,12 @@ export class VocabularyProgressService {
 
   async getLearnedVocabularies(userId: number): Promise<VocabularyProgress[]> {
     return await this.progressRepository.find({
-      where: {
-        userId,
-        isLearned: true,
-      },
+      where: [
+        { userId, isLearned: true },
+        { userId, isBookmarked: true }, // Lấy cả từ bookmark để hiển thị tab Learned đầy đủ hơn
+      ],
       relations: ['vocabulary', 'vocabulary.topic'],
-      order: { firstLearnedAt: 'DESC' },
+      order: { lastReviewedAt: 'DESC' },
     });
   }
 
@@ -165,10 +148,7 @@ export class VocabularyProgressService {
     userId: number,
   ): Promise<VocabularyProgress[]> {
     return await this.progressRepository.find({
-      where: {
-        userId,
-        isBookmarked: true,
-      },
+      where: { userId, isBookmarked: true },
       relations: ['vocabulary', 'vocabulary.topic'],
       order: { lastReviewedAt: 'DESC' },
     });
@@ -186,7 +166,6 @@ export class VocabularyProgressService {
 
   async getProgressStats(userId: number, vocabId: number) {
     const progress = await this.getProgressByVocabId(userId, vocabId);
-
     if (!progress) {
       return {
         vocabId,
@@ -199,7 +178,6 @@ export class VocabularyProgressService {
         accuracy: 0,
       };
     }
-
     const accuracy =
       progress.practiceAttempts > 0
         ? Math.round(

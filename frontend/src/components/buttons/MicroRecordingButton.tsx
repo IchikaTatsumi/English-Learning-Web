@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { authStorage } from '@/lib/utils/local-storage';

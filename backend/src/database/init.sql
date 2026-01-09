@@ -1,5 +1,5 @@
 -- ======================================
---  ENGLISH LEARNING DATABASE INIT SCRIPT (Enhanced with CASCADE + Pronunciation)
+--  ENGLISH LEARNING DATABASE INIT SCRIPT (Full & Updated)
 -- ======================================
 BEGIN;
 
@@ -18,11 +18,14 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
+-- ✅ CẬP NHẬT: Thêm SentenceToWord và SpeechToWord
 DO $$ BEGIN
   CREATE TYPE question_type_enum AS ENUM (
     'WordToMeaning',
     'MeaningToWord',
     'VietnameseToWord',
+    'SentenceToWord',   -- ✅ Mới: Điền từ vào câu
+    'SpeechToWord',     -- ✅ Mới: Luyện nói (thay thế hoặc dùng chung với Pronunciation)
     'Pronunciation'
   );
 EXCEPTION
@@ -77,7 +80,7 @@ CREATE TABLE vocabulary (
   ipa VARCHAR(100),
   meaning_en TEXT NOT NULL,
   meaning_vi TEXT NOT NULL,
-  example_sentence TEXT,
+  example_sentence TEXT, -- ✅ Cần thiết cho dạng SentenceToWord
   audio_path VARCHAR(255),
   difficulty_level difficulty_enum NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -115,7 +118,7 @@ CREATE TABLE quiz (
 -- ✅ result với ON DELETE CASCADE
 CREATE TABLE result (
   result_id SERIAL PRIMARY KEY,
-  quiz_id INTEGER NOT NULL REFERENCES quiz(quiz_id) ON DELETE CASCADE,
+  quiz_id INTEGER REFERENCES quiz(quiz_id) ON DELETE CASCADE, -- Cho phép NULL nếu là Practice Mode (không thuộc bài thi nào)
   quiz_question_id INTEGER NOT NULL REFERENCES quiz_question(quiz_question_id) ON DELETE CASCADE,
   user_id INTEGER NOT NULL REFERENCES "user"(user_id) ON DELETE CASCADE,
   user_answer VARCHAR(255),
@@ -435,6 +438,8 @@ COMMENT ON FUNCTION get_vocab_pronunciation_history IS
 -- ============================
 
 -- 1️⃣ Users (bcrypt hashed passwords)
+-- Admin: admin / 123456
+-- Users: user / 123456, alex / 123456
 INSERT INTO "user" (username, email, full_name, password, role, avatar_url) VALUES
 ('alex', 'alex@example.com', 'Alex Chen', '$2b$10$VQwG.4FzEIXZ0bVQhZL8EOwY/3D1YQG4rQbM81wKPb4bE4sWbcEzi', 'User', '/avatars/alex.png'),
 ('emma', 'emma@example.com', 'Emma Tran', '$2b$10$VQwG.4FzEIXZ0bVQhZL8EOwY/3D1YQG4rQbM81wKPb4bE4sWbcEzi', 'User', '/avatars/emma.png'),
@@ -480,22 +485,6 @@ VALUES
 (4, 'Bird', 'bɜːrd', 'An animal with feathers', 'Chim', 'The bird can fly.', NULL, 'Beginner'),
 (4, 'Fish', 'fɪʃ', 'An animal that lives in water', 'Cá', 'Fish swim in the ocean.', NULL, 'Beginner');
 
--- ============================
--- ✅ DEMO QUERIES
--- ============================
-
--- Check what will be deleted when removing a topic
--- SELECT * FROM check_topic_deletion(1);
-
--- Validate if we can generate quiz for a topic
--- SELECT * FROM validate_quiz_generation(topic_id := 1);
-
--- Get pronunciation stats for a user
--- SELECT * FROM get_pronunciation_stats(1);
-
--- Get pronunciation history for a vocabulary
--- SELECT * FROM get_vocab_pronunciation_history(1, 1);
-
 COMMIT;
 
 -- ============================
@@ -522,7 +511,7 @@ BEGIN
   RAISE NOTICE '';
   RAISE NOTICE '🎤 Pronunciation Practice:';
   RAISE NOTICE '  • Using existing quiz_question + result tables';
-  RAISE NOTICE '  • Question type: "Pronunciation"';
+  RAISE NOTICE '  • Question types: Pronunciation, SpeechToWord';
   RAISE NOTICE '  • Audio path: Auto-generated via TTS (stored in MinIO)';
   RAISE NOTICE '';
   RAISE NOTICE '✅ Helper Functions:';

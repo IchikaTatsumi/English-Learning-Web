@@ -1,5 +1,5 @@
 # Bỏ qua thư mục model (để không copy vào image)
-speech-recognition/models/
+speech_recognition/models/
 
 # Bỏ qua các file rác, cache
 __pycache__

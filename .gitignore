@@ -29,7 +29,7 @@ frontend/coverage/
 
 # 🚫 IGNORE AI MODELS
 # Bỏ qua thư mục chứa model Vosk trong speech-service
-speech-service/speech-recognition/models/
+speech-service/speech_recognition/models/
 # ========================
 # 🧩 Shared
 # ========================

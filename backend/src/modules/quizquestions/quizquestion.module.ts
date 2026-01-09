@@ -9,7 +9,7 @@ import { Vocabulary } from '../vocabularies/entities/vocabulary.entity';
 @Module({
   imports: [
     TypeOrmModule.forFeature([QuizQuestion, Vocabulary]),
-    forwardRef(() => VocabularyModule),
+    forwardRef(() => VocabularyModule), // ✅ Đảm bảo có forwardRef ở đây
   ],
   controllers: [QuizQuestionController],
   providers: [QuizQuestionService],

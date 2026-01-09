@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useRef } from 'react';
 import { Volume2, VolumeX, Loader2 } from 'lucide-react';
 import { useVocabularyAudio } from './useVocabularyAudio'; // 👈 ĐÃ THÊM IMPORT NÀY

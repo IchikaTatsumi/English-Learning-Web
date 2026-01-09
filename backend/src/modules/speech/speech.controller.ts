@@ -6,122 +6,57 @@ import {
   Request,
   HttpException,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiTags,
   ApiOkResponse,
   ApiOperation,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
-import { SpeechClientService } from './speech-client.service';
+// ✅ Import thêm VoiceInfo
+import { SpeechClientService, VoiceInfo } from './speech-client.service';
 import { IsString, IsNumber, IsBoolean, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import type { RequestWithUser } from 'src/core/types/request.types';
 import { Public } from 'src/core/decorators/public.decorator';
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ✅ REQUEST DTOs
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DTO cho Form Data (File Upload)
+class RecognizeSpeechFormDto {
+  @ApiProperty({ type: 'string', format: 'binary' })
+  file: any;
 
-export class RecognizeSpeechDto {
-  @ApiProperty({
-    description: 'Base64 encoded audio data',
-    example: 'UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=',
-  })
-  @IsString()
-  audioBase64!: string;
+  @ApiProperty()
+  targetWord: string;
 
-  @ApiProperty({
-    description: 'Target word to compare pronunciation',
-    example: 'hello',
-  })
-  @IsString()
-  targetWord!: string;
-
-  @ApiProperty({
-    description: 'Vocabulary ID',
-    example: 1,
-  })
-  @IsNumber()
-  vocabId!: number;
-
-  @ApiProperty({
-    description: 'Save recording to MinIO',
-    required: false,
-    default: false,
-  })
-  @IsBoolean()
-  @IsOptional()
-  saveRecording?: boolean;
+  @ApiProperty()
+  vocabId: number;
 }
 
 export class GenerateTTSDto {
-  @ApiProperty({ description: 'Text to synthesize', example: 'Hello world' })
+  @ApiProperty({ description: 'Text to synthesize' })
   @IsString()
   text!: string;
 
-  @ApiProperty({
-    description: 'Language code',
-    enum: ['en', 'vi'],
-    default: 'en',
-  })
+  @ApiProperty({ enum: ['en', 'vi'], default: 'en' })
   @IsString()
   language!: 'en' | 'vi';
 
-  @ApiProperty({ description: 'Vocabulary ID', example: 1 })
+  @ApiProperty({ description: 'Vocabulary ID' })
   @IsNumber()
   vocabId!: number;
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ✅ RESPONSE DTOs
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-export class RecognizeSpeechResponseDto {
-  @ApiProperty()
-  recognizedText!: string;
-
-  @ApiProperty()
-  targetWord!: string;
-
-  @ApiProperty()
-  isCorrect!: boolean;
-
-  @ApiProperty()
-  confidence!: number;
-}
-
-export class GenerateTTSResponseDto {
-  @ApiProperty()
-  audioUrl!: string;
-
-  @ApiProperty({ required: false })
-  duration?: number;
-
-  @ApiProperty({ required: false })
-  cached?: boolean;
-}
-
-export class HealthCheckResponseDto {
-  @ApiProperty()
-  status!: string;
-
-  @ApiProperty()
-  service!: string;
-}
-
+// Response DTO mapping với interface từ service
 export class VoicesResponseDto {
   @ApiProperty({ type: 'array', items: { type: 'object' } })
-  voices!: Array<{
-    code: string;
-    name: string;
-    language: string;
-  }>;
+  voices!: VoiceInfo[];
 }
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ✅ CONTROLLER
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 @ApiBearerAuth()
 @ApiTags('Speech')
@@ -130,27 +65,33 @@ export class SpeechController {
   constructor(private readonly speechClient: SpeechClientService) {}
 
   /**
-   * ✅ RECOGNIZE SPEECH (STT)
+   * ✅ RECOGNIZE SPEECH (Updated to handle File Upload)
    */
   @Post('recognize')
-  @ApiOperation({
-    summary: 'Recognize speech and compare with target word',
-    description: 'Send base64 encoded audio to recognize pronunciation',
-  })
-  @ApiOkResponse({ type: RecognizeSpeechResponseDto })
+  @ApiOperation({ summary: 'Recognize speech from audio file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: RecognizeSpeechFormDto })
+  @UseInterceptors(FileInterceptor('file'))
   async recognizeSpeech(
     @Request() req: RequestWithUser,
-    @Body() dto: RecognizeSpeechDto,
-  ): Promise<RecognizeSpeechResponseDto> {
+    @UploadedFile() file: Express.Multer.File,
+    @Body('targetWord') targetWord: string,
+    @Body('vocabId') vocabId: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Audio file is required');
+    }
+
     try {
       const userId = req.user.id;
+      const audioBase64 = file.buffer.toString('base64');
 
       const result = await this.speechClient.recognizeSpeech({
-        audio_base64: dto.audioBase64,
-        target_word: dto.targetWord,
+        audio_base64: audioBase64,
+        target_word: targetWord,
         user_id: userId,
-        vocab_id: dto.vocabId,
-        save_recording: dto.saveRecording || false,
+        vocab_id: parseInt(vocabId),
+        save_recording: true,
       });
 
       return {
@@ -160,9 +101,7 @@ export class SpeechController {
         confidence: result.confidence,
       };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
+      console.error(error);
       throw new HttpException(
         'Speech recognition failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -174,14 +113,8 @@ export class SpeechController {
    * ✅ GENERATE TTS
    */
   @Post('generate-tts')
-  @ApiOperation({
-    summary: 'Generate TTS audio for vocabulary',
-    description: 'Manually trigger TTS generation',
-  })
-  @ApiOkResponse({ type: GenerateTTSResponseDto })
-  async generateTTS(
-    @Body() dto: GenerateTTSDto,
-  ): Promise<GenerateTTSResponseDto> {
+  @ApiOperation({ summary: 'Generate TTS audio for vocabulary' })
+  async generateTTS(@Body() dto: GenerateTTSDto) {
     try {
       const result = await this.speechClient.generateTTS({
         text: dto.text,
@@ -195,9 +128,6 @@ export class SpeechController {
         cached: result.cached,
       };
     } catch (error) {
-      if (error instanceof HttpException) {
-        throw error;
-      }
       throw new HttpException(
         'TTS generation failed',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -205,14 +135,9 @@ export class SpeechController {
     }
   }
 
-  /**
-   * ✅ HEALTH CHECK
-   */
   @Public()
   @Get('health')
-  @ApiOperation({ summary: 'Health check for Speech Service' })
-  @ApiOkResponse({ type: HealthCheckResponseDto })
-  async healthCheck(): Promise<HealthCheckResponseDto> {
+  async healthCheck() {
     const isHealthy = await this.speechClient.healthCheck();
     return {
       status: isHealthy ? 'healthy' : 'unhealthy',
@@ -220,14 +145,12 @@ export class SpeechController {
     };
   }
 
-  /**
-   * ✅ GET AVAILABLE VOICES
-   */
   @Public()
   @Get('voices')
   @ApiOperation({ summary: 'Get available TTS voices' })
   @ApiOkResponse({ type: VoicesResponseDto })
-  async getVoices(): Promise<VoicesResponseDto> {
+  // ✅ [FIXED] Định nghĩa rõ kiểu trả về Promise<{ voices: VoiceInfo[] }> để build production
+  async getVoices(): Promise<{ voices: VoiceInfo[] }> {
     const voices = await this.speechClient.getAvailableVoices();
     return { voices };
   }
