@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, Leaf, Cloud, Utensils, Cpu, Zap, BookOpen, Gamepad2 } from 'lucide-react';
 import { AddButton } from '@/components/buttons/AddButton';
 import { BookmarkButton } from '@/components/buttons/BookmarkButton';
-import { LoudspeakerButton } from '@/components/buttons/LoudSpeakerButton';
+// ✅ FIX 1: Import đúng tên component (LoudSpeakerButton)
+import { LoudSpeakerButton } from '@/components/buttons/LoudSpeakerButton';
 import { ViewModeButton, ViewMode } from '@/components/buttons/ViewModeButton';
 import { MicroRecordingButton } from '@/components/buttons/MicroRecordingButton';
 import { useVocabularies } from '@/features/vocabularies/hooks/vocabulary.hook';
@@ -29,10 +30,8 @@ export function VocabularyUI() {
 
   const { topics, fetchTopics, isLoading: topicsLoading } = useTopics();
   
-  // ✅ FIXED: Pass correct filter parameters
   const { vocabularies, fetchVocabularies, isLoading: vocabLoading } = useVocabularies({
     topic_id: filterTopicId,
-    // ✅ FIXED: Use difficulty_level instead of difficulty
     difficulty_level: filterDifficulty !== 'all' ? filterDifficulty as DifficultyLevel : undefined,
     searchTerm: searchTerm || undefined
   });
@@ -45,10 +44,8 @@ export function VocabularyUI() {
     fetchVocabularies();
   }, [filterTopicId, filterDifficulty, searchTerm, fetchVocabularies]);
 
-  // Filter by active tab
   const filteredWords = vocabularies.filter(word => {
     if (activeTab === 'all') return true;
-    // ✅ FIXED: Use topic_name (optional) or topic.topic_name
     const topicName = word.topic_name || word.topic?.topic_name || '';
     return topicName === activeTab;
   });
@@ -78,22 +75,14 @@ export function VocabularyUI() {
 
   const handleBookmarkToggle = async (vocabId: number, isBookmarked: boolean) => {
     console.log('Toggle bookmark:', vocabId, isBookmarked);
-    // TODO: Call API to toggle bookmark
-    // await vocabularyService.toggleBookmark(vocabId, isBookmarked);
-    // fetchVocabularies(); // Refresh list
   };
 
   const handlePronunciationResult = (result: any) => {
     console.log('Pronunciation result:', result);
-    // TODO: Handle pronunciation result
-    // - Show score notification
-    // - Update progress
-    // - Save to results table
   };
 
   const handleAddVocab = () => {
     console.log('Add vocabulary');
-    // TODO: Open dialog to add vocabulary (Admin only)
   };
 
   if (topicsLoading || vocabLoading) {
@@ -214,11 +203,8 @@ export function VocabularyUI() {
             "space-y-4"
           }>
             {filteredWords.map((vocab) => {
-              // ✅ FIXED: Get topic name from multiple sources
               const topicName = vocab.topic_name || vocab.topic?.topic_name || 'Unknown';
-              // ✅ FIXED: Use audio_path (null) or audio_path || null
               const audioPath = vocab.audio_path || null;
-              // ✅ FIXED: Use is_learned with default false
               const isLearned = vocab.is_learned || false;
               
               return (
@@ -230,10 +216,11 @@ export function VocabularyUI() {
                           <div className="flex-1">
                             <CardTitle className="flex items-center gap-2 text-xl">
                               {vocab.word}
-                              <LoudspeakerButton 
+                              {/* ✅ FIX 2: Truyền vocabId và className thay vì word/size */}
+                              <LoudSpeakerButton 
+                                vocabId={vocab.vocab_id}
                                 audioPath={audioPath}
-                                word={vocab.word}
-                                size="sm"
+                                className="h-8 w-8"
                               />
                             </CardTitle>
                             <p className="text-sm text-gray-500 mt-1">{vocab.ipa || ''}</p>
@@ -244,10 +231,11 @@ export function VocabularyUI() {
                               isBookmarked={isLearned}
                               onToggle={handleBookmarkToggle}
                             />
+                            {/* ✅ FIX 3: Đổi onResult thành onRecordingComplete */}
                             <MicroRecordingButton
                               vocabId={vocab.vocab_id}
                               targetWord={vocab.word}
-                              onResult={handlePronunciationResult}
+                              onRecordingComplete={handlePronunciationResult} 
                             />
                           </div>
                         </div>
@@ -280,10 +268,11 @@ export function VocabularyUI() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="font-semibold text-lg">{vocab.word}</h3>
-                          <LoudspeakerButton 
+                          {/* ✅ FIX 2: Truyền đúng props cho view list */}
+                          <LoudSpeakerButton 
+                            vocabId={vocab.vocab_id}
                             audioPath={audioPath}
-                            word={vocab.word}
-                            size="sm"
+                            className="h-6 w-6"
                           />
                           <span className="text-sm text-gray-500">{vocab.ipa || ''}</span>
                           <Badge className={getDifficultyColor(vocab.difficulty_level)} variant="secondary">
@@ -303,10 +292,11 @@ export function VocabularyUI() {
                           isBookmarked={isLearned}
                           onToggle={handleBookmarkToggle}
                         />
+                        {/* ✅ FIX 3: Đổi onResult thành onRecordingComplete */}
                         <MicroRecordingButton
                           vocabId={vocab.vocab_id}
                           targetWord={vocab.word}
-                          onResult={handlePronunciationResult}
+                          onRecordingComplete={handlePronunciationResult}
                         />
                       </div>
                     </div>

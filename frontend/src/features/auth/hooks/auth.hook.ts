@@ -5,7 +5,7 @@ import { authService } from '../services/auth.service';
 import { LoginDto } from '../dtos/request/login.dto';
 import { RegisterDto } from '../dtos/request/register.dto';
 import { ResetPasswordDto } from '../dtos/request/reset-password.dto';
-import { AuthResponseDto, UserDto } from '../dtos/response/auth-response.dto';
+import { UserDto } from '../dtos/response/auth-response.dto';
 import { authStorage, userStorage } from '@/lib/utils/local-storage';
 import { toast } from '@/lib/utils/toast';
 
@@ -42,6 +42,7 @@ export function useAuth() {
     try {
       const response = await authService.login(dto);
       
+      // ✅ FIX: Lưu data nhưng trả về nguyên object response
       if (response.success && response.data) {
         const { accessToken, user } = response.data;
         
@@ -50,11 +51,12 @@ export function useAuth() {
         
         setUser(user);
         toast.success('Login successful!');
-        
-        return response.data;
       } else {
+        // Nếu server trả về success: false
         throw new Error(response.message || 'Login failed');
       }
+
+      return response; // 👈 Quan trọng: Trả về ServerResponseModel
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Login failed';
       setError(message);
@@ -74,12 +76,13 @@ export function useAuth() {
     try {
       const response = await authService.register(dto);
       
-      if (response.success && response.data) {
+      if (response.success) {
         toast.success('Registration successful! Please login.');
-        return response.data;
       } else {
         throw new Error(response.message || 'Registration failed');
       }
+
+      return response; // 👈 Quan trọng
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Registration failed';
       setError(message);
@@ -91,7 +94,7 @@ export function useAuth() {
   }, []);
 
   /**
-   * ✅ NEW: Request password reset email
+   * Request password reset email
    */
   const forgotPassword = useCallback(async (email: string) => {
     setIsLoading(true);
@@ -101,10 +104,11 @@ export function useAuth() {
       
       if (response.success) {
         toast.success('Reset email sent! Please check your inbox.');
-        return response.data;
       } else {
         throw new Error(response.message || 'Failed to send reset email');
       }
+
+      return response; // 👈 Quan trọng
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to send reset email';
       setError(message);
@@ -116,7 +120,7 @@ export function useAuth() {
   }, []);
 
   /**
-   * ✅ NEW: Reset password with token
+   * Reset password with token
    */
   const resetPassword = useCallback(async (dto: ResetPasswordDto) => {
     setIsLoading(true);
@@ -126,10 +130,11 @@ export function useAuth() {
       
       if (response.success) {
         toast.success('Password reset successfully!');
-        return response.data;
       } else {
         throw new Error(response.message || 'Password reset failed');
       }
+
+      return response; // 👈 Quan trọng
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Password reset failed';
       setError(message);
@@ -173,10 +178,11 @@ export function useAuth() {
       if (response.success && response.data) {
         setUser(response.data);
         userStorage.setUser(response.data);
-        return response.data;
       } else {
         throw new Error(response.message || 'Failed to fetch user identity');
       }
+
+      return response; // 👈 Quan trọng
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch identity';
       setError(message);
@@ -211,8 +217,8 @@ export function useAuth() {
     error,
     login,
     register,
-    forgotPassword, // ✅ NEW
-    resetPassword,  // ✅ NEW
+    forgotPassword,
+    resetPassword,
     logout,
     fetchIdentity,
     isAuthenticated,

@@ -11,8 +11,10 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   return (
+    // ✅ Không truyền params role -> Cho phép mọi user đã login
     <Authenticated>
       <div className="min-h-screen bg-gray-50">
+        {/* ✅ Dùng chung Sidebar với Admin (Sidebar cần thông minh để highlight đúng tab) */}
         <NavigationSidebar />
         <Suspense 
           fallback={

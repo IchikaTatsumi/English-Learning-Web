@@ -3,17 +3,17 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function RootPage() {
+export default function MainRootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to dashboard/home
-    router.push('/dashboard/home');
+    // ✅ Redirect to correct user home
+    router.push('/main/home');
   }, [router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p>Redirecting...</p>
+      <div className="animate-pulse text-gray-500">Redirecting to Home...</div>
     </div>
   );
 }

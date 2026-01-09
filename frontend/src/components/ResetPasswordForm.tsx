@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useForm } from "react-hook-form"
+import { useForm, ControllerRenderProps } from "react-hook-form" // ✅ Import ControllerRenderProps
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -25,9 +25,11 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { toast } from "@/lib/utils/toast"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle } from "lucide-react"
+
+// 👇 SỬ DỤNG HOOK USEAUTH (Thay vì fetch trực tiếp)
+import { useAuth } from "@/features/auth"
 
 // ============================================
 // STEP 1: Request reset password email
@@ -64,109 +66,62 @@ export function ResetPasswordForm({
   const searchParams = useSearchParams()
   const token = searchParams?.get("token")
 
-  const [isLoading, setIsLoading] = React.useState(false)
+  // ✅ Lấy các hàm từ useAuth (đã được fix ở bước trước)
+  const { forgotPassword, resetPassword, isLoading } = useAuth()
+
   const [emailSent, setEmailSent] = React.useState(false)
   const [resetSuccess, setResetSuccess] = React.useState(false)
 
-  // Form for requesting reset email
+  // Form 1: Request Email
   const requestForm = useForm<RequestResetFormValues>({
     resolver: zodResolver(requestResetSchema),
-    defaultValues: {
-      email: "",
-    },
+    defaultValues: { email: "" },
   })
 
-  // Form for resetting password with token
+  // Form 2: Reset Password
   const resetForm = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
-    defaultValues: {
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { password: "", confirmPassword: "" },
   })
 
-  // ============================================
-  // Handle request reset password email
-  // ============================================
+  // 🔵 XỬ LÝ BƯỚC 1: Gửi yêu cầu reset
   const onRequestReset = async (data: RequestResetFormValues) => {
-    setIsLoading(true)
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api'}/auth/forgot-password`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email: data.email }),
-        }
-      )
-
-      const result = await response.json()
-
-      if (response.ok) {
+      // Gọi qua Hook thay vì fetch thủ công
+      const res = await forgotPassword(data.email)
+      if (res?.success) {
         setEmailSent(true)
-        toast.success('Reset password email sent! Please check your inbox.')
-      } else {
-        toast.error(result.message || 'Failed to send reset email')
       }
     } catch (error) {
-      console.error('Reset password request error:', error)
-      toast.error('An error occurred. Please try again.')
-    } finally {
-      setIsLoading(false)
+      console.error("Request failed", error)
     }
   }
 
-  // ============================================
-  // Handle reset password with token
-  // ============================================
+  // 🔵 XỬ LÝ BƯỚC 2: Đổi mật khẩu mới
   const onResetPassword = async (data: ResetPasswordFormValues) => {
-    if (!token) {
-      toast.error('Invalid reset token')
-      return
-    }
+    if (!token) return
 
-    setIsLoading(true)
     try {
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api'}/auth/reset-password`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            token,
-            newPassword: data.password,
-          }),
-        }
-      )
-
-      const result = await response.json()
-
-      if (response.ok) {
+      // Gọi qua Hook thay vì fetch thủ công
+      const res = await resetPassword({
+        token,
+        newPassword: data.password,
+      })
+      
+      if (res?.success) {
         setResetSuccess(true)
-        toast.success('Password reset successfully!')
-        
-        // Redirect to login after 2 seconds
-        setTimeout(() => {
-          router.push('/login')
-        }, 2000)
-      } else {
-        toast.error(result.message || 'Failed to reset password')
+        setTimeout(() => router.push("/login"), 3000)
       }
     } catch (error) {
-      console.error('Reset password error:', error)
-      toast.error('An error occurred. Please try again.')
-    } finally {
-      setIsLoading(false)
+      console.error("Reset failed", error)
     }
   }
 
-  // ============================================
-  // Render: Success state
-  // ============================================
+  // --------------------------------------------------------
+  // UI RENDER LOGIC
+  // --------------------------------------------------------
+
+  // 1. Màn hình báo thành công
   if (resetSuccess) {
     return (
       <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -177,7 +132,7 @@ export function ResetPasswordForm({
             </div>
             <CardTitle>Password Reset Successful!</CardTitle>
             <CardDescription>
-              Your password has been reset successfully. Redirecting to login...
+              Your password has been reset. Redirecting to login...
             </CardDescription>
           </CardHeader>
         </Card>
@@ -185,9 +140,7 @@ export function ResetPasswordForm({
     )
   }
 
-  // ============================================
-  // Render: Email sent confirmation
-  // ============================================
+  // 2. Màn hình báo đã gửi Email (khi chưa có token)
   if (emailSent && !token) {
     return (
       <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -195,16 +148,16 @@ export function ResetPasswordForm({
           <CardHeader>
             <CardTitle>Check your email</CardTitle>
             <CardDescription>
-              We&apos;ve sent you a password reset link. Please check your email and click the link to reset your password.
+              We&apos;ve sent you a password reset link. Please check your inbox.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Alert>
               <AlertDescription>
-                Didn&apos;t receive the email? Check your spam folder or{" "}
+                Didn&apos;t receive it?{" "}
                 <button
                   onClick={() => setEmailSent(false)}
-                  className="font-medium text-primary underline-offset-4 hover:underline"
+                  className="font-medium text-primary underline hover:underline"
                 >
                   try again
                 </button>
@@ -221,20 +174,15 @@ export function ResetPasswordForm({
     )
   }
 
-  // ============================================
-  // Render: Reset password form (with token)
-  // ============================================
+  // 3. Màn hình Form đổi mật khẩu (KHI CÓ TOKEN)
   if (token) {
     return (
       <div className={cn("flex flex-col gap-6", className)} {...props}>
         <Card>
           <CardHeader>
             <CardTitle>Reset your password</CardTitle>
-            <CardDescription>
-              Enter your new password below.
-            </CardDescription>
+            <CardDescription>Enter your new password below.</CardDescription>
           </CardHeader>
-
           <CardContent>
             <Form {...resetForm}>
               <form onSubmit={resetForm.handleSubmit(onResetPassword)} className="space-y-4">
@@ -245,45 +193,28 @@ export function ResetPasswordForm({
                     <FormItem>
                       <FormLabel>New Password</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="Enter new password" 
-                          {...field} 
-                        />
+                        <Input type="password" placeholder="******" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={resetForm.control}
                   name="confirmPassword"
                   render={({ field }: { field: ControllerRenderProps<ResetPasswordFormValues, "confirmPassword"> }) => (
                     <FormItem>
-                      <FormLabel>Confirm New Password</FormLabel>
+                      <FormLabel>Confirm Password</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="password" 
-                          placeholder="Confirm new password" 
-                          {...field} 
-                        />
+                        <Input type="password" placeholder="******" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Resetting Password...' : 'Reset Password'}
+                  {isLoading ? "Resetting..." : "Reset Password"}
                 </Button>
-
-                <p className="text-sm text-center text-muted-foreground">
-                  Remember your password?{" "}
-                  <Link href="/login" className="underline">
-                    Back to Login
-                  </Link>
-                </p>
               </form>
             </Form>
           </CardContent>
@@ -292,50 +223,38 @@ export function ResetPasswordForm({
     )
   }
 
-  // ============================================
-  // Render: Request reset email form
-  // ============================================
+  // 4. Màn hình Mặc định: Nhập Email để yêu cầu reset
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <Card>
         <CardHeader>
           <CardTitle>Forgot your password?</CardTitle>
-          <CardDescription>
-            Enter your email address and we&apos;ll send you a link to reset your password.
-          </CardDescription>
+          <CardDescription>Enter your email to receive a reset link.</CardDescription>
         </CardHeader>
-
         <CardContent>
           <Form {...requestForm}>
             <form onSubmit={requestForm.handleSubmit(onRequestReset)} className="space-y-4">
               <FormField
                 control={requestForm.control}
                 name="email"
-                render={({ field }) => (
+                render={({ field }: { field: ControllerRenderProps<RequestResetFormValues, "email"> }) => (
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="Enter your email" 
-                        {...field} 
-                      />
+                      <Input placeholder="name@example.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Sending...' : 'Send Reset Link'}
+                {isLoading ? "Sending..." : "Send Reset Link"}
               </Button>
-
-              <p className="text-sm text-center text-muted-foreground">
-                Remember your password?{" "}
-                <Link href="/login" className="underline">
+              <div className="text-center text-sm">
+                <Link href="/login" className="text-primary hover:underline">
                   Back to Login
                 </Link>
-              </p>
+              </div>
             </form>
           </Form>
         </CardContent>

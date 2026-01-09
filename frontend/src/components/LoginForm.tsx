@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 
-// ✅ Schema kiểm tra dữ liệu
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(3, "Username or email must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
@@ -51,19 +50,22 @@ export function LoginForm({
   })
 
   const onSubmit = async (data: LoginFormValues) => {
-    console.log('🔵 [LOGIN] Starting login process...');
-    
     try {
-      console.log('🔵 [LOGIN] Calling login API...');
       const result = await login({
         usernameOrEmail: data.usernameOrEmail,
         password: data.password,
       });
       
-      console.log('✅ [LOGIN] Login successful!', result);
-      console.log('✅ [LOGIN] Redirecting to /dashboard/home...');
-      
-      router.push('/dashboard/home');
+      // ✅ ĐÃ SỬA: Truy cập vào result.data.user thay vì result.user
+      if (result.success && result.data) {
+        const userRole = result.data.user.role;
+        
+        if (userRole === 'Admin') {
+          router.push('/dashboard/home');
+        } else {
+          router.push('/main/home'); 
+        }
+      }
     } catch (error) {
       console.error('❌ [LOGIN] Login error:', error);
     }
@@ -103,7 +105,6 @@ export function LoginForm({
                   <FormItem>
                     <div className="flex items-center justify-between">
                       <FormLabel>Password</FormLabel>
-                      {/* ✅ FIXED: Link to Reset Password page */}
                       <Link
                         href="/reset-password"
                         className="text-sm text-primary underline-offset-4 hover:underline"

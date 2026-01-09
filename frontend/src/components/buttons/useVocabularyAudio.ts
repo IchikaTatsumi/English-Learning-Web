@@ -19,8 +19,11 @@ export function useVocabularyAudio(vocabId: number, initialAudioPath?: string | 
     if (status.ready) return; // Already have audio
 
     try {
+      // Sửa ở đây: Dùng process.env
+      const baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
+      
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/vocabularies/${vocabId}/tts-status`
+        `${baseUrl}/vocabularies/${vocabId}/tts-status`
       );
       
       if (!response.ok) throw new Error('Failed to check audio status');

@@ -2,6 +2,8 @@ import { Role } from '@/lib/constants/enums';
 
 export interface CreateUserDTO {
   username: string;
+  email: string; // ✅ Thêm
+  fullName: string; // ✅ Thêm
   password: string;
 }
 
@@ -16,8 +18,10 @@ export interface LoginResponseDTO {
 }
 
 export interface UserDTO {
-  id: string;
+  id: string | number; // Backend có thể trả về string hoặc number
   username: string;
-  role: Role; // ✅ Using centralized Role enum
-  createdAt: string; // ISO date string
+  email: string;      // ✅ Bổ sung trường này
+  fullName: string;   // ✅ Bổ sung trường này
+  role: Role;
+  createdAt: string;
 }

@@ -12,8 +12,9 @@ interface NavigationItem {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  href: string;
-  roles?: Role[]; // ✅ Use Role enum from constants
+  href: string; // Base href suffix (e.g., '/home' instead of '/dashboard/home')
+  roles?: Role[];
+  isAdminRoute?: boolean; // Flag to indicate purely admin routes
 }
 
 const navigationItems: NavigationItem[] = [
@@ -21,46 +22,48 @@ const navigationItems: NavigationItem[] = [
     id: 'home', 
     label: 'Home', 
     icon: Home, 
-    href: '/dashboard/home' 
+    href: '/home' 
   },
   { 
     id: 'vocabulary', 
     label: 'Vocabulary', 
     icon: BookOpen, 
-    href: '/dashboard/vocabularies' 
+    href: '/vocabularies' 
   },
   { 
     id: 'quiz', 
     label: 'Quiz', 
     icon: Brain, 
-    href: '/dashboard/quiz' 
+    href: '/quiz' 
   },
   { 
     id: 'progress', 
     label: 'Progress', 
     icon: TrendingUp, 
-    href: '/dashboard/progress' 
+    href: '/progress' 
   },
   { 
     id: 'learned', 
     label: 'Learned', 
     icon: GraduationCap, 
-    href: '/dashboard/learned' 
+    href: '/learned' 
   },
   // Admin only sections
   { 
     id: 'users', 
     label: 'User Management', 
     icon: Users, 
-    href: '/dashboard/usermanagement',
-    roles: [Role.ADMIN] // ✅ Use Role.ADMIN from enum
+    href: '/usermanagement',
+    roles: [Role.ADMIN],
+    isAdminRoute: true
   },
   { 
     id: 'topics', 
     label: 'Topic Management', 
     icon: FolderTree, 
-    href: '/dashboard/topicmanagement',
-    roles: [Role.ADMIN] // ✅ Use Role.ADMIN from enum
+    href: '/topicmanagement',
+    roles: [Role.ADMIN],
+    isAdminRoute: true
   },
 ];
 
@@ -68,9 +71,11 @@ export function NavigationSidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   
-  // ✅ FIX: Convert user.role string to Role enum
+  // Determine role and base path
   const userRole = user?.role === 'Admin' ? Role.ADMIN : Role.USER;
+  const basePath = userRole === Role.ADMIN ? '/dashboard' : '/main';
 
+  // Filter items based on role
   const filteredItems = navigationItems.filter(item => 
     !item.roles || item.roles.includes(userRole)
   );
@@ -90,12 +95,20 @@ export function NavigationSidebar() {
         <ul className="space-y-2">
           {filteredItems.map((item) => {
             const Icon = item.icon;
-            const isActive = pathname === item.href;
+            
+            // Construct full path logic
+            // Admin specific routes (users, topics) are always in /dashboard
+            // Shared routes (home, quiz) depend on the user role (dashboard/home vs main/home)
+            const fullPath = item.isAdminRoute 
+              ? `/dashboard${item.href}`
+              : `${basePath}${item.href}`;
+
+            const isActive = pathname === fullPath;
             
             return (
               <li key={item.id}>
                 <Link
-                  href={item.href}
+                  href={fullPath}
                   className={cn(
                     "flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors",
                     isActive 
@@ -115,7 +128,7 @@ export function NavigationSidebar() {
       {/* Profile Section */}
       <div className="border-t border-gray-200 p-4">
         <ProfileDropdown onProfileClick={() => {
-          window.location.href = '/dashboard/profile';
+          window.location.href = `${basePath}/profile`;
         }} />
       </div>
     </div>

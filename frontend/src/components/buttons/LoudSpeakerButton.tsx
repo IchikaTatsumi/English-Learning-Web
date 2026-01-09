@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { useVocabularyAudio } from './useVocabularyAudio'; // 👈 ĐÃ THÊM IMPORT NÀY
 
 interface LoudSpeakerButtonProps {
   vocabId: number;
@@ -15,7 +16,6 @@ export function LoudSpeakerButton({
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
-  // Use custom hook to track audio status
   const { ready, loading, error, audioPath } = useVocabularyAudio(
     vocabId, 
     initialAudioPath
@@ -25,7 +25,6 @@ export function LoudSpeakerButton({
     if (!audioPath) return;
 
     try {
-      // Create or reuse audio element
       if (!audioRef.current) {
         audioRef.current = new Audio(audioPath);
         audioRef.current.onended = () => setIsPlaying(false);
@@ -51,7 +50,6 @@ export function LoudSpeakerButton({
     }
   };
 
-  // Cleanup on unmount
   React.useEffect(() => {
     return () => {
       if (audioRef.current) {
@@ -61,7 +59,6 @@ export function LoudSpeakerButton({
     };
   }, []);
 
-  // Loading state
   if (loading) {
     return (
       <button
@@ -74,7 +71,6 @@ export function LoudSpeakerButton({
     );
   }
 
-  // Error state
   if (error) {
     return (
       <button
@@ -88,7 +84,6 @@ export function LoudSpeakerButton({
     );
   }
 
-  // Ready state
   return (
     <button
       onClick={isPlaying ? stopAudio : playAudio}

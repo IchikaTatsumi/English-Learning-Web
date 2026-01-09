@@ -10,4 +10,4 @@ export * from './hooks/admin.hook';
 // Export Components (optional)
 export { NavigationSidebar } from './components/NavigationSidebar';
 export { TopicManagement } from './components/TopicManagement';
-export { UserManagement } from './components/UserMangement';
+export { UserManagement } from './components/UserManagement';

@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, Square, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { authStorage } from '@/lib/utils/local-storage';
 
 interface MicroRecordingButtonProps {
   vocabId: number;
@@ -8,7 +9,8 @@ interface MicroRecordingButtonProps {
   className?: string;
 }
 
-interface RecognitionResult {
+// 👇 ĐÃ SỬA: Thêm chữ 'export' vào dòng này
+export interface RecognitionResult {
   recognizedText: string;
   isCorrect: boolean;
   confidence: number;
@@ -33,7 +35,6 @@ export function MicroRecordingButton({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
 
-  // Start recording
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -65,7 +66,6 @@ export function MicroRecordingButton({
     }
   };
 
-  // Stop recording
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
@@ -73,22 +73,22 @@ export function MicroRecordingButton({
     }
   };
 
-  // Process audio with STT
   const processAudio = async (audioBlob: Blob) => {
     setIsProcessing(true);
 
     try {
-      // Convert blob to base64
       const base64Audio = await blobToBase64(audioBlob);
+      const token = authStorage.getAccessToken(); 
 
-      // Send to backend
+      const baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
+
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/vocabulary-practice/submit`,
+        `${baseUrl}/vocabulary-practice/submit`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
             vocabId,
@@ -111,8 +111,6 @@ export function MicroRecordingButton({
 
       const data = await response.json();
       
-      // Extract STT result from response
-      // (Backend should return recognition result)
       const recognitionResult: RecognitionResult = {
         recognizedText: data.recognizedText || '',
         isCorrect: data.isCorrect || false,
@@ -135,17 +133,18 @@ export function MicroRecordingButton({
     }
   };
 
-  // Helper: Convert blob to base64
   const blobToBase64 = (blob: Blob): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]); 
+      };
       reader.onerror = reject;
       reader.readAsDataURL(blob);
     });
   };
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (mediaRecorderRef.current && isRecording) {
@@ -154,7 +153,6 @@ export function MicroRecordingButton({
     };
   }, [isRecording]);
 
-  // Processing state
   if (isProcessing) {
     return (
       <button
@@ -167,7 +165,6 @@ export function MicroRecordingButton({
     );
   }
 
-  // Result state
   if (result) {
     return (
       <div className={`flex items-center gap-3 ${className}`}>
@@ -202,7 +199,6 @@ export function MicroRecordingButton({
     );
   }
 
-  // Recording state
   return (
     <button
       onClick={isRecording ? stopRecording : startRecording}

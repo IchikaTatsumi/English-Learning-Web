@@ -12,8 +12,10 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
+    // ✅ Kiểm tra đúng quyền ADMIN
     <Authenticated params={{ role: Role.ADMIN }}>
       <div className="min-h-screen bg-gray-50">
+        {/* ✅ Sidebar này cần logic tự đổi link Admin/User như tôi đã gửi ở câu trả lời trước */}
         <NavigationSidebar />
         <Suspense 
           fallback={

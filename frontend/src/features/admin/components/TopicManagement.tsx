@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Edit, Trash2 } from 'lucide-react';
+import { Search, Edit, Trash2, Loader2, RefreshCw } from 'lucide-react';
 import { AddButton } from '@/components/buttons/AddButton';
+// ✅ Import Hook Topics
 import { useTopics } from '@/features/topics/hooks/topic.hook';
 import {
   Table,
@@ -16,28 +17,37 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { toast } from '@/lib/utils/toast';
 
 export function TopicManagement() {
   const [searchTerm, setSearchTerm] = useState('');
-  const { topics, fetchTopics, isLoading } = useTopics();
+  
+  // ✅ 1. Lấy dữ liệu và hàm xóa từ hook
+  const { topics, fetchTopics, deleteTopic, isLoading } = useTopics();
 
   useEffect(() => {
     fetchTopics();
   }, [fetchTopics]);
 
   const handleAddTopic = () => {
-    console.log('Add topic');
-    // TODO: Open dialog to add topic
+    toast.info("Add Topic modal coming soon");
   };
 
   const handleEditTopic = (topicId: number) => {
-    console.log('Edit topic:', topicId);
-    // TODO: Open dialog to edit topic
+    toast.info(`Edit Topic ${topicId} modal coming soon`);
   };
 
-  const handleDeleteTopic = (topicId: number) => {
-    console.log('Delete topic:', topicId);
-    // TODO: Confirm and delete topic
+  // ✅ 2. Hàm xóa Topic thực tế
+  const handleDeleteTopic = async (topicId: number) => {
+    if (confirm('Delete this topic? All related vocabularies will also be deleted.')) {
+      try {
+        await deleteTopic(topicId);
+        toast.success("Topic deleted successfully");
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to delete topic");
+      }
+    }
   };
 
   const filteredTopics = topics.filter(topic =>
@@ -47,16 +57,19 @@ export function TopicManagement() {
 
   return (
     <div className="p-8 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-2">Topic Management</h1>
           <p className="text-gray-600">Manage vocabulary topics and categories</p>
         </div>
-        <AddButton onClick={handleAddTopic} label="Add Topic" />
+        <div className="flex gap-2">
+           <Button variant="outline" onClick={() => fetchTopics()} disabled={isLoading}>
+             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
+           </Button>
+           <AddButton onClick={handleAddTopic} label="Add Topic" />
+        </div>
       </div>
 
-      {/* Search */}
       <Card>
         <CardContent className="p-4">
           <div className="relative">
@@ -71,50 +84,51 @@ export function TopicManagement() {
         </CardContent>
       </Card>
 
-      {/* Topics Table */}
       <Card>
         <CardHeader>
           <CardTitle>Topics ({filteredTopics.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading...</div>
+          {isLoading && topics.length === 0 ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID</TableHead>
                   <TableHead>Topic Name</TableHead>
                   <TableHead>Description</TableHead>
-                  <TableHead>Total Words</TableHead>
+                  <TableHead>Vocabularies</TableHead>
+                  <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTopics.map((topic) => (
                   <TableRow key={topic.topic_id}>
-                    <TableCell>{topic.topic_id}</TableCell>
                     <TableCell className="font-medium">{topic.topic_name}</TableCell>
-                    <TableCell className="max-w-md truncate">
-                      {topic.description || 'No description'}
+                    <TableCell className="max-w-md truncate text-gray-500">
+                      {topic.description || '—'}
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{topic.vocab_count || 0} words</Badge>
                     </TableCell>
+                    <TableCell>{new Date(topic.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button
                           variant="ghost"
-                          size="sm"
+                          size="icon"
                           onClick={() => handleEditTopic(topic.topic_id)}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-4 w-4 text-gray-500" />
                         </Button>
                         <Button
                           variant="ghost"
-                          size="sm"
+                          size="icon"
                           onClick={() => handleDeleteTopic(topic.topic_id)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -128,7 +142,7 @@ export function TopicManagement() {
 
           {!isLoading && filteredTopics.length === 0 && (
             <div className="text-center py-8 text-gray-500">
-              No topics found matching your search.
+              No topics found.
             </div>
           )}
         </CardContent>

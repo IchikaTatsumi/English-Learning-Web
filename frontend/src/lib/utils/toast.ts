@@ -1,16 +1,16 @@
 // frontend/src/lib/utils/toast.ts
+import hotToast, { ToastOptions as HotToastOptions } from 'react-hot-toast';
 
 /**
  * Toast notification utility
- * Simple wrapper that can be replaced with any toast library
- * (e.g., react-hot-toast, sonner, etc.)
+ * Wrapper for react-hot-toast
  */
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
 interface ToastOptions {
   duration?: number;
-  position?: 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | 'top-center' | 'bottom-center';
+  position?: HotToastOptions['position'];
 }
 
 class ToastManager {
@@ -18,65 +18,47 @@ class ToastManager {
    * Show success toast
    */
   success(message: string, options?: ToastOptions) {
-    this.show(message, 'success', options);
+    hotToast.success(message, {
+      duration: options?.duration,
+      position: options?.position,
+    });
   }
 
   /**
    * Show error toast
    */
   error(message: string, options?: ToastOptions) {
-    this.show(message, 'error', options);
+    hotToast.error(message, {
+      duration: options?.duration,
+      position: options?.position,
+    });
   }
 
   /**
-   * Show warning toast
+   * Show warning toast (Custom icon)
    */
   warning(message: string, options?: ToastOptions) {
-    this.show(message, 'warning', options);
+    hotToast(message, {
+      icon: '⚠️',
+      duration: options?.duration,
+      position: options?.position,
+    });
   }
 
   /**
-   * Show info toast
+   * Show info toast (Custom icon)
    */
   info(message: string, options?: ToastOptions) {
-    this.show(message, 'info', options);
-  }
-
-  /**
-   * Show toast (internal method)
-   * TODO: Replace with actual toast library implementation
-   */
-  private show(message: string, type: ToastType, options?: ToastOptions) {
-    // For now, use console and alert
-    // Replace this with your preferred toast library
-    
-    const icon = {
-      success: '✅',
-      error: '❌',
-      warning: '⚠️',
-      info: 'ℹ️',
-    }[type];
-
-    console.log(`${icon} ${type.toUpperCase()}: ${message}`);
-
-    // In development, show alert
-    if (process.env.NODE_ENV === 'development') {
-      // Don't block with alerts in production
-      // window.alert(`${icon} ${message}`);
-    }
-
-    // TODO: Replace with actual toast implementation
-    // Example with react-hot-toast:
-    // import toast from 'react-hot-toast';
-    // toast[type](message, { duration: options?.duration || 3000 });
-    
-    // Example with sonner:
-    // import { toast } from 'sonner';
-    // toast[type](message);
+    hotToast(message, {
+      icon: 'ℹ️',
+      duration: options?.duration,
+      position: options?.position,
+    });
   }
 
   /**
    * Show promise-based toast
+   * Automatically handles loading, success, and error states
    */
   promise<T>(
     promise: Promise<T>,
@@ -86,23 +68,7 @@ class ToastManager {
       error: string | ((error: any) => string);
     }
   ): Promise<T> {
-    this.info(messages.loading);
-
-    return promise
-      .then((data) => {
-        const successMsg = typeof messages.success === 'function' 
-          ? messages.success(data) 
-          : messages.success;
-        this.success(successMsg);
-        return data;
-      })
-      .catch((error) => {
-        const errorMsg = typeof messages.error === 'function'
-          ? messages.error(error)
-          : messages.error;
-        this.error(errorMsg);
-        throw error;
-      });
+    return hotToast.promise(promise, messages);
   }
 }
 

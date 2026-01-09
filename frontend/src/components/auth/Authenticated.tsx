@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/features/auth/hooks/auth.hook';
 import { Role } from '@/lib/constants/enums';
 import { Spinner } from '@/components/ui/spinner';
+import { authStorage } from '@/lib/utils/local-storage'; // ✅ Import authStorage để check token
 
 interface AuthenticatedProps {
   children: React.ReactNode;
@@ -13,72 +14,75 @@ interface AuthenticatedProps {
   };
 }
 
-/**
- * Authenticated Component
- * Protects routes and checks user role
- */
 export function Authenticated({ children, params }: AuthenticatedProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isAuthenticated, isInitialized, fetchIdentity } = useAuth();
+  // ✅ Lấy thêm logout để xử lý khi token hết hạn
+  const { user, isInitialized, fetchIdentity, logout } = useAuth(); 
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
-      // Wait for auth to initialize
-      if (!isInitialized) {
-        return;
-      }
+      // 1. Chờ auth khởi tạo từ localStorage xong
+      if (!isInitialized) return;
 
-      // Check if user is authenticated
-      if (!isAuthenticated()) {
-        // Save intended destination
+      // 2. Kiểm tra Token trong Storage (Thay vì dùng isAuthenticated)
+      const token = authStorage.getAccessToken();
+
+      if (!token) {
+        // Không có token -> Đá về login
         const returnUrl = encodeURIComponent(pathname);
         router.push(`/login?returnUrl=${returnUrl}`);
         return;
       }
 
-      // Fetch user identity if not available
+      // 3. Có token nhưng chưa có User (VD: Reload trang) -> Fetch API
       if (!user) {
         try {
           await fetchIdentity();
+          // Sau khi fetch xong, code sẽ chạy lại useEffect do dependency [user] thay đổi
+          // nên ta return để vòng lặp sau xử lý tiếp logic phân quyền
+          return; 
         } catch (error) {
-          console.error('Failed to fetch identity:', error);
+          console.error('Session expired or invalid:', error);
+          await logout(); // Xóa token rác
           router.push('/login');
           return;
         }
       }
 
-      // Check role if specified
+      // 4. Đã có User -> Kiểm tra quyền (Role)
       if (params?.role && user) {
         const hasRequiredRole = user.role === params.role;
         
         if (!hasRequiredRole) {
-          // User doesn't have required role → redirect
+          // Điều hướng dựa trên role hiện tại của user
           if (user.role === Role.ADMIN) {
             router.push('/dashboard/home');
           } else {
-            router.push('/dashboard/home');
+            router.push('/main/home');
           }
           return;
         }
       }
 
+      // 5. Mọi thứ ok -> Hiển thị nội dung
       setIsChecking(false);
     };
 
     checkAuth();
-  }, [isInitialized, isAuthenticated, user, params, router, pathname, fetchIdentity]);
+  }, [isInitialized, user, params, router, pathname, fetchIdentity, logout]);
 
-  // Show loading spinner while checking
   if (!isInitialized || isChecking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Spinner />
+        <div className="flex flex-col items-center gap-2">
+           <Spinner />
+           <p className="text-sm text-gray-500">Authenticating...</p>
+        </div>
       </div>
     );
   }
 
-  // Render children if authenticated and authorized
   return <>{children}</>;
 }

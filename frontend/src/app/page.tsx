@@ -7,13 +7,14 @@ export default function RootPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Redirect to dashboard/home
-    router.push('/dashboard/home');
+    // ✅ Redirect to login first. 
+    // If authenticated, login page logic or middleware should handle redirection to /main/home or /dashboard/home
+    router.push('/login');
   }, [router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p>Redirecting...</p>
+      <div className="animate-pulse text-gray-500">Loading...</div>
     </div>
   );
 }

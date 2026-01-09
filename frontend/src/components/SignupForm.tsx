@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { z } from "zod"
-import { useForm } from 'react-hook-form'
+// ✅ Import thêm ControllerRenderProps để fix lỗi 'any'
+import { useForm, ControllerRenderProps } from 'react-hook-form'
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/features/auth"
@@ -26,7 +27,6 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 
-//  Schema xác thực bằng Zod
 const signupSchema = z
   .object({
     fullName: z.string().min(1, { message: "Full name is required" }),
@@ -44,6 +44,7 @@ type SignupFormValues = z.infer<typeof signupSchema>
 
 export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
   const router = useRouter()
+  // ✅ Hook useAuth sẽ gọi API thật xuống Backend
   const { register, isLoading } = useAuth()
   
   const form = useForm<SignupFormValues>({
@@ -58,12 +59,8 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
   })
 
   const onSubmit = async (data: SignupFormValues) => {
-    console.log('🔵 [SIGNUP] Starting registration process...');
-    console.log('🔵 [SIGNUP] Data:', data);
-    
     try {
-      // ✅ Call register API
-      console.log('🔵 [SIGNUP] Calling register API...');
+      // ✅ Gọi API đăng ký thật
       await register({
         fullName: data.fullName,
         email: data.email,
@@ -71,16 +68,11 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
         password: data.password,
       });
       
-      console.log('✅ [SIGNUP] Registration successful!');
-      console.log('✅ [SIGNUP] Redirecting to /login...');
-      
-      // ✅ Redirect to login page after successful registration
+      // ✅ Chuyển hướng sau khi thành công
       router.push('/login');
-      
-      console.log('✅ [SIGNUP] Router.push called');
     } catch (error) {
-      console.error('❌ [SIGNUP] Registration error:', error);
-      // Error toast is already shown by auth hook
+      console.error('Registration error:', error);
+      // Toast lỗi đã được xử lý bên trong useAuth hook
     }
   }
 
@@ -99,13 +91,12 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
             <FormField
               control={form.control}
               name="fullName"
-              render={({ field }: any) => (
+              render={({ field }: { field: ControllerRenderProps<SignupFormValues, "fullName"> }) => (
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
                   <FormControl>
                     <Input placeholder="John Doe" {...field} />
                   </FormControl>
-                  <FormDescription>Enter your full name.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -115,13 +106,12 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
             <FormField
               control={form.control}
               name="email"
-              render={({ field }: any) => (
+              render={({ field }: { field: ControllerRenderProps<SignupFormValues, "email"> }) => (
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input type="email" placeholder="m@example.com" {...field} />
                   </FormControl>
-                  <FormDescription>We'll use this to contact you.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -131,7 +121,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
             <FormField
               control={form.control}
               name="username"
-              render={({ field }: any) => (
+              render={({ field }: { field: ControllerRenderProps<SignupFormValues, "username"> }) => (
                 <FormItem>
                   <FormLabel>Username</FormLabel>
                   <FormControl>
@@ -147,7 +137,7 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
             <FormField
               control={form.control}
               name="password"
-              render={({ field }: any) => (
+              render={({ field }: { field: ControllerRenderProps<SignupFormValues, "password"> }) => (
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
@@ -163,19 +153,17 @@ export function SignupForm({ ...props }: React.ComponentProps<typeof Card>) {
             <FormField
               control={form.control}
               name="confirmPassword"
-              render={({ field }: any) => (
+              render={({ field }: { field: ControllerRenderProps<SignupFormValues, "confirmPassword"> }) => (
                 <FormItem>
                   <FormLabel>Confirm Password</FormLabel>
                   <FormControl>
                     <Input type="password" placeholder="********" {...field} />
                   </FormControl>
-                  <FormDescription>Please confirm your password.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            {/* Submit */}
             <div className="pt-2">
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Creating Account...' : 'Create Account'}
