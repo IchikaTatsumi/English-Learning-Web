@@ -1,4 +1,3 @@
-'use client';
 
 import { Grid3X3, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';

@@ -1,6 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppController } from './app.controller'; // ✅ PHẢI CÓ DÒNG NÀY
+import { AppService } from './app.service'; // ✅ (Optional)
+
+// Import các modules khác
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/users/user.module';
 import { TopicModule } from './modules/topics/topic.module';
@@ -14,30 +18,26 @@ import { SpeechModule } from './modules/speech/speech.module';
 
 @Module({
   imports: [
-    // ✅ Config Module (must be first)
+    // Config
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
 
-    // Database Module
-    TypeOrmModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get('DB_USERNAME', 'postgres'),
-        password: configService.get('DB_PASSWORD', 'postgres'),
-        database: configService.get('DB_DATABASE', 'english_learning'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: configService.get('NODE_ENV') === 'development',
-        logging: configService.get('NODE_ENV') === 'development',
-      }),
-      inject: [ConfigService],
+    // Database
+    TypeOrmModule.forRoot({
+      type: 'postgres',
+      host: process.env.POSTGRES_HOST || 'localhost',
+      port: parseInt(process.env.POSTGRES_PORT) || 5432,
+      username: process.env.POSTGRES_USER || 'postgres',
+      password: process.env.POSTGRES_PASSWORD || 'postgres',
+      database: process.env.POSTGRES_DB || 'english_learning',
+      entities: [__dirname + '/**/*.entity{.ts,.js}'],
+      synchronize: process.env.NODE_ENV !== 'production', // ⚠️ Chỉ dùng dev
+      logging: process.env.NODE_ENV === 'development',
     }),
 
-    // Application Modules
+    // Feature Modules
     AuthModule,
     UserModule,
     TopicModule,
@@ -49,5 +49,7 @@ import { SpeechModule } from './modules/speech/speech.module';
     VocabularyProgressModule,
     SpeechModule,
   ],
+  controllers: [AppController], // ✅ PHẢI CÓ DÒNG NÀY
+  providers: [], // AppService nếu có
 })
 export class AppModule {}

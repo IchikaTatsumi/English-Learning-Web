@@ -5,62 +5,71 @@ import { ResetPasswordDto } from '../dtos/request/reset-password.dto';
 import { AuthResponseDto, UserDto } from '../dtos/response/auth-response.dto';
 import { ServerResponseModel } from '@/lib/typedefs/server-response';
 import { authStorage, userStorage } from '@/lib/utils/local-storage';
+import { setAuthToken, removeAuthToken } from '@/lib/cookie/cookie'; // ✅ Import Cookie Helper
 
 export class AuthService {
-  /**
-   * User login
-   * POST /auth/login
-   */
   async login(dto: LoginDto): Promise<ServerResponseModel<AuthResponseDto>> {
+    console.log("🚀 [AuthService] Sending login request...");
+    
     const response = await apiClient.post<AuthResponseDto>('/auth/login', dto, {
       cache: false,
     });
     
-    if (response.success && response.data) {
-      authStorage.setAccessToken(response.data.accessToken);
-      userStorage.setUser(response.data.user);
+    if (response.success) {
+      const data = response.data as any;
+
+      // 1. Tìm Token (Logic tìm kiếm thông minh)
+      let token = data?.accessToken || data?.access_token || data?.token;
+      if (!token && data?.data) {
+         token = data.data.accessToken || data.data.access_token || data.data.token;
+      }
+
+      // 2. Tìm User
+      let user = data?.user;
+      if (!user && data?.data?.user) {
+          user = data.data.user;
+      }
+
+      if (token) {
+        console.log("✅ [AuthService] Token found, saving to Storage & Cookie...");
+        
+        // A. Lưu LocalStorage (để gọi API từ Client)
+        authStorage.setAccessToken(token);
+        
+        // B. ✅ QUAN TRỌNG: Lưu Cookie (để Middleware cho qua)
+        setAuthToken(token);
+        
+        if (user) {
+          userStorage.setUser(user);
+        }
+      } else {
+        console.error("❌ Login success but NO TOKEN found!");
+      }
     }
     
     return response;
   }
 
-  /**
-   * User registration
-   * POST /auth/register
-   */
+  // ... Các hàm register, forgotPassword, resetPassword giữ nguyên ...
   async register(dto: RegisterDto): Promise<ServerResponseModel<UserDto>> {
-    return apiClient.post('/auth/register', dto, {
-      cache: false,
-    });
+    return apiClient.post('/auth/register', dto, { cache: false });
   }
 
-  /**
-   * ✅ NEW: Request password reset email
-   * POST /auth/forgot-password
-   * Backend: AuthController.forgotPassword()
-   */
   async forgotPassword(email: string): Promise<ServerResponseModel<{ message: string }>> {
-    return apiClient.post('/auth/forgot-password', { email }, {
-      cache: false,
-    });
+    return apiClient.post('/auth/forgot-password', { email }, { cache: false });
   }
 
-  /**
-   * ✅ UPDATED: Reset password with token
-   * POST /auth/reset-password
-   * Backend: AuthController.resetPassword()
-   */
   async resetPassword(dto: ResetPasswordDto): Promise<ServerResponseModel<{ message: string }>> {
-    return apiClient.post('/auth/reset-password', dto, {
-      cache: false,
-    });
+    return apiClient.post('/auth/reset-password', dto, { cache: false });
   }
 
-  /**
-   * Logout user
-   */
   async logout(): Promise<ServerResponseModel<void>> {
+    console.log("🚪 Logging out...");
+    
+    // Xóa sạch cả 2 nơi
     authStorage.clearAuth();
+    removeAuthToken(); // ✅ Xóa cookie
+    
     apiClient.invalidateCache();
     
     return {
@@ -69,10 +78,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Get current user identity
-   * GET /users/me
-   */
   async getIdentity(): Promise<ServerResponseModel<UserDto>> {
     return apiClient.get('/users/me', {
       cache: true,
@@ -80,44 +85,25 @@ export class AuthService {
     });
   }
 
-  /**
-   * Check authentication status
-   */
   async check(params?: { role?: string }): Promise<ServerResponseModel<boolean>> {
     const token = authStorage.getAccessToken();
-    
-    if (!token) {
-      return {
-        success: false,
-        statusCode: 401,
-        message: 'Not authenticated'
-      };
-    }
+    if (!token) return { success: false, statusCode: 401, message: 'Not authenticated' };
 
     const response = await this.getIdentity();
-    
     if (!response.success) {
-      return {
-        success: false,
-        statusCode: 401,
-        message: 'Invalid token'
-      };
+      authStorage.clearAuth();
+      removeAuthToken(); // ✅ Xóa cookie nếu token hết hạn
+      return { success: false, statusCode: 401, message: 'Invalid token' };
     }
 
     if (params?.role && response.data) {
-      const hasRole = response.data.role === params.role;
-      return {
-        success: hasRole,
-        statusCode: hasRole ? 200 : 403,
-        data: hasRole
-      };
+      const userData = response.data as any;
+      const userRole = userData.role || userData.role_id;
+      const hasRole = String(userRole) === String(params.role);
+      return { success: hasRole, statusCode: hasRole ? 200 : 403, data: hasRole };
     }
 
-    return {
-      success: true,
-      statusCode: 200,
-      data: true
-    };
+    return { success: true, statusCode: 200, data: true };
   }
 }
 

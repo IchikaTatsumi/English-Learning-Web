@@ -4,8 +4,8 @@ import * as React from "react"
 import { useForm, ControllerRenderProps } from "react-hook-form"
 import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useRouter } from "next/navigation"
-import { useAuth } from "@/features/auth"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useAuth } from "@/features/auth" // Đảm bảo import đúng hook
 import Link from "next/link"
 
 import { cn } from "@/lib/utils"
@@ -26,6 +26,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Role } from "@/lib/constants/enums" // Enum Role nếu có
 
 const loginSchema = z.object({
   usernameOrEmail: z.string().min(3, "Username or email must be at least 3 characters"),
@@ -39,6 +40,7 @@ export function LoginForm({
   ...props
 }: React.ComponentProps<"div">) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { login, isLoading } = useAuth()
   
   const form = useForm<LoginFormValues>({
@@ -51,23 +53,39 @@ export function LoginForm({
 
   const onSubmit = async (data: LoginFormValues) => {
     try {
+      console.log("🚀 Submitting Login...");
       const result = await login({
         usernameOrEmail: data.usernameOrEmail,
         password: data.password,
       });
       
-      // ✅ ĐÃ SỬA: Truy cập vào result.data.user thay vì result.user
+      // Hook login thường trả về kết quả sau khi đã gọi service
+      // Nếu service đã lưu token, ở đây chỉ cần điều hướng
       if (result.success && result.data) {
-        const userRole = result.data.user.role;
+        console.log("✅ Login success, redirecting...");
         
-        if (userRole === 'Admin') {
-          router.push('/dashboard/home');
+        // Hỗ trợ check role linh hoạt
+        const userData = result.data.user as any;
+        const userRole = userData.role || userData.role_id;
+        
+        const returnUrl = searchParams?.get('returnUrl');
+        
+        if (returnUrl) {
+          router.push(decodeURIComponent(returnUrl));
         } else {
-          router.push('/main/home'); 
+          // Điều hướng mặc định dựa trên Role
+          // Đảm bảo so sánh string/enum chuẩn xác
+          if (String(userRole).toLowerCase() === 'admin') {
+            router.push('/dashboard/home');
+          } else {
+            router.push('/main/home');
+          }
         }
+      } else {
+        console.warn("⚠️ Login returned success=false", result);
       }
     } catch (error) {
-      console.error('❌ [LOGIN] Login error:', error);
+      console.error('❌ [LOGIN FORM] Error:', error);
     }
   }
 

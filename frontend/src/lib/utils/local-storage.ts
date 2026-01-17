@@ -2,20 +2,34 @@
 
 /**
  * Type-safe localStorage wrapper
- * Handles JSON serialization/deserialization
+ * Handles JSON serialization/deserialization safely
  */
-
 class LocalStorage {
   /**
    * Get item from localStorage
+   * ✅ FIX: Chặn chuỗi "undefined" và xử lý lỗi parse JSON
    */
   get<T>(key: string): T | null {
     if (typeof window === 'undefined') return null;
 
     try {
       const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
+
+      // 1. Nếu không có item hoặc item là chuỗi rác "undefined"/"null" -> trả về null
+      if (!item || item === 'undefined' || item === 'null') {
+        return null;
+      }
+
+      // 2. Thử parse JSON
+      return JSON.parse(item);
     } catch (error) {
+      // 3. Fallback: Nếu item là raw string (ví dụ token cũ) mà không phải JSON
+      // thì trả về nguyên gốc để không làm gián đoạn app.
+      const rawItem = window.localStorage.getItem(key);
+      if (rawItem && rawItem !== 'undefined') {
+        return rawItem as unknown as T;
+      }
+      
       console.error(`Error getting localStorage item "${key}":`, error);
       return null;
     }
@@ -23,12 +37,23 @@ class LocalStorage {
 
   /**
    * Set item in localStorage
+   * ✅ FIX: Ngăn chặn việc lưu giá trị undefined/null
    */
   set<T>(key: string, value: T): void {
     if (typeof window === 'undefined') return;
 
+    // 1. Chặn tuyệt đối việc lưu undefined hoặc null
+    if (value === undefined || value === null) {
+      console.warn(`⚠️ [LocalStorage] Attempted to store undefined/null in "${key}". Ignoring.`);
+      // Tùy chọn: Xóa key cũ nếu giá trị mới là null
+      this.remove(key); 
+      return;
+    }
+
     try {
-      window.localStorage.setItem(key, JSON.stringify(value));
+      // 2. Stringify an toàn
+      const valueToStore = typeof value === 'string' ? value : JSON.stringify(value);
+      window.localStorage.setItem(key, valueToStore);
     } catch (error) {
       console.error(`Error setting localStorage item "${key}":`, error);
     }
@@ -39,7 +64,6 @@ class LocalStorage {
    */
   remove(key: string): void {
     if (typeof window === 'undefined') return;
-
     try {
       window.localStorage.removeItem(key);
     } catch (error) {
@@ -52,7 +76,6 @@ class LocalStorage {
    */
   clear(): void {
     if (typeof window === 'undefined') return;
-
     try {
       window.localStorage.clear();
     } catch (error) {
@@ -60,17 +83,11 @@ class LocalStorage {
     }
   }
 
-  /**
-   * Check if key exists
-   */
   has(key: string): boolean {
     if (typeof window === 'undefined') return false;
     return window.localStorage.getItem(key) !== null;
   }
 
-  /**
-   * Get all keys
-   */
   keys(): string[] {
     if (typeof window === 'undefined') return [];
     return Object.keys(window.localStorage);
@@ -94,7 +111,6 @@ export const STORAGE_KEYS = {
 /**
  * Type-safe getters/setters for common storage items
  */
-
 export const authStorage = {
   getAccessToken: () => localStorage.get<string>(STORAGE_KEYS.ACCESS_TOKEN),
   setAccessToken: (token: string) => localStorage.set(STORAGE_KEYS.ACCESS_TOKEN, token),
