@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   HttpCode,
   HttpStatus,
+  NotFoundException, // ✅ Đã thêm import
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -68,6 +69,12 @@ export class QuizQuestionController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<QuizQuestionResponseDto> {
     const question = await this.quizQuestionService.getQuestionById(id);
+
+    // ✅ Đã thêm kiểm tra null để fix lỗi TypeScript
+    if (!question) {
+      throw new NotFoundException(`Quiz Question with ID ${id} not found`);
+    }
+
     return QuizQuestionResponseDto.fromEntity(question);
   }
 

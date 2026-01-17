@@ -1,148 +1,138 @@
 import {
   IsString,
-  IsNumber,
-  IsOptional,
   IsNotEmpty,
+  IsOptional,
   IsEnum,
+  IsNumber,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
-import { BaseResponseDto } from 'src/core/dto/base.dto';
 import { DifficultyLevel } from 'src/core/enums/difficulty-level.enum';
+import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
+import { Vocabulary } from '../entities/vocabulary.entity';
 
+// 1. DTO tạo mới (Input camelCase)
 export class CreateVocabularyDTO {
   @ApiProperty({ description: 'Topic ID' })
   @IsNumber()
-  @IsNotEmpty()
   topicId: number;
 
-  @ApiProperty({ description: 'English word', example: 'Hello' })
+  @ApiProperty({ description: 'Word' })
   @IsString()
   @IsNotEmpty()
   word: string;
 
-  @ApiProperty({
-    description: 'IPA pronunciation',
-    example: 'həˈloʊ',
-    required: false,
-  })
+  @ApiProperty({ description: 'IPA', required: false })
   @IsString()
   @IsOptional()
   ipa?: string;
 
-  @ApiProperty({
-    description: 'English meaning',
-    example: 'Used as a greeting',
-  })
+  @ApiProperty({ description: 'Meaning (EN)' })
   @IsString()
   @IsNotEmpty()
   meaningEn: string;
 
-  @ApiProperty({
-    description: 'Vietnamese meaning',
-    example: 'Xin chào',
-  })
+  @ApiProperty({ description: 'Meaning (VI)' })
   @IsString()
   @IsNotEmpty()
   meaningVi: string;
 
-  // ✅ [CHANGED] Bắt buộc nhập câu ví dụ để sinh câu hỏi SentenceToWord
-  @ApiProperty({
-    description: 'Example sentence',
-    example: 'Hello, how are you?',
-    required: true,
-  })
-  @IsString()
-  @IsNotEmpty()
-  exampleSentence: string;
-
-  @ApiProperty({
-    description: 'Audio file path',
-    example: '/audio/hello.mp3',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  audioPath?: string;
-
-  @ApiProperty({
-    description: 'Difficulty level',
-    enum: DifficultyLevel,
-    default: DifficultyLevel.BEGINNER,
-  })
-  @IsEnum(DifficultyLevel)
-  difficultyLevel: DifficultyLevel;
-}
-
-export class UpdateVocabularyDTO {
-  @ApiProperty({ description: 'Topic ID', required: false })
-  @IsNumber()
-  @IsOptional()
-  topicId?: number;
-
-  @ApiProperty({ description: 'English word', required: false })
-  @IsString()
-  @IsOptional()
-  word?: string;
-
-  @ApiProperty({ description: 'IPA pronunciation', required: false })
-  @IsString()
-  @IsOptional()
-  ipa?: string;
-
-  @ApiProperty({ description: 'English meaning', required: false })
-  @IsString()
-  @IsOptional()
-  meaningEn?: string;
-
-  @ApiProperty({ description: 'Vietnamese meaning', required: false })
-  @IsString()
-  @IsOptional()
-  meaningVi?: string;
-
-  @ApiProperty({ description: 'Example sentence', required: false })
+  @ApiProperty({ description: 'Example Sentence', required: false })
   @IsString()
   @IsOptional()
   exampleSentence?: string;
 
-  @ApiProperty({ description: 'Audio file path', required: false })
+  @ApiProperty({ enum: DifficultyLevel, default: DifficultyLevel.BEGINNER })
+  @IsEnum(DifficultyLevel)
+  difficultyLevel: DifficultyLevel;
+}
+
+// 2. DTO Cập nhật (Kế thừa và làm optional các trường)
+export class UpdateVocabularyDTO {
+  @ApiProperty({ required: false })
+  @IsNumber()
+  @IsOptional()
+  topicId?: number;
+
+  @ApiProperty({ required: false })
   @IsString()
   @IsOptional()
-  audioPath?: string;
+  word?: string;
 
-  @ApiProperty({
-    description: 'Difficulty level',
-    required: false,
-    enum: DifficultyLevel,
-  })
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  ipa?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  meaningEn?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  meaningVi?: string;
+
+  @ApiProperty({ required: false })
+  @IsString()
+  @IsOptional()
+  exampleSentence?: string;
+
+  @ApiProperty({ required: false, enum: DifficultyLevel })
   @IsEnum(DifficultyLevel)
   @IsOptional()
   difficultyLevel?: DifficultyLevel;
 }
 
+// 3. DTO Trả về (Output snake_case)
 @AutoExpose()
-export class VocabularyResponseDto extends BaseResponseDto {
-  id: number;
-  topicId: number;
-  word: string;
-  ipa: string;
-  meaningEn: string;
-  meaningVi: string;
-  exampleSentence: string;
-  audioPath: string;
-  difficultyLevel: string;
-  createdAt: Date;
-  topic?: {
-    id: number;
-    topicName: string;
-    description: string;
-  };
-}
+export class VocabularyDTO {
+  @ApiProperty({ name: 'vocab_id' })
+  vocab_id: number;
 
-@AutoExpose()
-export class VocabularyWithProgressDto extends VocabularyResponseDto {
-  isLearned: boolean;
-  bestScore: number;
-  lastReviewed: Date;
-  attemptCount: number;
+  @ApiProperty({ name: 'topic_id' })
+  topic_id: number;
+
+  @ApiProperty({ name: 'topic_name', required: false })
+  topic_name?: string;
+
+  @ApiProperty()
+  word: string;
+
+  @ApiProperty({ required: false })
+  ipa: string;
+
+  @ApiProperty({ name: 'meaning_en' })
+  meaning_en: string;
+
+  @ApiProperty({ name: 'meaning_vi' })
+  meaning_vi: string;
+
+  @ApiProperty({ name: 'example_sentence' })
+  example_sentence: string;
+
+  @ApiProperty({ name: 'difficulty_level' })
+  difficulty_level: string;
+
+  @ApiProperty({ name: 'created_at' })
+  created_at: Date;
+
+  static fromEntity(entity: Vocabulary): VocabularyDTO {
+    const dto = new VocabularyDTO();
+    dto.vocab_id = entity.id;
+    dto.topic_id = entity.topicId;
+    dto.topic_name = entity.topic?.topicName;
+    dto.word = entity.word;
+    dto.ipa = entity.ipa;
+    dto.meaning_en = entity.meaningEn;
+    dto.meaning_vi = entity.meaningVi;
+    dto.example_sentence = entity.exampleSentence;
+    dto.difficulty_level = entity.difficultyLevel;
+    dto.created_at = entity.createdAt;
+    return dto;
+  }
+
+  static fromEntities(entities: Vocabulary[]): VocabularyDTO[] {
+    return entities.map((e) => VocabularyDTO.fromEntity(e));
+  }
 }

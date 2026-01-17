@@ -1,6 +1,6 @@
 import React from 'react';
-import { LoudSpeakerButton } from './buttons/LoudSpeakerButton';
-import { MicroRecordingButton, RecognitionResult } from './buttons/MicroRecordingButton'; // Import gộp cho gọn
+// ❌ Đã xóa import LoudSpeakerButton
+import { MicroRecordingButton, RecognitionResult } from './buttons/MicroRecordingButton';
 
 interface VocabularyCardProps {
   vocabulary: {
@@ -8,7 +8,7 @@ interface VocabularyCardProps {
     word: string;
     meaningEn: string;
     meaningVi: string;
-    audioPath?: string | null;
+    // ❌ Đã xóa audioPath vì backend không còn trả về
   };
 }
 
@@ -19,30 +19,27 @@ export function VocabularyCard({ vocabulary }: VocabularyCardProps) {
   };
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md">
+    <div className="p-6 bg-white rounded-lg shadow-md border border-gray-100">
       {/* Word and meanings */}
-      <div className="mb-4">
-        <h3 className="text-2xl font-bold text-gray-900">{vocabulary.word}</h3>
-        <p className="text-gray-600">{vocabulary.meaningEn}</p>
-        <p className="text-gray-500 text-sm">{vocabulary.meaningVi}</p>
+      <div className="mb-6 text-center">
+        <h3 className="text-3xl font-bold text-blue-900 mb-2">{vocabulary.word}</h3>
+        <p className="text-lg text-gray-700 font-medium">{vocabulary.meaningEn}</p>
+        <p className="text-gray-500 italic">{vocabulary.meaningVi}</p>
       </div>
 
-      {/* Audio controls */}
+      {/* Controls */}
       <div className="flex flex-col gap-3">
-        {/* Play pronunciation */}
-        <LoudSpeakerButton
-          vocabId={vocabulary.id}
-          audioPath={vocabulary.audioPath}
-          className="w-full"
-        />
+        {/* ❌ Đã bỏ nút Loa (Play pronunciation) */}
 
-        {/* Record pronunciation */}
+        {/* Record pronunciation (Chỉ giữ lại nút thu âm) */}
         <MicroRecordingButton
           vocabId={vocabulary.id}
           targetWord={vocabulary.word}
           onRecordingComplete={handleRecordingComplete}
-          className="w-full"
+          className="w-full py-6 text-lg bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
         />
+        <p className="text-xs text-center text-gray-400 mt-1">
+        </p>
       </div>
     </div>
   );

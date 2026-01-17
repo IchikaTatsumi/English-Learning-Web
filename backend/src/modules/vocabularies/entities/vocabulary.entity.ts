@@ -35,17 +35,15 @@ export class Vocabulary {
   @Column({ name: 'example_sentence', type: 'text', nullable: true })
   exampleSentence: string;
 
-  @Column({ name: 'audio_path', length: 255, nullable: true })
-  audioPath: string;
+  // ❌ ĐÃ XÓA audio_path
 
-  // ✅ CORRECT: Use DifficultyLevel enum
   @Column({
     name: 'difficulty_level',
     type: 'enum',
-    enum: DifficultyLevel, // TypeORM extracts: ['Beginner', 'Intermediate', 'Advanced']
+    enum: DifficultyLevel,
     default: DifficultyLevel.BEGINNER,
   })
-  difficultyLevel: DifficultyLevel; // TypeScript type
+  difficultyLevel: DifficultyLevel;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

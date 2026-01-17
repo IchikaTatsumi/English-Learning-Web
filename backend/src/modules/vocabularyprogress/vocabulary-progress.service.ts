@@ -64,8 +64,6 @@ export class VocabularyProgressService {
     await this.progressRepository.save(progress);
   }
 
-  // --- Các hàm cũ giữ nguyên ---
-
   async submitPractice(
     userId: number,
     dto: SubmitPracticeDto,
@@ -85,12 +83,12 @@ export class VocabularyProgressService {
         answer.questionType === 'SpeechToWord'
       ) {
         try {
+          // ✅ ĐÃ SỬA: Xóa bỏ dòng 'save_recording: false' gây lỗi
           const sttResult = await this.speechClient.recognizeSpeech({
             audio_base64: answer.userAnswer,
             target_word: vocab.word,
             user_id: userId,
             vocab_id: dto.vocabId,
-            save_recording: false,
           });
           answer.userAnswer = sttResult.recognized_text;
           answer.isCorrect = sttResult.is_correct;
@@ -137,7 +135,7 @@ export class VocabularyProgressService {
     return await this.progressRepository.find({
       where: [
         { userId, isLearned: true },
-        { userId, isBookmarked: true }, // Lấy cả từ bookmark để hiển thị tab Learned đầy đủ hơn
+        { userId, isBookmarked: true },
       ],
       relations: ['vocabulary', 'vocabulary.topic'],
       order: { lastReviewedAt: 'DESC' },

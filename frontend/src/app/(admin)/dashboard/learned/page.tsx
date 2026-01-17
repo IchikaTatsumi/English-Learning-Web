@@ -2,7 +2,6 @@
 
 import { LearnedUI } from '@/components/learned/LearnedUI';
 
-export default function LearnedPage() {
+export default function AdminLearnedPage() {
   return <LearnedUI />;
 }
-

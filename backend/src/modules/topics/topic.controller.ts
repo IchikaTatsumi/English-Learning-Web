@@ -37,75 +37,35 @@ import type {
 export class TopicController {
   constructor(private readonly topicService: TopicService) {}
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ PRIMARY ENDPOINT: Topic Search cho Vocabulary Filter
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ... (Các endpoint search và list giữ nguyên vì dùng DTO khác) ...
 
   @Public()
   @Get('search')
-  @ApiOperation({
-    summary: '🔍 Search topics for vocabulary filter dropdown',
-    description: `
-      Primary endpoint for topic selection in vocabulary filters.
-      
-      Examples:
-      - GET /topics/search → All topics
-      - GET /topics/search?q=a → Topics containing 'a' (Animal, Nature, etc.)
-      - GET /topics/search?q=ani&limit=5 → Top 5 matching topics
-      
-      Response includes vocabulary count for each topic.
-    `,
-  })
-  @ApiOkResponse({
-    type: [TopicSearchResultDto],
-    description: 'Returns topics with vocabulary counts',
-  })
+  @ApiOperation({ summary: 'Search topics' })
   async searchTopics(
     @Query() dto: TopicSearchDto,
   ): Promise<TopicSearchResultDto[]> {
     return await this.topicService.searchTopics(dto.q, dto.limit || 10);
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ ENDPOINT 2: Get all topics with metadata
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
   @Get('list')
-  @ApiOperation({
-    summary: 'Get all topics with vocabulary counts',
-    description:
-      'Returns complete topic list with learned counts if authenticated',
-  })
-  @ApiOkResponse({ type: TopicListResponseDto })
+  @ApiOperation({ summary: 'Get topic list for filter' })
   async getTopicsForFilter(
     @Request() req: RequestWithOptionalUser,
   ): Promise<TopicListResponseDto> {
     const userId = req.user?.id;
     const topics = await this.topicService.getTopicsForFilter(userId);
-
-    return {
-      topics,
-      total: topics.length,
-    };
+    return { topics, total: topics.length };
   }
 
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // ✅ ENDPOINT 3: Get topics with progress
-  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
   @Get('progress')
-  @ApiOperation({
-    summary: 'Get topics with learning progress',
-    description:
-      'Returns topics with learned/total word counts for current user',
-  })
   async getTopicsWithProgress(@Request() req: RequestWithUser): Promise<any[]> {
     const userId = req.user.id;
     return await this.topicService.getTopicsWithProgress(userId);
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // EXISTING CRUD ENDPOINTS
+  // CRUD ENDPOINTS (Đã cập nhật để dùng TopicDTO class)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @Public()
@@ -114,6 +74,7 @@ export class TopicController {
   @ApiOkResponse({ type: [TopicDTO] })
   async getAllTopics(): Promise<TopicDTO[]> {
     const topics = await this.topicService.getAllTopics();
+    // ✅ Bây giờ hàm này sẽ hoạt động vì TopicDTO đã là Class
     return TopicDTO.fromEntities(topics);
   }
 

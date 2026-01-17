@@ -1,190 +1,72 @@
-version: '3.9'
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 🐳 ENGLISH LEARNING WEB APP - DOCKER COMPOSE
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+version: '3.8'
 
 services:
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # 🗄️ PostgreSQL Database
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Service Database
   postgres:
     image: postgres:16-alpine
     container_name: english_learning_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-      POSTGRES_DB: english_learning
-      POSTGRES_INITDB_ARGS: "-E UTF8"
-      TZ: Asia/Ho_Chi_Minh
+      POSTGRES_USER: ${POSTGRES_USER}         # Lấy từ file .env
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD} # Lấy từ file .env
+      POSTGRES_DB: ${POSTGRES_DB}             # Lấy từ file .env
     ports:
-      - "9999:5432"
+      - "${POSTGRES_PORT}:5432"
     volumes:
-      - ./backend/src/database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./backend/src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d english_learning']
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
-    networks:
-      - app_network
 
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # 📦 MinIO (S3 Compatible Storage for TTS)
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  minio:
-    image: minio/minio:latest
-    container_name: english_learning_minio
+  # Service Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: english_learning_backend
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    depends_on:
+      postgres:
+        condition: service_healthy # Đợi DB khỏe mới chạy
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      # Cấu hình Database (Quan trọng nhất)
+      POSTGRES_HOST: postgres        # Tên service của container database
+      POSTGRES_PORT: 5432            # Port nội bộ của container (luôn là 5432)
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      
+      # Cấu hình App
+      PORT: 4000
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL}
+      SPEECH_SERVICE_URL: http://speech-service:8000
     ports:
-      - "9000:9000" # API Port
-      - "9001:9001" # Console Port
-    volumes:
-      - minio_data:/data
+      - "4000:4000"
     networks:
       - app_network
 
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # 🎤 Speech Service (Python FastAPI + Vosk)
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  # Service Speech (Python)
   speech-service:
-    build: 
+    build:
       context: ./speech-service
       dockerfile: Dockerfile
     container_name: speech_service
     restart: unless-stopped
     ports:
       - "8000:8000"
-    volumes:
-      # 👇 ĐÃ SỬA LẠI ĐƯỜNG DẪN DÙNG GẠCH DƯỚI (_)
-      # ⚠️ Bạn nhớ đổi tên thư mục thật trên máy thành 'speech_recognition' nhé!
-      - ./speech-service/speech_recognition/models:/app/speech_recognition/models
-      
-      # (Tuỳ chọn: Map code để dev, cũng phải dùng gạch dưới)
-      # - ./speech-service:/app
-    env_file:
-      - ./speech-service/.env
-    depends_on:
-      - minio
     networks:
       - app_network
 
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # 🔧 Backend (NestJS)
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: production
-    container_name: english_learning_backend
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      speech-service:
-        condition: service_started
-    env_file:
-      - ./backend/.env.production
-    environment:
-      NODE_ENV: production
-      PORT: 4000
-      
-      # Database
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres123
-      DB_DATABASE: english_learning
-      
-      # TypeORM
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
-      POSTGRES_DB: english_learning
-      
-      # JWT
-      JWT_SECRET: ${JWT_SECRET:-mysecret}
-      JWT_EXPIRES_IN: 24h
-      
-      # Frontend URL
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
-      
-      # Speech Service URL (Docker Internal Network)
-      SPEECH_SERVICE_URL: http://speech-service:8000
-      
-      TZ: Asia/Ho_Chi_Minh
-    ports:
-      - "4000:4000"
-    volumes:
-      - backend_logs:/app/logs
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/api', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    networks:
-      - app_network
-
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  # 🗂️ pgAdmin (Optional)
-  # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: english_learning_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@english-learning.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
-      PGADMIN_CONFIG_SERVER_MODE: 'False'
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
-    depends_on:
-      - postgres
-    networks:
-      - app_network
-    profiles:
-      - debug
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 📦 Volumes
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 volumes:
   postgres_data:
-    driver: local
-    name: english_learning_postgres_data
-  
-  postgres_logs:
-    driver: local
-    name: english_learning_postgres_logs
-  
-  backend_logs:
-    driver: local
-    name: english_learning_backend_logs
-  
-  pgadmin_data:
-    driver: local
-    name: english_learning_pgadmin_data
 
-  minio_data:
-    driver: local
-    name: english_learning_minio_data
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# 🌐 Networks
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 networks:
   app_network:
     driver: bridge
-    name: english_learning_network

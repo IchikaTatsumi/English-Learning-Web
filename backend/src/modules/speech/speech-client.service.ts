@@ -2,15 +2,17 @@ import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import axios, { AxiosInstance } from 'axios';
 import { ConfigService } from '@nestjs/config';
 
-export interface TTSGenerateRequest {
-  text: string;
-  language: 'en' | 'vi';
+export interface STTRecognizeRequest {
+  audio_base64: string;
+  target_word: string;
+  user_id: number;
   vocab_id: number;
 }
 
-export interface TTSGenerateResponse {
-  audio_url: string;
-  cached?: boolean;
+export interface STTRecognizeResponse {
+  recognized_text: string;
+  is_correct: boolean;
+  confidence: number;
 }
 
 @Injectable()
@@ -21,49 +23,33 @@ export class SpeechClientService {
   constructor(private readonly configService: ConfigService) {
     const url =
       this.configService.get<string>('SPEECH_SERVICE_URL') ||
-      'http://localhost:8000';
-    this.httpClient = axios.create({
-      baseURL: url,
-      timeout: 30000,
-    });
+      'http://speech-service:8000';
+    this.httpClient = axios.create({ baseURL: url, timeout: 30000 });
   }
 
-  async generateTTS(request: TTSGenerateRequest): Promise<TTSGenerateResponse> {
+  async recognizeSpeech(
+    request: STTRecognizeRequest,
+  ): Promise<STTRecognizeResponse> {
     try {
-      const response = await this.httpClient.post<TTSGenerateResponse>(
-        '/tts/generate',
-        {
-          text: request.text,
-          lang: request.language,
-          vocab_id: request.vocab_id,
-        },
+      const response = await this.httpClient.post<STTRecognizeResponse>(
+        '/stt/recognize-base64',
+        request,
       );
       return response.data;
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown Error';
-      this.logger.error(`❌ TTS failed: ${message}`);
+      const msg = error instanceof Error ? error.message : 'Unknown STT Error';
+      this.logger.error(`❌ STT failed: ${msg}`);
       throw new HttpException(
-        'TTS Service Error',
+        `Speech recognition failed: ${msg}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
 
-  async deleteAudio(vocabId: number, language: string): Promise<void> {
-    try {
-      await this.httpClient.delete(`/tts/audio/${vocabId}`, {
-        params: { language },
-      });
-    } catch {
-      // Không cần dùng biến error nếu không log, tránh lỗi unused variable
-      this.logger.warn(`Could not delete audio for ${vocabId}`);
-    }
-  }
-
   async healthCheck(): Promise<boolean> {
     try {
-      await this.httpClient.get('/health');
-      return true;
+      const response = await this.httpClient.get('/health');
+      return response.status === 200;
     } catch {
       return false;
     }

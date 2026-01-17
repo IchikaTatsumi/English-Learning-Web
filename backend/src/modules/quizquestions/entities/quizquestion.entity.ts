@@ -27,6 +27,8 @@ export class QuizQuestion {
       'MeaningToWord',
       'VietnameseToWord',
       'Pronunciation',
+      'SentenceToWord', // ✅ Mới
+      'SpeechToWord', // ✅ Mới
     ],
   })
   questionType: string;

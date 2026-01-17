@@ -8,19 +8,31 @@ import { CreateQuizQuestionDto } from './dto/quizquestion.dto';
 export class QuizQuestionService {
   constructor(
     @InjectRepository(QuizQuestion)
-    private quizQuestionRepository: Repository<QuizQuestion>,
+    private readonly quizQuestionRepository: Repository<QuizQuestion>,
   ) {}
 
+  // Lưu câu hỏi do Admin nhập thủ công
   async createQuestion(dto: CreateQuizQuestionDto): Promise<QuizQuestion> {
     const question = this.quizQuestionRepository.create(dto);
     return await this.quizQuestionRepository.save(question);
   }
 
+  // Lấy câu hỏi theo từ vựng (cho nút Practice)
   async findQuestionsByVocabId(vocabId: number): Promise<QuizQuestion[]> {
     return await this.quizQuestionRepository.find({
       where: { vocabId },
       relations: ['vocabulary'],
     });
+  }
+
+  // Lấy ngẫu nhiên câu hỏi cho Quiz
+  async getRandomQuestions(count: number = 10): Promise<QuizQuestion[]> {
+    return await this.quizQuestionRepository
+      .createQueryBuilder('question')
+      .leftJoinAndSelect('question.vocabulary', 'vocab')
+      .orderBy('RANDOM()')
+      .limit(count)
+      .getMany();
   }
 
   async getQuestionById(id: number): Promise<QuizQuestion | null> {
@@ -29,13 +41,5 @@ export class QuizQuestionService {
 
   async deleteQuestion(id: number): Promise<void> {
     await this.quizQuestionRepository.delete(id);
-  }
-
-  async getRandomQuestions(count: number): Promise<QuizQuestion[]> {
-    return await this.quizQuestionRepository
-      .createQueryBuilder('question')
-      .orderBy('RANDOM()')
-      .limit(count)
-      .getMany();
   }
 }
