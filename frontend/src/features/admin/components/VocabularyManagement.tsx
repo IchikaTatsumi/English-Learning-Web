@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +21,7 @@ export function VocabularyManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   
-  // State quản lý dữ liệu Form thêm mới
+  // ✅ 1. State form: Khởi tạo giá trị mặc định chuẩn
   const [formData, setFormData] = useState({
     word: '',
     topicId: '',
@@ -29,7 +29,7 @@ export function VocabularyManagement() {
     meaningEn: '',
     meaningVi: '',
     exampleSentence: '',
-    difficultyLevel: DifficultyLevel.BEGINNER
+    difficultyLevel: DifficultyLevel.BEGINNER // Enum value
   });
 
   const { 
@@ -80,25 +80,33 @@ export function VocabularyManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // ✅ 2. Validate dữ liệu đầu vào
     if (!formData.topicId) {
       toast.error("Please select a topic");
       return;
     }
+    if (!formData.word || !formData.meaningEn || !formData.meaningVi) {
+      toast.error("Please fill in all required fields (Word, Meanings)");
+      return;
+    }
 
     try {
+      // ✅ 3. Gửi payload với keys là camelCase (quan trọng)
+      // Dùng 'as any' để tránh lỗi TS nếu file DTO chưa kịp cập nhật
       await createVocabulary({
         word: formData.word,
-        topicId: parseInt(formData.topicId),
+        topicId: parseInt(formData.topicId),        // Backend cần number
         ipa: formData.ipa,
-        meaningEn: formData.meaningEn,
-        meaningVi: formData.meaningVi,
-        exampleSentence: formData.exampleSentence,
-        difficultyLevel: formData.difficultyLevel as DifficultyLevel
-      });
+        meaningEn: formData.meaningEn,              // Backend DTO: meaningEn
+        meaningVi: formData.meaningVi,              // Backend DTO: meaningVi
+        exampleSentence: formData.exampleSentence,  // Backend DTO: exampleSentence
+        difficultyLevel: formData.difficultyLevel as DifficultyLevel 
+      } as any);
       
       toast.success("Vocabulary created successfully");
       setIsAddDialogOpen(false);
-      // Reset form sau khi thêm thành công
+      
+      // ✅ 4. Reset form
       setFormData({
         word: '',
         topicId: '',
@@ -108,9 +116,11 @@ export function VocabularyManagement() {
         exampleSentence: '',
         difficultyLevel: DifficultyLevel.BEGINNER
       });
+      // Hook useVocabularies đã tự update state, không cần fetch lại thủ công
     } catch (error) {
       console.error(error);
-      toast.error("Failed to create vocabulary");
+      const message = error instanceof Error ? error.message : "Failed to create vocabulary";
+      toast.error(message);
     }
   };
 
@@ -215,7 +225,7 @@ export function VocabularyManagement() {
                   value={formData.meaningEn}
                   onChange={handleInputChange}
                   required 
-                  className="min-h-[80px]"
+                  className="min-h-20"
                 />
               </div>
 
@@ -239,7 +249,7 @@ export function VocabularyManagement() {
                   placeholder="e.g. I eat an apple every day." 
                   value={formData.exampleSentence}
                   onChange={handleInputChange}
-                  className="min-h-[80px]"
+                  className="min-h-20"
                 />
               </div>
 

@@ -14,7 +14,13 @@ import {
 
 export function useTopics() {
   const [topics, setTopics] = useState<TopicDto[]>([]);
+  
+  // ✅ Loading states riêng biệt cho từng hành động
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -30,7 +36,7 @@ export function useTopics() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch topics';
       setError(message);
-      throw err;
+      // throw err; // Có thể comment lại để tránh crash UI nếu lỗi mạng
     } finally {
       setIsLoading(false);
     }
@@ -40,18 +46,19 @@ export function useTopics() {
    * Create new topic (Admin only)
    */
   const createTopic = useCallback(async (dto: CreateTopicDto) => {
-    setIsLoading(true);
+    setIsCreating(true); // ✅ Bắt đầu state loading tạo mới
     setError(null);
     try {
       const newTopic = await topicService.createTopic(dto);
-      setTopics(prev => [...prev, newTopic]);
+      // Cập nhật list local ngay lập tức (thêm vào đầu danh sách)
+      setTopics(prev => [newTopic, ...prev]); 
       return newTopic;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create topic';
       setError(message);
-      throw err;
+      throw err; // Ném lỗi ra để component hiển thị Toast
     } finally {
-      setIsLoading(false);
+      setIsCreating(false); // ✅ Kết thúc loading
     }
   }, []);
 
@@ -59,10 +66,11 @@ export function useTopics() {
    * Update topic (Admin only)
    */
   const updateTopic = useCallback(async (id: number, dto: UpdateTopicDto) => {
-    setIsLoading(true);
+    setIsUpdating(true); // ✅ Bắt đầu state loading cập nhật
     setError(null);
     try {
       const updated = await topicService.updateTopic(id, dto);
+      // Cập nhật item trong danh sách local
       setTopics(prev => prev.map(t => t.topic_id === id ? updated : t));
       return updated;
     } catch (err) {
@@ -70,32 +78,36 @@ export function useTopics() {
       setError(message);
       throw err;
     } finally {
-      setIsLoading(false);
+      setIsUpdating(false); // ✅ Kết thúc loading
     }
   }, []);
 
   /**
    * Delete topic (Admin only)
-   * ⚠️ Warning: This will CASCADE delete all related data
    */
   const deleteTopic = useCallback(async (id: number) => {
-    setIsLoading(true);
+    setIsDeleting(true); // ✅ Bắt đầu state loading xóa
     setError(null);
     try {
       await topicService.deleteTopic(id);
+      // Xóa item khỏi danh sách local
       setTopics(prev => prev.filter(t => t.topic_id !== id));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete topic';
       setError(message);
       throw err;
     } finally {
-      setIsLoading(false);
+      setIsDeleting(false); // ✅ Kết thúc loading
     }
   }, []);
 
+  // ✅ Return đầy đủ state và hàm
   return {
     topics,
     isLoading,
+    isCreating, // Export state
+    isUpdating, // Export state
+    isDeleting, // Export state
     error,
     fetchTopics,
     createTopic,
@@ -103,6 +115,10 @@ export function useTopics() {
     deleteTopic,
   };
 }
+
+// ==========================================
+// CÁC HOOK PHỤ (GIỮ NGUYÊN ĐỂ DÙNG SAU)
+// ==========================================
 
 /**
  * Hook for single topic operations

@@ -22,7 +22,6 @@ export class TopicService {
   /**
    * Get all topics
    * GET /topics
-   * Backend returns: TopicDto[]
    */
   async getTopics(): Promise<TopicDto[]> {
     try {
@@ -32,12 +31,18 @@ export class TopicService {
 
       if (!response.ok) throw new Error('Failed to fetch topics');
 
-      const topics: TopicDto[] = await response.json();
+      const topics: any[] = await response.json();
       
-      // ✅ Ensure vocab_count is calculated if vocabularies exist
+      // ✅ Map dữ liệu trả về để khớp với DTO Frontend
+      // Backend (sau khi sửa DTO) sẽ trả về 'vocabulary_count'
       return topics.map(topic => ({
-        ...topic,
-        vocab_count: topic.vocabularies?.length || topic.vocab_count || 0,
+        topic_id: topic.topic_id || topic.id,
+        topic_name: topic.topic_name || topic.topicName,
+        description: topic.description,
+        created_at: topic.created_at || topic.createdAt,
+        // Ưu tiên 'vocabulary_count' từ DTO Backend, fallback về 0
+        vocabulary_count: topic.vocabulary_count || 0,
+        vocabularies: topic.vocabularies || [] // Giữ lại mảng con nếu có
       }));
     } catch (error) {
       console.error('Error fetching topics:', error);
@@ -45,19 +50,14 @@ export class TopicService {
     }
   }
 
-  /**
-   * Get topic by ID
-   * GET /topics/:id
-   * Backend returns: TopicDto
-   */
+  // ... (Các method khác giữ nguyên không đổi)
+  
   async getTopicById(id: number): Promise<TopicDto> {
     try {
       const response = await fetch(`${this.baseUrl}/topics/${id}`, {
         headers: this.getAuthHeaders()
       });
-
       if (!response.ok) throw new Error('Failed to fetch topic');
-
       return await response.json();
     } catch (error) {
       console.error('Error fetching topic:', error);
@@ -65,11 +65,6 @@ export class TopicService {
     }
   }
 
-  /**
-   * Search topics by name (autocomplete)
-   * GET /topics/search?q=Anim&limit=10
-   * Backend returns: TopicSearchResultDto[]
-   */
   async searchTopics(dto?: TopicSearchDto): Promise<TopicSearchResultDto[]> {
     try {
       const params = new URLSearchParams();
@@ -79,9 +74,7 @@ export class TopicService {
       const response = await fetch(`${this.baseUrl}/topics/search?${params.toString()}`, {
         headers: this.getAuthHeaders()
       });
-
       if (!response.ok) throw new Error('Failed to search topics');
-
       return await response.json();
     } catch (error) {
       console.error('Error searching topics:', error);
@@ -89,46 +82,26 @@ export class TopicService {
     }
   }
 
-  /**
-   * ✅ FIXED: Get all topics for filter dropdown
-   * GET /topics/list
-   * Backend returns: { topics: TopicSearchResultDto[], total: number }
-   */
   async getTopicsForFilter(): Promise<TopicListResponseDto> {
     try {
       const response = await fetch(`${this.baseUrl}/topics/list`, {
         headers: this.getAuthHeaders()
       });
-
       if (!response.ok) throw new Error('Failed to fetch topics for filter');
-
-      const data = await response.json();
-      
-      // ✅ Backend already returns correct format: { topics: [], total: number }
-      // No need to transform, just cast to correct type
-      return data as TopicListResponseDto;
+      return await response.json() as TopicListResponseDto;
     } catch (error) {
       console.error('Error fetching topics for filter:', error);
       throw error;
     }
   }
 
-  /**
-   * Get topics with learning progress (authenticated users)
-   * GET /topics/progress
-   * Backend returns: TopicProgressDto[]
-   */
   async getTopicsWithProgress(): Promise<TopicProgressDto[]> {
     try {
       const response = await fetch(`${this.baseUrl}/topics/progress`, {
         headers: this.getAuthHeaders()
       });
-
       if (!response.ok) throw new Error('Failed to fetch topics with progress');
-
       const topics = await response.json();
-      
-      // Calculate progress percentage
       return topics.map((topic: TopicProgressDto) => ({
         ...topic,
         progress_percentage: topic.total_words > 0 
@@ -141,11 +114,6 @@ export class TopicService {
     }
   }
 
-  /**
-   * Create new topic (Admin only)
-   * POST /topics
-   * Backend returns: TopicDto
-   */
   async createTopic(dto: CreateTopicDto): Promise<TopicDto> {
     try {
       const response = await fetch(`${this.baseUrl}/topics`, {
@@ -153,9 +121,7 @@ export class TopicService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(dto),
       });
-
       if (!response.ok) throw new Error('Failed to create topic');
-
       return await response.json();
     } catch (error) {
       console.error('Error creating topic:', error);
@@ -163,11 +129,6 @@ export class TopicService {
     }
   }
 
-  /**
-   * Update topic (Admin only)
-   * PUT /topics/:id
-   * Backend returns: TopicDto
-   */
   async updateTopic(id: number, dto: UpdateTopicDto): Promise<TopicDto> {
     try {
       const response = await fetch(`${this.baseUrl}/topics/${id}`, {
@@ -175,9 +136,7 @@ export class TopicService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(dto),
       });
-
       if (!response.ok) throw new Error('Failed to update topic');
-
       return await response.json();
     } catch (error) {
       console.error('Error updating topic:', error);
@@ -185,19 +144,12 @@ export class TopicService {
     }
   }
 
-  /**
-   * Delete topic (Admin only)
-   * DELETE /topics/:id
-   * ⚠️ Warning: This will CASCADE delete all vocabularies and related data
-   * Backend returns: void (204 No Content)
-   */
   async deleteTopic(id: number): Promise<void> {
     try {
       const response = await fetch(`${this.baseUrl}/topics/${id}`, {
         method: 'DELETE',
         headers: this.getAuthHeaders()
       });
-
       if (!response.ok) throw new Error('Failed to delete topic');
     } catch (error) {
       console.error('Error deleting topic:', error);

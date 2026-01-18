@@ -6,18 +6,18 @@ import {
   CreateQuizDto, 
   QuizResponseDto, 
   SubmitQuizDto, 
-  QuizResultDto,
   QuizStatisticsDto,
   QuizQuestionResponseDto 
 } from '../dtos/quiz.dto';
 
 export function useQuiz() {
   const [quizzes, setQuizzes] = useState<QuizResponseDto[]>([]);
-  // ✅ ADDED: quiz (singular) for current active quiz
+  // ✅ FIX: Hợp nhất 'quiz' và 'currentQuiz' thành 1 state duy nhất để tránh nhầm lẫn
   const [quiz, setQuiz] = useState<QuizResponseDto | null>(null);
-  const [currentQuiz, setCurrentQuiz] = useState<QuizResponseDto | null>(null);
+  
   const [questions, setQuestions] = useState<QuizQuestionResponseDto[]>([]);
   const [statistics, setStatistics] = useState<QuizStatisticsDto | null>(null);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,12 +29,11 @@ export function useQuiz() {
     setError(null);
     try {
       const newQuiz = await quizService.createQuiz(dto);
-      setCurrentQuiz(newQuiz);
-      // ✅ ADDED: Set quiz (singular)
       setQuiz(newQuiz);
       return newQuiz;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create quiz');
+      const message = err instanceof Error ? err.message : 'Failed to create quiz';
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);
@@ -52,8 +51,8 @@ export function useQuiz() {
       setQuizzes(data);
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch quizzes');
-      throw err;
+      const message = err instanceof Error ? err.message : 'Failed to fetch quizzes';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -67,11 +66,11 @@ export function useQuiz() {
     setError(null);
     try {
       const fetchedQuiz = await quizService.getQuizById(quizId);
-      setCurrentQuiz(fetchedQuiz);
       setQuiz(fetchedQuiz);
       return fetchedQuiz;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch quiz');
+      const message = err instanceof Error ? err.message : 'Failed to fetch quiz';
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);
@@ -79,7 +78,8 @@ export function useQuiz() {
   }, []);
 
   /**
-   * ✅ ADDED: Fetch quiz questions
+   * Fetch quiz questions (Random practice)
+   * ✅ FIX: Map tham số 'limit' thành 'count' cho khớp với Service
    */
   const fetchQuizQuestions = useCallback(async (params?: { limit?: number }) => {
     setIsLoading(true);
@@ -90,7 +90,8 @@ export function useQuiz() {
       setQuestions(data);
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch questions');
+      const message = err instanceof Error ? err.message : 'Failed to fetch questions';
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);
@@ -107,7 +108,8 @@ export function useQuiz() {
       const result = await quizService.submitQuiz(quizId, dto);
       return result;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit quiz');
+      const message = err instanceof Error ? err.message : 'Failed to submit quiz';
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);
@@ -125,8 +127,8 @@ export function useQuiz() {
       setStatistics(stats);
       return stats;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch statistics');
-      throw err;
+      const message = err instanceof Error ? err.message : 'Failed to fetch statistics';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -141,37 +143,30 @@ export function useQuiz() {
     try {
       await quizService.deleteQuiz(quizId);
       setQuizzes(prev => prev.filter(q => q.quiz_id !== quizId));
+      if (quiz?.quiz_id === quizId) {
+        setQuiz(null);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete quiz');
+      const message = err instanceof Error ? err.message : 'Failed to delete quiz';
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [quiz]);
 
   /**
-   * Fetch random questions for practice
+   * Reset state (Dùng khi rời khỏi trang quiz)
    */
-  const fetchRandomQuestions = useCallback(async (count: number = 10) => {
-    setIsLoading(true);
+  const resetQuizState = useCallback(() => {
+    setQuiz(null);
+    setQuestions([]);
     setError(null);
-    try {
-      const data = await quizService.getRandomQuestions(count);
-      setQuestions(data);
-      return data;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch questions');
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
   }, []);
 
   return {
     quizzes,
-    // ✅ ADDED: Export both quiz and currentQuiz
-    quiz,
-    currentQuiz,
+    quiz,         // State chính chứa Quiz hiện tại
     questions,
     statistics,
     isLoading,
@@ -179,17 +174,16 @@ export function useQuiz() {
     createQuiz,
     fetchUserQuizzes,
     fetchQuizById,
-    // ✅ ADDED: Export fetchQuizQuestions
-    fetchQuizQuestions,
+    fetchQuizQuestions, // Hàm này gọi API random questions
     submitQuiz,
     fetchStatistics,
     deleteQuiz,
-    fetchRandomQuestions,
+    resetQuizState,     // Hàm dọn dẹp state
   };
 }
 
 /**
- * Hook for single quiz operations
+ * Hook for single quiz operations (Dùng cho trang Detail nếu cần)
  */
 export function useQuizById(quizId?: number) {
   const [quiz, setQuiz] = useState<QuizResponseDto | null>(null);
@@ -204,7 +198,8 @@ export function useQuizById(quizId?: number) {
       setQuiz(data);
       return data;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch quiz');
+      const message = err instanceof Error ? err.message : 'Failed to fetch quiz';
+      setError(message);
       throw err;
     } finally {
       setIsLoading(false);

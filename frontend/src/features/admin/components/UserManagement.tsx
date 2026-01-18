@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Edit, Trash2, Loader2, RefreshCw } from 'lucide-react';
+import { Search, Edit, Trash2, Loader2, RefreshCw, Plus, CheckCircle2 } from 'lucide-react';
 import { AddButton } from '@/components/buttons/AddButton';
 import {
   Table,
@@ -15,19 +15,79 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+// ✅ Import UI Components cho Popup
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { useUsers, useUserMutations } from '@/features/users/hooks/user.hooks';
 import { toast } from '@/lib/utils/toast';
-// Import UserDTO để type checking (không bắt buộc nếu hook đã trả về đúng type)
 import { UserDTO } from '@/features/users/dtos/user.dto';
+// ✅ Import Service để gọi API tạo user (hoặc bạn có thể thêm vào hook useUserMutations)
+import { userService } from '@/features/users/services/user.service';
 
 export function UserManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const { users, loading: isLoading, fetchAllUsers } = useUsers();
   const { deleteUser, loading: isDeleting } = useUserMutations();
 
+  // ✅ State cho Popup và Form
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formData, setFormData] = useState({
+    username: '',
+    fullName: '',
+    email: '',
+    role: 'User', // Default role
+    password: ''
+  });
+
   useEffect(() => {
     fetchAllUsers();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ✅ Xử lý Input Change
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  // ✅ Xử lý Submit Form Thêm User
+  const handleCreateUser = async () => {
+    // Validate cơ bản
+    if (!formData.username || !formData.password || !formData.email) {
+      toast.error("Vui lòng điền đầy đủ thông tin bắt buộc (Username, Email, Password)");
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      // Gọi service tạo user
+      // Lưu ý: Đảm bảo userService.createUser đã được định nghĩa, hoặc dùng fetch trực tiếp
+      const response = await userService.createUser(formData);
+      
+      if (response.success) {
+        toast.success("User created successfully!");
+        setIsAddDialogOpen(false);
+        // Reset form
+        setFormData({
+          username: '',
+          fullName: '',
+          email: '',
+          role: 'User',
+          password: ''
+        });
+        // Refresh danh sách
+        fetchAllUsers();
+      } else {
+        toast.error(response.message || "Failed to create user");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to create user");
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const handleDeleteUser = async (userId: string | number) => {
     if (confirm('Are you sure you want to delete this user?')) {
@@ -50,10 +110,6 @@ export function UserManagement() {
     toast.info(`Edit user ${userId} feature coming soon`);
   };
 
-  const handleAddUser = () => {
-    toast.info("Add user feature coming soon");
-  };
-
   // Safe filtering logic
   const filteredUsers = users.filter((user: UserDTO) =>
     (user.fullName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -72,7 +128,10 @@ export function UserManagement() {
           <Button variant="outline" onClick={() => fetchAllUsers()} disabled={isLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </Button>
-          <AddButton onClick={handleAddUser} label="Add User" />
+          {/* ✅ Mở Popup khi click */}
+          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setIsAddDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Add User
+          </Button>
         </div>
       </div>
 
@@ -115,7 +174,6 @@ export function UserManagement() {
                 {filteredUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">{user.username}</TableCell>
-                    {/* Bây giờ UserDTO đã có fullName và email */}
                     <TableCell>{user.fullName || 'N/A'}</TableCell>
                     <TableCell>{user.email || 'N/A'}</TableCell>
                     <TableCell>
@@ -159,6 +217,88 @@ export function UserManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* ✅ ADD USER DIALOG */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Username & Full Name */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Username <span className="text-red-500">*</span></Label>
+                <Input 
+                  placeholder="johndoe"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange('username', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Full Name</Label>
+                <Input 
+                  placeholder="John Doe"
+                  value={formData.fullName}
+                  onChange={(e) => handleInputChange('fullName', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Email */}
+            <div className="space-y-2">
+              <Label>Email <span className="text-red-500">*</span></Label>
+              <Input 
+                type="email"
+                placeholder="john@example.com"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+              />
+            </div>
+
+            {/* Role & Password */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Role <span className="text-red-500">*</span></Label>
+                <Select 
+                  value={formData.role} 
+                  onValueChange={(val) => handleInputChange('role', val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="User">User</SelectItem>
+                    <SelectItem value="Admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Password <span className="text-red-500">*</span></Label>
+                <Input 
+                  type="password"
+                  placeholder="******"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange('password', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700" 
+              onClick={handleCreateUser} 
+              disabled={isCreating}
+            >
+              {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Create User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -3,7 +3,6 @@ import { AutoExpose } from 'src/core/decorators/auto-expose.decorator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Topic } from '../entities/topic.entity';
 
-// ❌ BỎ "extends BaseResponseDto" để tránh xung đột method static
 @AutoExpose()
 export class TopicDTO {
   @ApiProperty({ name: 'topic_id' })
@@ -24,14 +23,20 @@ export class TopicDTO {
   // ✅ Hàm mapping thủ công (Manual Mapping)
   static fromEntity(topic: Topic): TopicDTO {
     const dto = new TopicDTO();
-    dto.topic_id = topic.id; // Map: id -> topic_id
-    dto.topic_name = topic.topicName; // Map: topicName -> topic_name
+    dto.topic_id = topic.id;
+    dto.topic_name = topic.topicName;
     dto.description = topic.description;
     dto.created_at = topic.createdAt;
 
-    // Xử lý đếm số lượng từ vựng (nếu có relation)
-    if (topic.vocabularies) {
+    // ✅ Map trường 'vocabularyCount' được TypeORM loadRelationCountAndMap gán vào
+    if (topic['vocabularyCount'] !== undefined) {
+      // 🛠️ SỬA LỖI: Dùng String(...) để đảm bảo tham số truyền vào parseInt luôn là chuỗi
+      dto.vocabulary_count =
+        parseInt(String(topic['vocabularyCount']), 10) || 0;
+    } else if (topic.vocabularies) {
       dto.vocabulary_count = topic.vocabularies.length;
+    } else {
+      dto.vocabulary_count = 0;
     }
 
     return dto;

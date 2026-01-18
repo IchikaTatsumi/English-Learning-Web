@@ -1,31 +1,35 @@
+// ✅ 1. Input DTO (Gửi lên Backend) - Dùng camelCase theo chuẩn DTO NestJS
 export interface CreateQuizDto {
-  difficulty_level: 'Beginner Only' | 'Intermediate Only' | 'Advanced Only' | 'Mixed Levels';
-  total_questions?: number;
-  topic_id?: number;
-  // ✅ ADDED: user_id is handled by backend from auth token, but some components expect it
-  user_id?: number;
+  difficultyLevel: 'Beginner' | 'Intermediate' | 'Advanced' | 'Mixed Levels';
+  totalQuestions: number;
+  topicId?: number;
 }
 
+// ✅ 2. Output DTO (Nhận từ Backend) - Dùng snake_case theo chuẩn Database Entity
 export interface QuizResponseDto {
   quiz_id: number;
   user_id: number;
-  difficulty_mode: string;
+  difficulty_mode: string; // Database trả về snake_case
   total_questions: number;
   score: number;
   created_at: string;
   results?: ResultResponseDto[];
 }
 
+// ✅ 3. Question DTO
 export interface QuizQuestionResponseDto {
   quiz_question_id: number;
   vocab_id: number;
-  question_type: 'WordToMeaning' | 'MeaningToWord' | 'VietnameseToWord' | 'Pronunciation';
+  question_type: 'WordToMeaning' | 'MeaningToWord' | 'VietnameseToWord' | 'Pronunciation' | 'SentenceToWord';
   question_text: string;
   correct_answer: string;
+  // Mảng chứa các đáp án sai từ DB (snake_case)
+  incorrect_answers?: string[]; 
+  // Mảng chứa tất cả options đã trộn để hiển thị UI (Frontend tự tạo hoặc Backend trả về)
+  options?: string[];
   time_limit: number;
   created_at: string;
-  // ✅ ADDED: Options array for multiple choice
-  options?: string[];
+  // Thông tin từ vựng liên quan
   vocabulary?: {
     vocab_id: number;
     word: string;
@@ -40,9 +44,10 @@ export interface QuizQuestionResponseDto {
   };
 }
 
-// ✅ ADDED: Alias for backward compatibility
+// Alias cho tương thích ngược nếu cần
 export type QuizQuestionDto = QuizQuestionResponseDto;
 
+// ✅ 4. Submission DTOs
 export interface AnswerQuestionDto {
   question_id: number;
   answer: string;
@@ -69,6 +74,7 @@ export interface QuizResultDto {
   }[];
 }
 
+// ✅ 5. Statistics & Result DTOs
 export interface QuizStatisticsDto {
   total_quizzes: number;
   average_score: number;

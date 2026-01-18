@@ -11,6 +11,9 @@ export class QuizService {
   private baseUrl = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:4000/api';
 
   private getAuthHeaders(): HeadersInit {
+    // Check window exists to avoid SSR errors
+    if (typeof window === 'undefined') return { 'Content-Type': 'application/json' };
+    
     const token = localStorage.getItem('accessToken');
     return {
       'Content-Type': 'application/json',
@@ -153,25 +156,6 @@ export class QuizService {
       return await response.json();
     } catch (error) {
       console.error('Error fetching questions:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get quiz question by ID
-   * GET /quiz-questions/:id
-   */
-  async getQuestionById(questionId: number): Promise<QuizQuestionResponseDto> {
-    try {
-      const response = await fetch(`${this.baseUrl}/quiz-questions/${questionId}`, {
-        headers: this.getAuthHeaders()
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch question');
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching question:', error);
       throw error;
     }
   }

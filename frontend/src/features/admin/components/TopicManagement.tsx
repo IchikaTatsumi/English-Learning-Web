@@ -5,10 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Edit, Trash2, Loader2, RefreshCw } from 'lucide-react';
-import { AddButton } from '@/components/buttons/AddButton';
-// ✅ Import Hook Topics
-import { useTopics } from '@/features/topics/hooks/topic.hook';
+import { Search, Edit, Trash2, Loader2, RefreshCw, Plus } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -17,27 +14,57 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+
+import { useTopics } from '@/features/topics/hooks/topic.hook';
 import { toast } from '@/lib/utils/toast';
 
 export function TopicManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   
-  // ✅ 1. Lấy dữ liệu và hàm xóa từ hook
-  const { topics, fetchTopics, deleteTopic, isLoading } = useTopics();
+  // ✅ Lấy đầy đủ state và hàm từ hook
+  const { topics, fetchTopics, createTopic, deleteTopic, isLoading, isCreating } = useTopics();
+
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    topicName: '',
+    description: ''
+  });
 
   useEffect(() => {
     fetchTopics();
   }, [fetchTopics]);
 
-  const handleAddTopic = () => {
-    toast.info("Add Topic modal coming soon");
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleEditTopic = (topicId: number) => {
-    toast.info(`Edit Topic ${topicId} modal coming soon`);
+  // ✅ Xử lý Create Topic
+  const handleCreateTopic = async () => {
+    if (!formData.topicName.trim()) {
+      toast.error("Please enter a topic name");
+      return;
+    }
+
+    try {
+      // ✅ QUAN TRỌNG: Gửi key 'topicName' (camelCase) thay vì 'topic_name'
+      await createTopic({
+        topicName: formData.topicName, 
+        description: formData.description
+      });
+
+      toast.success("Topic created successfully");
+      setIsDialogOpen(false);
+      setFormData({ topicName: '', description: '' }); // Reset form
+      // Không cần gọi fetchTopics() vì hook đã tự update state local
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to create topic");
+    }
   };
 
-  // ✅ 2. Hàm xóa Topic thực tế
   const handleDeleteTopic = async (topicId: number) => {
     if (confirm('Delete this topic? All related vocabularies will also be deleted.')) {
       try {
@@ -48,6 +75,10 @@ export function TopicManagement() {
         toast.error("Failed to delete topic");
       }
     }
+  };
+
+  const handleEditTopic = (topicId: number) => {
+    toast.info(`Edit Topic ${topicId} modal coming soon`);
   };
 
   const filteredTopics = topics.filter(topic =>
@@ -66,7 +97,9 @@ export function TopicManagement() {
            <Button variant="outline" onClick={() => fetchTopics()} disabled={isLoading}>
              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
            </Button>
-           <AddButton onClick={handleAddTopic} label="Add Topic" />
+           <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setIsDialogOpen(true)}>
+             <Plus className="mr-2 h-4 w-4" /> Add Topic
+           </Button>
         </div>
       </div>
 
@@ -112,7 +145,7 @@ export function TopicManagement() {
                       {topic.description || '—'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{topic.vocab_count || 0} words</Badge>
+                      <Badge variant="secondary">{topic.vocabulary_count || topic.vocab_count || 0} words</Badge>
                     </TableCell>
                     <TableCell>{new Date(topic.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
@@ -147,6 +180,50 @@ export function TopicManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* ADD TOPIC DIALOG */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add New Topic</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="topicName">Topic Name <span className="text-red-500">*</span></Label>
+              <Input
+                id="topicName"
+                placeholder="e.g. Technology, Travel..."
+                value={formData.topicName}
+                onChange={(e) => handleInputChange('topicName', e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="Brief description about this topic..."
+                value={formData.description}
+                onChange={(e) => handleInputChange('description', e.target.value)}
+                className="min-h-[100px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+            <Button 
+              className="bg-blue-600 hover:bg-blue-700" 
+              onClick={handleCreateTopic}
+              disabled={isCreating}
+            >
+              {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+              Create Topic
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

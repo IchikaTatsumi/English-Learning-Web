@@ -1,5 +1,6 @@
 import { DifficultyLevel } from '@/lib/constants/enums';
 
+// ✅ 1. Main DTO (Khớp với Backend snake_case)
 export interface VocabularyDto {
   vocab_id: number;
   topic_id: number;
@@ -8,12 +9,12 @@ export interface VocabularyDto {
   meaning_en: string;
   meaning_vi: string;
   example_sentence?: string;
-  audio_path?: string;
+  // ❌ Đã xóa audio_path
   difficulty_level: DifficultyLevel;
   created_at: string;
-  // ✅ ADDED: Topic name for display
+  
+  // Các trường bổ sung từ Relation hoặc logic phụ
   topic_name?: string;
-  // ✅ ADDED: Learning status
   is_learned?: boolean;
   is_bookmarked?: boolean;
   topic?: {
@@ -23,6 +24,7 @@ export interface VocabularyDto {
   };
 }
 
+// ✅ 2. Create DTO (Dùng cho Form thêm mới)
 export interface CreateVocabularyDto {
   topic_id: number;
   word: string;
@@ -30,10 +32,10 @@ export interface CreateVocabularyDto {
   meaning_en: string;
   meaning_vi: string;
   example_sentence?: string;
-  audio_path?: string;
   difficulty_level: DifficultyLevel;
 }
 
+// ✅ 3. Update DTO
 export interface UpdateVocabularyDto {
   topic_id?: number;
   word?: string;
@@ -41,17 +43,12 @@ export interface UpdateVocabularyDto {
   meaning_en?: string;
   meaning_vi?: string;
   example_sentence?: string;
-  audio_path?: string;
   difficulty_level?: DifficultyLevel;
 }
 
-/**
- * Filter DTO for vocabulary list
- * Backend: GET /vocabularies/filter
- */
+// ✅ 4. Filter DTO (Dùng cho thanh tìm kiếm/lọc)
 export interface VocabularyFilterDto {
   search?: string;
-  // ✅ FIXED: Change difficulty to match DifficultyLevel enum
   difficulty?: DifficultyLevel | 'all';
   topic_id?: number;
   only_learned?: boolean;
@@ -62,17 +59,14 @@ export interface VocabularyFilterDto {
   limit?: number;
   sort_by?: 'word' | 'created_at' | 'difficulty_level' | 'first_learned_at';
   sort_order?: 'ASC' | 'DESC';
-  // ✅ ADDED: Search term alias
+  
+  // Alias hỗ trợ frontend cũ
   searchTerm?: string;
-  // ✅ ADDED: Is learned filter
   isLearned?: boolean;
-  // ✅ ADDED: Difficulty level filter
   difficulty_level?: DifficultyLevel | 'all';
 }
 
-/**
- * Response for filtered vocabulary list
- */
+// ✅ 5. Response DTO (Dùng cho kết quả trả về từ API filter)
 export interface VocabularyListResponseDto {
   data: VocabularyDto[];
   view_mode: 'List' | 'Grid';
@@ -90,9 +84,7 @@ export interface VocabularyListResponseDto {
   };
 }
 
-/**
- * Vocabulary with learning progress
- */
+// ✅ 6. Progress DTO (Dùng cho thống kê)
 export interface VocabularyWithProgressDto extends VocabularyDto {
   is_learned: boolean;
   is_bookmarked: boolean;

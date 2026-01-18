@@ -1,71 +1,55 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs } from '@/components/ui/tabs';
 import { useVocabularies } from '@/features/vocabularies/hooks/vocabulary.hook';
 import { useTopics } from '@/features/topics/hooks/topic.hook';
 import { useVocabularyProgress } from '@/features/vocabulary-progress/hooks/vocabulary-progress.hook';
-// Thay Mic bằng Bookmark
-import { Search, Bookmark, Grid3X3, List, Leaf, Gamepad2, Cloud, Utensils, Cpu, Zap, BookOpen, Loader2 } from 'lucide-react';
+import { Search, Grid3X3, List, Loader2, BookOpen } from 'lucide-react';
 import { toast } from '@/lib/utils/toast';
+import { VocabularyCard } from '@/components/VocabularyCard';
+import { DifficultyLevel } from '@/lib/constants/enums'; // ✅ Import Enum chuẩn
 
 export function VocabularyUI() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
+  
+  // ✅ ĐỒNG BỘ: Dùng difficultyLevel thay vì filterDifficulty
+  const [difficultyLevel, setDifficultyLevel] = useState<DifficultyLevel | 'all'>('all');
+  
   const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const { topics, isLoading: topicsLoading } = useTopics();
+  
+  // ✅ ĐỒNG BỘ: Gửi camelCase (difficultyLevel) vào hook filter
   const { vocabularies, isLoading: vocabLoading } = useVocabularies({
-    difficulty_level: filterDifficulty !== 'all' ? (filterDifficulty as any) : undefined,
-  });
+    difficultyLevel: difficultyLevel !== 'all' ? difficultyLevel : undefined,
+  } as any); // Cast as any để tránh lỗi type nếu DTO filter chưa kịp cập nhật
 
-  // Lấy hàm updateProgress từ hook để lưu vào danh sách Learned
-  const { updateVocabularyProgress } = useVocabularyProgress();
+  const { toggleBookmark } = useVocabularyProgress();
 
+  // Logic lọc từ vựng (Client-side filtering bổ sung)
   const filteredWords = useMemo(() => {
     return vocabularies.filter(word => {
       const matchesSearch = word.word.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                           word.meaning_en.toLowerCase().includes(searchTerm.toLowerCase());
+                            word.meaning_en.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesTab = activeTab === 'all' || word.topic_name === activeTab;
       return matchesSearch && matchesTab;
     });
   }, [vocabularies, searchTerm, activeTab]);
 
-  const getCategoryIcon = (topicName: string) => {
-    const iconMap: Record<string, any> = {
-      'Animals': Zap, 'Nature': Leaf, 'Food': Utensils,
-      'Weather': Cloud, 'Daily Activities': Gamepad2,
-      'Colors': Cpu, 'Numbers': BookOpen,
-    };
-    const Icon = iconMap[topicName] || Grid3X3;
-    return <Icon className="h-4 w-4" />;
-  };
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty.toLowerCase()) {
-      case 'beginner': return 'bg-green-100 text-green-700 border-green-200';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'advanced': return 'bg-red-100 text-red-700 border-red-200';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  // Logic lưu từ vựng vào danh sách "Learned"
-  const handleMarkAsLearned = async (vocabId: number, word: string) => {
+  // Xử lý Bookmark
+  const handleBookmark = async (vocabId: number) => {
     try {
-      await updateVocabularyProgress({
-        vocab_id: vocabId,
-        is_learned: true
-      });
-      toast.success(`Đã thêm "${word}" vào danh sách từ đã học!`);
+      // ✅ ĐỒNG BỘ: Gửi vocabId (camelCase) hoặc vocab_id (snake_case) tùy DTO bookmark
+      // Ở đây ta giả định Service đã handle, gửi đúng object
+      await toggleBookmark({ vocab_id: vocabId }); 
+      toast.success("Updated bookmark!");
     } catch (error) {
-      toast.error("Không thể lưu từ vựng này.");
+      toast.error("Failed to update bookmark.");
     }
   };
 
@@ -73,114 +57,113 @@ export function VocabularyUI() {
     return (
       <div className="p-20 flex flex-col items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-blue-600 mb-4" />
-        <p className="text-gray-500 font-medium">Đang tải dữ liệu học tập...</p>
+        <p className="text-gray-500 font-medium">Loading library...</p>
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex justify-between items-end">
+    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2 text-blue-900">Vocabulary Library</h1>
-          <p className="text-gray-600">Khám phá từ mới và lưu chúng vào bộ sưu tập của bạn</p>
+          <h1 className="text-3xl font-bold mb-2 text-blue-900 tracking-tight">Vocabulary Library</h1>
+          <p className="text-slate-600">Explore and collect new words by topic.</p>
         </div>
       </div>
 
-      {/* Topic Quick Filters */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {topics.map(topic => (
-          <Card 
-            key={topic.topic_id} 
-            className={`cursor-pointer hover:border-blue-500 transition-all ${activeTab === topic.topic_name ? 'border-blue-500 bg-blue-50 ring-1 ring-blue-500' : ''}`}
-            onClick={() => setActiveTab(topic.topic_name)}
-          >
-            <CardContent className="p-4 text-center">
-              <div className="flex justify-center mb-2 text-blue-600">
-                {getCategoryIcon(topic.topic_name)}
-              </div>
-              <h3 className="text-xs font-bold uppercase tracking-wider">{topic.topic_name}</h3>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-4 items-center">
+      {/* Filter Bar */}
+      <div className="flex flex-col md:flex-row gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
         <div className="flex-1 relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 h-4 w-4" />
           <Input
-            placeholder="Tìm kiếm từ vựng..."
+            placeholder="Search vocabulary..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="pl-10 border-slate-200 focus-visible:ring-blue-500"
           />
         </div>
         
-        <Select value={filterDifficulty} onValueChange={setFilterDifficulty}>
-          <SelectTrigger className="w-full md:w-48">
-            <SelectValue placeholder="Độ khó" />
+        {/* ✅ Select sử dụng state difficultyLevel */}
+        <Select 
+          value={difficultyLevel} 
+          onValueChange={(val) => setDifficultyLevel(val as DifficultyLevel | 'all')}
+        >
+          <SelectTrigger className="w-full md:w-48 border-slate-200">
+            <SelectValue placeholder="Difficulty" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tất cả trình độ</SelectItem>
-            <SelectItem value="Beginner">Beginner</SelectItem>
-            <SelectItem value="Intermediate">Intermediate</SelectItem>
-            <SelectItem value="Advanced">Advanced</SelectItem>
+            <SelectItem value="all">All Levels</SelectItem>
+            <SelectItem value={DifficultyLevel.BEGINNER}>Beginner</SelectItem>
+            <SelectItem value={DifficultyLevel.INTERMEDIATE}>Intermediate</SelectItem>
+            <SelectItem value={DifficultyLevel.ADVANCED}>Advanced</SelectItem>
           </SelectContent>
         </Select>
 
-        <div className="flex bg-gray-100 p-1 rounded-lg">
-          <Button variant={viewMode === 'grid' ? 'white' : 'ghost'} size="sm" onClick={() => setViewMode('grid')}><Grid3X3 className="h-4 w-4" /></Button>
-          <Button variant={viewMode === 'list' ? 'white' : 'ghost'} size="sm" onClick={() => setViewMode('list')}><List className="h-4 w-4" /></Button>
+        <div className="flex bg-slate-100 p-1 rounded-lg">
+          <Button 
+            variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+            size="sm" 
+            onClick={() => setViewMode('grid')}
+            className={viewMode === 'grid' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}
+          >
+            <Grid3X3 className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant={viewMode === 'list' ? 'default' : 'ghost'} 
+            size="sm" 
+            onClick={() => setViewMode('list')}
+            className={viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}
+          >
+            <List className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 
+      {/* Topics Tabs & Content */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
-          {filteredWords.map((word) => (
-            <Card key={word.vocab_id} className="group hover:shadow-md transition-all border-t-2 border-t-transparent hover:border-t-blue-500">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <CardTitle className="text-2xl font-bold flex items-center gap-2">
-                      {word.word}
-                    </CardTitle>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <p className="text-sm font-mono text-blue-600">{word.ipa}</p>
-                      {/* Thẻ Topic hiển thị bên cạnh thẻ trình độ */}
-                      <Badge className={getDifficultyColor(word.difficulty_level)} variant="outline">
-                        {word.difficulty_level}
-                      </Badge>
-                      <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100">
-                        {word.topic_name}
-                      </Badge>
-                    </div>
-                  </div>
-                  
-                  {/* Nút Bookmark để lưu vào Learned */}
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="rounded-full text-gray-400 hover:text-yellow-500 hover:bg-yellow-50 transition-colors"
-                    onClick={() => handleMarkAsLearned(word.vocab_id, word.word)}
-                    title="Lưu vào từ đã học"
-                  >
-                    <Bookmark className="h-5 w-5" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="font-medium text-gray-800">{word.meaning_en}</p>
-                  <p className="text-sm text-gray-500">{word.meaning_vi}</p>
-                  {word.example_sentence && (
-                    <div className="mt-3 p-3 bg-slate-50 rounded-lg border-l-2 border-blue-200 italic text-sm text-gray-600">
-                      "{word.example_sentence}"
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Topic List */}
+        <div className="mb-6 overflow-x-auto pb-2 -mx-2 px-2">
+           <div className="flex gap-2 w-max">
+             <Button
+               variant={activeTab === 'all' ? 'default' : 'outline'}
+               className={`rounded-full ${activeTab === 'all' ? 'bg-blue-600 hover:bg-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+               onClick={() => setActiveTab('all')}
+             >
+               All Topics
+             </Button>
+             {topics.map(topic => (
+               <Button
+                 key={topic.topic_id}
+                 variant={activeTab === topic.topic_name ? 'default' : 'outline'}
+                 className={`rounded-full ${activeTab === topic.topic_name ? 'bg-blue-600 hover:bg-blue-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                 onClick={() => setActiveTab(topic.topic_name)}
+               >
+                 {topic.topic_name}
+               </Button>
+             ))}
+           </div>
+        </div>
+
+        {/* Vocabulary Grid */}
+        <div className={viewMode === 'grid' ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" : "space-y-4"}>
+          {filteredWords.length > 0 ? (
+            filteredWords.map((word) => (
+              <VocabularyCard 
+                key={word.vocab_id} 
+                vocabulary={word}
+                isBookmarked={word.is_bookmarked}
+                onBookmark={handleBookmark}
+              />
+            ))
+          ) : (
+            <div className="col-span-full py-20 text-center">
+              <div className="flex flex-col items-center justify-center text-slate-400">
+                <BookOpen className="h-16 w-16 mb-4 opacity-20" />
+                <h3 className="text-lg font-medium text-slate-600">No vocabulary found</h3>
+                <p>Try changing filters or search terms</p>
+              </div>
+            </div>
+          )}
         </div>
       </Tabs>
     </div>

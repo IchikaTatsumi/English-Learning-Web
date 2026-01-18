@@ -37,7 +37,9 @@ import type {
 export class TopicController {
   constructor(private readonly topicService: TopicService) {}
 
-  // ... (Các endpoint search và list giữ nguyên vì dùng DTO khác) ...
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // SEARCH & FILTER ENDPOINTS
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @Public()
   @Get('search')
@@ -59,22 +61,23 @@ export class TopicController {
   }
 
   @Get('progress')
+  @ApiOperation({ summary: 'Get topics with user progress' })
   async getTopicsWithProgress(@Request() req: RequestWithUser): Promise<any[]> {
     const userId = req.user.id;
     return await this.topicService.getTopicsWithProgress(userId);
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // CRUD ENDPOINTS (Đã cập nhật để dùng TopicDTO class)
+  // CRUD ENDPOINTS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Get all topics' })
+  @ApiOperation({ summary: 'Get all topics with vocabulary count' })
   @ApiOkResponse({ type: [TopicDTO] })
   async getAllTopics(): Promise<TopicDTO[]> {
     const topics = await this.topicService.getAllTopics();
-    // ✅ Bây giờ hàm này sẽ hoạt động vì TopicDTO đã là Class
+    // ✅ Logic chuyển đổi (Entity -> DTO) để map vocabularyCount -> vocabulary_count
     return TopicDTO.fromEntities(topics);
   }
 
